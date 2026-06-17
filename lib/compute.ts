@@ -1,5 +1,11 @@
 import type { Budget, Category, RecurringExpense, Transaction } from "./types";
-import { yearMonthOf, shiftMonth, todayISO, currentYearMonth } from "./format";
+import {
+  yearMonthOf,
+  shiftMonth,
+  todayISO,
+  currentYearMonth,
+  daysInMonth,
+} from "./format";
 import { dueItemsForMonth, type DueItem } from "./recurring";
 
 export function monthTransactions(txns: Transaction[], ym: string): Transaction[] {
@@ -142,6 +148,39 @@ export function upcomingThisWeek(
   return items
     .filter((d) => !d.paidTxn && d.dueDate >= today && d.dueDate <= endISO)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
+// 무지출 챌린지: 그날 지출(expense)이 0원인 날 집계
+export interface NoSpendInfo {
+  noSpendDays: Set<number>; // 무지출 날짜(일)
+  count: number; // 이번 달 누적 무지출 일수
+  streak: number; // 오늘(또는 집계 마지막일)까지 연속 무지출 일수
+  countedThrough: number; // 며칠까지 집계했는지 (현재월=오늘, 과거월=말일)
+}
+
+export function noSpendInfo(txns: Transaction[], ym: string): NoSpendInfo {
+  const today = todayISO();
+  const curYm = currentYearMonth();
+  let countedThrough: number;
+  if (ym > curYm) countedThrough = 0; // 미래월
+  else if (ym === curYm) countedThrough = Number(today.slice(8)); // 오늘까지
+  else countedThrough = daysInMonth(ym); // 과거월 전체
+
+  const expenseDays = new Set(
+    txns
+      .filter((t) => t.type === "expense" && yearMonthOf(t.date) === ym)
+      .map((t) => Number(t.date.slice(8)))
+  );
+  const noSpendDays = new Set<number>();
+  for (let d = 1; d <= countedThrough; d++) {
+    if (!expenseDays.has(d)) noSpendDays.add(d);
+  }
+  let streak = 0;
+  for (let d = countedThrough; d >= 1; d--) {
+    if (noSpendDays.has(d)) streak++;
+    else break;
+  }
+  return { noSpendDays, count: noSpendDays.size, streak, countedThrough };
 }
 
 // 최근 N개월 지출 추이 (오래된→최신)

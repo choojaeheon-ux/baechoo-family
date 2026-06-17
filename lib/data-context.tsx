@@ -13,10 +13,12 @@ import * as repo from "./repo";
 import type {
   Budget,
   Category,
+  Coupon,
   Goal,
   LocalCurrency,
   PaymentMethod,
   RecurringExpense,
+  RewardRule,
   Transaction,
 } from "./types";
 
@@ -30,6 +32,8 @@ interface DataContextValue {
   budgets: Budget[];
   goals: Goal[];
   localCurrencies: LocalCurrency[];
+  rewardRules: RewardRule[];
+  coupons: Coupon[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -48,6 +52,10 @@ interface DataContextValue {
   removePaymentMethod: (id: string) => Promise<void>;
   saveLocalCurrency: (l: LocalCurrency) => Promise<void>;
   removeLocalCurrency: (id: string) => Promise<void>;
+  saveRewardRule: (r: RewardRule) => Promise<void>;
+  removeRewardRule: (id: string) => Promise<void>;
+  saveCoupon: (c: Coupon) => Promise<void>;
+  removeCoupon: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -61,6 +69,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [localCurrencies, setLocalCurrencies] = useState<LocalCurrency[]>([]);
+  const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -71,6 +81,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBudgets(snap.budgets);
     setGoals(snap.goals);
     setLocalCurrencies(snap.localCurrencies);
+    setRewardRules(snap.rewardRules);
+    setCoupons(snap.coupons);
   }, []);
 
   useEffect(() => {
@@ -119,6 +131,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       budgets,
       goals,
       localCurrencies,
+      rewardRules,
+      coupons,
       categoryById,
       paymentMethodById,
       refresh,
@@ -178,6 +192,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteLocalCurrency(id);
         setLocalCurrencies((p) => p.filter((x) => x.id !== id));
       },
+      saveRewardRule: async (r) => {
+        const saved = await repo.saveRewardRule(r);
+        upsertLocal(setRewardRules, saved);
+      },
+      removeRewardRule: async (id) => {
+        await repo.deleteRewardRule(id);
+        setRewardRules((p) => p.filter((x) => x.id !== id));
+      },
+      saveCoupon: async (c) => {
+        const saved = await repo.saveCoupon(c);
+        upsertLocal(setCoupons, saved);
+      },
+      removeCoupon: async (id) => {
+        await repo.deleteCoupon(id);
+        setCoupons((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -188,6 +218,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       budgets,
       goals,
       localCurrencies,
+      rewardRules,
+      coupons,
       categoryById,
       paymentMethodById,
       refresh,

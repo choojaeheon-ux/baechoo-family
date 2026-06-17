@@ -100,6 +100,22 @@ export interface LocalCurrency {
   monthlyCharge: number; // 매월 충전금(기본값)
 }
 
+// 무지출 챌린지 보상 규칙 (이번 달 누적 무지출 N일 → 보상)
+export interface RewardRule {
+  id: string;
+  days: number; // 달성 누적 무지출 일수
+  name: string; // 보상 이름 (예: 배달 1회권)
+}
+
+// 발급된 쿠폰
+export interface Coupon {
+  id: string;
+  ruleId: string | null;
+  name: string;
+  earnedYearMonth: string; // YYYY-MM (발급 월)
+  used: boolean;
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -108,4 +124,6 @@ export interface DataSnapshot {
   budgets: Budget[];
   goals: Goal[];
   localCurrencies: LocalCurrency[];
+  rewardRules: RewardRule[];
+  coupons: Coupon[];
 }

@@ -15,6 +15,7 @@ import {
   type PaymentMethod,
   type RecurringExpense,
   type RecurringKind,
+  type RewardRule,
   type Transaction,
   type TxType,
 } from "@/lib/types";
@@ -814,6 +815,68 @@ export function AmountSheet({
           확인
         </PrimaryButton>
       </div>
+    </Sheet>
+  );
+}
+
+/* ───────── 무지출 보상 규칙 ───────── */
+export function RewardRuleForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: RewardRule;
+}) {
+  const { saveRewardRule, removeRewardRule } = useData();
+  const [days, setDays] = useState(initial ? String(initial.days) : "5");
+  const [name, setName] = useState(initial?.name ?? "");
+
+  const d = Number(days.replace(/[^0-9]/g, ""));
+  const valid = d > 0 && name.trim().length > 0;
+
+  async function submit() {
+    if (!valid) return;
+    await saveRewardRule({ id: initial?.id ?? "", days: d, name: name.trim() });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "보상 규칙 수정" : "보상 규칙 추가"}>
+      <Field label="무지출 며칠 달성 시 (이번 달 누적)">
+        <input
+          className={inputCls + " text-right tabular"}
+          inputMode="numeric"
+          value={days}
+          onChange={(e) => setDays(e.target.value)}
+          placeholder="5"
+        />
+      </Field>
+      <Field label="보상">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 배달 1회권, 영화 관람"
+        />
+      </Field>
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <button
+          onClick={async () => {
+            await removeRewardRule(initial.id);
+            onClose();
+          }}
+          className="mt-3 w-full py-2 text-sm text-coral"
+        >
+          삭제
+        </button>
+      )}
     </Sheet>
   );
 }

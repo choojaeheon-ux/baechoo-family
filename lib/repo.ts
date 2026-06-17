@@ -4,12 +4,14 @@ import { SEED_CATEGORIES, SEED_PAYMENT_METHODS } from "./seed";
 import type {
   Budget,
   Category,
+  Coupon,
   DataSnapshot,
   Goal,
   LocalCurrency,
   PaymentMethod,
   RecurringExpense,
   RecurringKind,
+  RewardRule,
   Transaction,
 } from "./types";
 
@@ -44,6 +46,8 @@ function lsRead(): DataSnapshot {
       budgets: parsed.budgets ?? [],
       goals: parsed.goals ?? [],
       localCurrencies: parsed.localCurrencies ?? [],
+      rewardRules: parsed.rewardRules ?? [],
+      coupons: parsed.coupons ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -64,6 +68,8 @@ function emptySnapshot(): DataSnapshot {
     budgets: [],
     goals: [],
     localCurrencies: [],
+    rewardRules: [],
+    coupons: [],
   };
 }
 
@@ -198,6 +204,28 @@ const fromLc = (x: LocalCurrency) => ({
   monthly_charge: x.monthlyCharge,
 });
 
+const toRule = (r: Record<string, unknown>): RewardRule => ({
+  id: r.id as string,
+  days: Number(r.days),
+  name: r.name as string,
+});
+const fromRule = (x: RewardRule) => ({ id: x.id, days: x.days, name: x.name });
+
+const toCoupon = (r: Record<string, unknown>): Coupon => ({
+  id: r.id as string,
+  ruleId: (r.rule_id as string) ?? null,
+  name: r.name as string,
+  earnedYearMonth: r.earned_year_month as string,
+  used: Boolean(r.used),
+});
+const fromCoupon = (x: Coupon) => ({
+  id: x.id,
+  rule_id: x.ruleId,
+  name: x.name,
+  earned_year_month: x.earnedYearMonth,
+  used: x.used,
+});
+
 const toGoal = (r: Record<string, unknown>): Goal => ({
   id: r.id as string,
   name: r.name as string,
@@ -218,7 +246,7 @@ const fromGoal = (x: Goal) => ({
 export async function loadAll(): Promise<DataSnapshot> {
   if (!hasSupabase) return lsRead();
   const sb = getSupabase()!;
-  const [cats, pms, recs, txns, buds, goals, lcs] = await Promise.all([
+  const [cats, pms, recs, txns, buds, goals, lcs, rules, coups] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
     sb.from("recurring_expenses").select("*"),
@@ -226,6 +254,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("budgets").select("*"),
     sb.from("goals").select("*"),
     sb.from("local_currencies").select("*"),
+    sb.from("reward_rules").select("*"),
+    sb.from("coupons").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -245,6 +275,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     budgets: (buds.data ?? []).map(toBudget),
     goals: (goals.data ?? []).map(toGoal),
     localCurrencies: (lcs.data ?? []).map(toLc),
+    rewardRules: (rules.data ?? []).map(toRule),
+    coupons: (coups.data ?? []).map(toCoupon),
   };
 }
 
@@ -319,6 +351,28 @@ export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency
 export async function deleteLocalCurrency(id: string) {
   if (hasSupabase) await sbDelete("local_currencies", id);
   else lsDelete("localCurrencies", id);
+}
+
+export async function saveRewardRule(x: RewardRule): Promise<RewardRule> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("reward_rules", fromRule(row));
+  else lsUpsert("rewardRules", row);
+  return row;
+}
+export async function deleteRewardRule(id: string) {
+  if (hasSupabase) await sbDelete("reward_rules", id);
+  else lsDelete("rewardRules", id);
+}
+
+export async function saveCoupon(x: Coupon): Promise<Coupon> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("coupons", fromCoupon(row));
+  else lsUpsert("coupons", row);
+  return row;
+}
+export async function deleteCoupon(id: string) {
+  if (hasSupabase) await sbDelete("coupons", id);
+  else lsDelete("coupons", id);
 }
 
 export async function saveGoal(x: Goal): Promise<Goal> {

@@ -1,18 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useData } from "@/lib/data-context";
 import { dueItemsForMonth, type DueItem, installmentStatus } from "@/lib/recurring";
-import { monthTransactions } from "@/lib/compute";
-import { won, daysInMonth, todayISO, ddayLabel, dday } from "@/lib/format";
-import { Card, SectionTitle, Pill, Empty } from "./ui";
-import type { Member } from "@/lib/types";
+import { monthTransactions, noSpendInfo } from "@/lib/compute";
+import {
+  won,
+  daysInMonth,
+  todayISO,
+  currentYearMonth,
+  ddayLabel,
+  dday,
+} from "@/lib/format";
+import { Card, SectionTitle, Pill, Empty, ProgressBar } from "./ui";
+import type { Member, RewardRule } from "@/lib/types";
+import { RewardRuleForm } from "./forms";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
 export default function CalendarView({ ym }: { ym: string }) {
-  const { recurring, transactions, categoryById, saveTransaction, removeTransaction, saveRecurring } =
-    useData();
+  const {
+    recurring,
+    transactions,
+    categoryById,
+    rewardRules,
+    coupons,
+    saveTransaction,
+    removeTransaction,
+    saveRecurring,
+    saveCoupon,
+  } = useData();
 
   const due = dueItemsForMonth(recurring, transactions, ym);
   const monthTxns = monthTransactions(transactions, ym);
@@ -22,6 +39,33 @@ export default function CalendarView({ ym }: { ym: string }) {
   const today = todayISO();
 
   const [member, setMember] = useState<Member>("chuchu");
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [editRule, setEditRule] = useState<RewardRule | null>(null);
+
+  // 무지출 집계
+  const noSpend = noSpendInfo(transactions, ym);
+  const monthCoupons = coupons.filter((c) => c.earnedYearMonth === ym);
+
+  // 달성 시 쿠폰 자동 발급 (이번 달, 규칙별 1회)
+  useEffect(() => {
+    if (ym !== currentYearMonth()) return;
+    for (const rule of rewardRules) {
+      // 결정적 ID로 중복 발급 방지 (StrictMode 이중 호출·동시성 안전)
+      const couponId = `cpn-${rule.id}-${ym}`;
+      if (
+        noSpend.count >= rule.days &&
+        !coupons.some((c) => c.id === couponId)
+      ) {
+        saveCoupon({
+          id: couponId,
+          ruleId: rule.id,
+          name: rule.name,
+          earnedYearMonth: ym,
+          used: false,
+        });
+      }
+    }
+  }, [noSpend.count, rewardRules, coupons, ym, saveCoupon]);
 
   async function pay(d: DueItem) {
     await saveTransaction({
@@ -95,11 +139,16 @@ export default function CalendarView({ ym }: { ym: string }) {
             const hasUnpaid = items.some((it) => !it.paidTxn);
             const allPaid = items.length > 0 && !hasUnpaid;
             const isToday = iso === today;
+            const isNoSpend = noSpend.noSpendDays.has(day);
             return (
               <div key={day} className="flex flex-col items-center">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
-                    isToday ? "bg-leaf font-bold text-white" : "text-ink"
+                    isToday
+                      ? "bg-leaf font-bold text-white"
+                      : isNoSpend
+                        ? "bg-leaf-light font-semibold text-leaf-dark"
+                        : "text-ink"
                   }`}
                 >
                   {day}
@@ -133,8 +182,129 @@ export default function CalendarView({ ym }: { ym: string }) {
           <Legend color="var(--color-leaf)" label="납부완료" />
           <Legend color="var(--color-sky)" label="기타지출" />
           <Legend color="var(--color-gold)" label="특수지출" />
+          <Legend color="var(--color-leaf-light)" label="무지출" filled />
         </div>
       </Card>
+
+      {/* 무지출 챌린지 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => {
+              setEditRule(null);
+              setRuleOpen(true);
+            }}
+            className="text-xs font-semibold text-leaf"
+          >
+            + 보상 규칙
+          </button>
+        }
+      >
+        무지출 챌린지
+      </SectionTitle>
+      <Card>
+        <div className="mb-3 flex items-center justify-around text-center">
+          <div>
+            <p className="text-3xl font-extrabold tabular text-leaf-dark">
+              {noSpend.count}
+              <span className="text-base font-bold text-stone">일</span>
+            </p>
+            <p className="text-[11px] text-stone">이번 달 무지출</p>
+          </div>
+          <div className="h-10 w-px bg-line" />
+          <div>
+            <p className="text-3xl font-extrabold tabular text-leaf">
+              {noSpend.streak}
+              <span className="text-base font-bold text-stone">일</span>
+            </p>
+            <p className="text-[11px] text-stone">연속 무지출🔥</p>
+          </div>
+        </div>
+
+        {rewardRules.length === 0 ? (
+          <Empty>
+            &lsquo;+ 보상 규칙&rsquo;으로 목표를 만들어 보세요.
+            <br />
+            예: 무지출 5일 → 배달 1회권
+          </Empty>
+        ) : (
+          <div className="space-y-3 border-t border-line pt-3">
+            {[...rewardRules]
+              .sort((a, b) => a.days - b.days)
+              .map((rule) => {
+                const achieved = noSpend.count >= rule.days;
+                return (
+                  <button
+                    key={rule.id}
+                    onClick={() => {
+                      setEditRule(rule);
+                      setRuleOpen(true);
+                    }}
+                    className="block w-full text-left"
+                  >
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-ink">
+                        🎁 {rule.name}
+                      </span>
+                      <span
+                        className={`text-xs font-bold ${
+                          achieved ? "text-leaf-dark" : "text-stone"
+                        }`}
+                      >
+                        {achieved ? "달성!" : `${noSpend.count}/${rule.days}일`}
+                      </span>
+                    </div>
+                    <ProgressBar value={noSpend.count} max={rule.days} />
+                  </button>
+                );
+              })}
+          </div>
+        )}
+      </Card>
+
+      {/* 쿠폰함 */}
+      {monthCoupons.length > 0 && (
+        <>
+          <SectionTitle>쿠폰함</SectionTitle>
+          <Card className="space-y-2">
+            {monthCoupons.map((c) => (
+              <div
+                key={c.id}
+                className={`flex items-center gap-3 rounded-xl border border-dashed p-3 ${
+                  c.used ? "border-line bg-cream opacity-60" : "border-leaf bg-leaf-light"
+                }`}
+              >
+                <span className="text-2xl">🎟️</span>
+                <div className="flex-1">
+                  <p
+                    className={`text-sm font-bold ${
+                      c.used ? "text-stone line-through" : "text-leaf-dark"
+                    }`}
+                  >
+                    {c.name}
+                  </p>
+                  <p className="text-[11px] text-stone">무지출 챌린지 보상</p>
+                </div>
+                {c.used ? (
+                  <button
+                    onClick={() => saveCoupon({ ...c, used: false })}
+                    className="text-xs text-stone"
+                  >
+                    되돌리기
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => saveCoupon({ ...c, used: true })}
+                    className="rounded-lg bg-leaf px-3 py-1.5 text-xs font-semibold text-white active:scale-95"
+                  >
+                    사용
+                  </button>
+                )}
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
 
       {/* 고정지출 투두 */}
       <SectionTitle
@@ -211,14 +381,31 @@ export default function CalendarView({ ym }: { ym: string }) {
           })
         )}
       </Card>
+
+      <RewardRuleForm
+        open={ruleOpen}
+        onClose={() => setRuleOpen(false)}
+        initial={editRule ?? undefined}
+      />
     </div>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({
+  color,
+  label,
+  filled,
+}: {
+  color: string;
+  label: string;
+  filled?: boolean;
+}) {
   return (
     <span className="flex items-center gap-1">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+      <span
+        className={`h-2.5 w-2.5 ${filled ? "rounded" : "rounded-full"}`}
+        style={{ background: color }}
+      />
       {label}
     </span>
   );
