@@ -2,28 +2,28 @@
 
 import { useEffect, useState } from "react";
 
-const PIN_KEY = "baechoo-pin";
-const SESSION_KEY = "baechoo-unlocked";
+const CORRECT_PIN = "1106";
+const UNLOCKED_KEY = "baechoo-unlocked";
 const PIN_LEN = 4;
 
-type Phase = "loading" | "setup" | "confirm" | "locked" | "unlocked";
+type Phase = "loading" | "locked" | "unlocked";
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [entry, setEntry] = useState("");
-  const [firstPin, setFirstPin] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY) === "1") {
+    // 한 번 잠금 해제하면 이 기기에서는 다시 묻지 않음
+    if (localStorage.getItem(UNLOCKED_KEY) === "1") {
       setPhase("unlocked");
-      return;
+    } else {
+      setPhase("locked");
     }
-    setPhase(localStorage.getItem(PIN_KEY) ? "locked" : "setup");
   }, []);
 
   function unlock() {
-    sessionStorage.setItem(SESSION_KEY, "1");
+    localStorage.setItem(UNLOCKED_KEY, "1");
     setPhase("unlocked");
   }
 
@@ -41,32 +41,12 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }
 
   function submit(pin: string) {
-    if (phase === "setup") {
-      setFirstPin(pin);
+    if (pin === CORRECT_PIN) {
       setEntry("");
-      setPhase("confirm");
-      return;
-    }
-    if (phase === "confirm") {
-      if (pin === firstPin) {
-        localStorage.setItem(PIN_KEY, pin);
-        unlock();
-      } else {
-        setError("PIN이 일치하지 않아요. 다시 설정해 주세요.");
-        setFirstPin("");
-        setEntry("");
-        setPhase("setup");
-      }
-      return;
-    }
-    if (phase === "locked") {
-      if (pin === localStorage.getItem(PIN_KEY)) {
-        setEntry("");
-        unlock();
-      } else {
-        setError("PIN이 틀렸어요.");
-        setEntry("");
-      }
+      unlock();
+    } else {
+      setError("비밀번호가 틀렸어요.");
+      setEntry("");
     }
   }
 
@@ -75,18 +55,11 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }
   if (phase === "unlocked") return <>{children}</>;
 
-  const title =
-    phase === "setup"
-      ? "사용할 PIN을 정해 주세요"
-      : phase === "confirm"
-        ? "PIN을 한 번 더 입력해 주세요"
-        : "배추가족 잠금 해제";
-
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-leaf to-leaf-dark px-8 text-white">
       <div className="mb-2 text-6xl">🥬</div>
       <h1 className="text-2xl font-bold tracking-tight">배추가족</h1>
-      <p className="mt-1 mb-8 text-sm text-white/80">{title}</p>
+      <p className="mt-1 mb-8 text-sm text-white/80">비밀번호를 입력해 주세요</p>
 
       <div className="mb-2 flex gap-4">
         {Array.from({ length: PIN_LEN }).map((_, i) => (

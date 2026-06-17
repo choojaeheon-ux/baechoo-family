@@ -78,12 +78,13 @@ export default function BudgetApp() {
         )}
       </div>
 
-      {/* 빠른 입력 FAB */}
+      {/* 빠른 입력 FAB — 하단 탭 위로 띄움 */}
       {(tab === "home" || tab === "calendar" || tab === "list") && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 mx-auto w-full max-w-md">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
           <button
             onClick={() => setAddOpen(true)}
-            className="pointer-events-auto absolute right-4 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-3xl text-white shadow-lg transition active:scale-90"
+            className="pointer-events-auto absolute bottom-20 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-3xl text-white shadow-lg transition active:scale-90"
+            style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
             aria-label="내역 추가"
           >
             +
