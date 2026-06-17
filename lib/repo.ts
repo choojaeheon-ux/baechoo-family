@@ -6,6 +6,7 @@ import type {
   Category,
   DataSnapshot,
   Goal,
+  LocalCurrency,
   PaymentMethod,
   RecurringExpense,
   RecurringKind,
@@ -42,6 +43,7 @@ function lsRead(): DataSnapshot {
       transactions: parsed.transactions ?? [],
       budgets: parsed.budgets ?? [],
       goals: parsed.goals ?? [],
+      localCurrencies: parsed.localCurrencies ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -61,6 +63,7 @@ function emptySnapshot(): DataSnapshot {
     transactions: [],
     budgets: [],
     goals: [],
+    localCurrencies: [],
   };
 }
 
@@ -182,6 +185,19 @@ const fromBudget = (x: Budget) => ({
   amount: x.amount,
 });
 
+const toLc = (r: Record<string, unknown>): LocalCurrency => ({
+  id: r.id as string,
+  name: r.name as string,
+  balance: Number(r.balance ?? 0),
+  monthlyCharge: Number(r.monthly_charge ?? 0),
+});
+const fromLc = (x: LocalCurrency) => ({
+  id: x.id,
+  name: x.name,
+  balance: x.balance,
+  monthly_charge: x.monthlyCharge,
+});
+
 const toGoal = (r: Record<string, unknown>): Goal => ({
   id: r.id as string,
   name: r.name as string,
@@ -202,13 +218,14 @@ const fromGoal = (x: Goal) => ({
 export async function loadAll(): Promise<DataSnapshot> {
   if (!hasSupabase) return lsRead();
   const sb = getSupabase()!;
-  const [cats, pms, recs, txns, buds, goals] = await Promise.all([
+  const [cats, pms, recs, txns, buds, goals, lcs] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
     sb.from("recurring_expenses").select("*"),
     sb.from("transactions").select("*"),
     sb.from("budgets").select("*"),
     sb.from("goals").select("*"),
+    sb.from("local_currencies").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -227,6 +244,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     transactions: (txns.data ?? []).map(toTxn),
     budgets: (buds.data ?? []).map(toBudget),
     goals: (goals.data ?? []).map(toGoal),
+    localCurrencies: (lcs.data ?? []).map(toLc),
   };
 }
 
@@ -290,6 +308,17 @@ export async function saveBudget(x: Budget): Promise<Budget> {
 export async function deleteBudget(id: string) {
   if (hasSupabase) await sbDelete("budgets", id);
   else lsDelete("budgets", id);
+}
+
+export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("local_currencies", fromLc(row));
+  else lsUpsert("localCurrencies", row);
+  return row;
+}
+export async function deleteLocalCurrency(id: string) {
+  if (hasSupabase) await sbDelete("local_currencies", id);
+  else lsDelete("localCurrencies", id);
 }
 
 export async function saveGoal(x: Goal): Promise<Goal> {

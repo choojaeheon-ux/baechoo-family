@@ -14,6 +14,7 @@ import type {
   Budget,
   Category,
   Goal,
+  LocalCurrency,
   PaymentMethod,
   RecurringExpense,
   Transaction,
@@ -28,6 +29,7 @@ interface DataContextValue {
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
+  localCurrencies: LocalCurrency[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -44,6 +46,8 @@ interface DataContextValue {
   removeCategory: (id: string) => Promise<void>;
   savePaymentMethod: (p: PaymentMethod) => Promise<void>;
   removePaymentMethod: (id: string) => Promise<void>;
+  saveLocalCurrency: (l: LocalCurrency) => Promise<void>;
+  removeLocalCurrency: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -56,6 +60,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [localCurrencies, setLocalCurrencies] = useState<LocalCurrency[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -65,6 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setTransactions(snap.transactions);
     setBudgets(snap.budgets);
     setGoals(snap.goals);
+    setLocalCurrencies(snap.localCurrencies);
   }, []);
 
   useEffect(() => {
@@ -112,6 +118,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       transactions,
       budgets,
       goals,
+      localCurrencies,
       categoryById,
       paymentMethodById,
       refresh,
@@ -163,6 +170,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deletePaymentMethod(id);
         setPaymentMethods((p) => p.filter((x) => x.id !== id));
       },
+      saveLocalCurrency: async (l) => {
+        const saved = await repo.saveLocalCurrency(l);
+        upsertLocal(setLocalCurrencies, saved);
+      },
+      removeLocalCurrency: async (id) => {
+        await repo.deleteLocalCurrency(id);
+        setLocalCurrencies((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -172,6 +187,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       transactions,
       budgets,
       goals,
+      localCurrencies,
       categoryById,
       paymentMethodById,
       refresh,

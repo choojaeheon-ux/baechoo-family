@@ -10,6 +10,7 @@ import {
   type Budget,
   type Category,
   type Goal,
+  type LocalCurrency,
   type Member,
   type PaymentMethod,
   type RecurringExpense,
@@ -684,6 +685,135 @@ export function PaymentMethodForm({
           삭제
         </button>
       )}
+    </Sheet>
+  );
+}
+
+/* ───────── 지역화폐 ───────── */
+export function LocalCurrencyForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: LocalCurrency;
+}) {
+  const { saveLocalCurrency, removeLocalCurrency } = useData();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [balance, setBalance] = useState(initial ? String(initial.balance) : "0");
+  const [monthly, setMonthly] = useState(
+    initial ? String(initial.monthlyCharge) : "0"
+  );
+
+  const bal = Number(balance.replace(/[^0-9]/g, ""));
+  const mon = Number(monthly.replace(/[^0-9]/g, ""));
+  const valid = name.trim().length > 0;
+
+  async function submit() {
+    if (!valid) return;
+    await saveLocalCurrency({
+      id: initial?.id ?? "",
+      name: name.trim(),
+      balance: bal,
+      monthlyCharge: mon,
+    });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "지역화폐 수정" : "지역화폐 추가"}>
+      <Field label="이름">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 온누리상품권, 경기지역화폐"
+        />
+      </Field>
+      <Field label="매월 충전금">
+        <input
+          className={inputCls + " text-right tabular"}
+          inputMode="numeric"
+          value={monthly ? Number(mon).toLocaleString("ko-KR") : ""}
+          onChange={(e) => setMonthly(e.target.value)}
+          placeholder="0"
+        />
+      </Field>
+      <Field label="현재 잔액 (이월 포함)">
+        <input
+          className={inputCls + " text-right tabular"}
+          inputMode="numeric"
+          value={balance ? Number(bal).toLocaleString("ko-KR") : ""}
+          onChange={(e) => setBalance(e.target.value)}
+          placeholder="0"
+        />
+      </Field>
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <button
+          onClick={async () => {
+            await removeLocalCurrency(initial.id);
+            onClose();
+          }}
+          className="mt-3 w-full py-2 text-sm text-coral"
+        >
+          삭제
+        </button>
+      )}
+    </Sheet>
+  );
+}
+
+// 충전 / 사용 금액 입력 시트
+export function AmountSheet({
+  open,
+  onClose,
+  title,
+  label,
+  defaultAmount = 0,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  label: string;
+  defaultAmount?: number;
+  onConfirm: (amount: number) => void;
+}) {
+  const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
+  const amt = Number(amount.replace(/[^0-9]/g, ""));
+
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      <Field label={label}>
+        <input
+          className={inputCls + " text-right text-lg font-bold tabular"}
+          inputMode="numeric"
+          autoFocus
+          value={amount ? Number(amt).toLocaleString("ko-KR") : ""}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0"
+        />
+      </Field>
+      <div className="mt-2">
+        <PrimaryButton
+          onClick={() => {
+            if (amt > 0) {
+              onConfirm(amt);
+              setAmount("");
+              onClose();
+            }
+          }}
+          disabled={amt <= 0}
+        >
+          확인
+        </PrimaryButton>
+      </div>
     </Sheet>
   );
 }

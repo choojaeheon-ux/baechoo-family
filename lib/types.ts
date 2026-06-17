@@ -92,6 +92,14 @@ export interface Goal {
   deadline: string | null; // YYYY-MM-DD
 }
 
+// 지역화폐 (온누리·경기지역화폐 등) — 선불 지갑, 매월 충전·이월 잔액
+export interface LocalCurrency {
+  id: string;
+  name: string;
+  balance: number; // 이월 포함 현재 잔액
+  monthlyCharge: number; // 매월 충전금(기본값)
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -99,4 +107,5 @@ export interface DataSnapshot {
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
+  localCurrencies: LocalCurrency[];
 }
