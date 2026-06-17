@@ -1,0 +1,259 @@
+// 데이터 저장소 — Supabase 키가 있으면 클라우드, 없으면 localStorage
+import { getSupabase, hasSupabase } from "./supabase";
+import { SEED_CATEGORIES } from "./seed";
+import type {
+  Budget,
+  Category,
+  DataSnapshot,
+  Goal,
+  RecurringExpense,
+  Transaction,
+} from "./types";
+
+const LS_KEY = "baechoo-budget-v1";
+
+export function newId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/* ───────────── localStorage 어댑터 ───────────── */
+
+function lsRead(): DataSnapshot {
+  if (typeof window === "undefined") return emptySnapshot();
+  try {
+    const raw = window.localStorage.getItem(LS_KEY);
+    if (!raw) {
+      const seeded = { ...emptySnapshot(), categories: SEED_CATEGORIES };
+      window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
+      return seeded;
+    }
+    const parsed = JSON.parse(raw) as DataSnapshot;
+    return {
+      categories: parsed.categories ?? [],
+      recurring: parsed.recurring ?? [],
+      transactions: parsed.transactions ?? [],
+      budgets: parsed.budgets ?? [],
+      goals: parsed.goals ?? [],
+    };
+  } catch {
+    return emptySnapshot();
+  }
+}
+
+function lsWrite(snap: DataSnapshot) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LS_KEY, JSON.stringify(snap));
+}
+
+function emptySnapshot(): DataSnapshot {
+  return { categories: [], recurring: [], transactions: [], budgets: [], goals: [] };
+}
+
+function lsUpsert<T extends { id: string }>(key: keyof DataSnapshot, row: T): T {
+  const snap = lsRead();
+  const arr = snap[key] as unknown as T[];
+  const idx = arr.findIndex((r) => r.id === row.id);
+  if (idx >= 0) arr[idx] = row;
+  else arr.push(row);
+  lsWrite(snap);
+  return row;
+}
+
+function lsDelete(key: keyof DataSnapshot, id: string) {
+  const snap = lsRead();
+  const arr = snap[key] as unknown as { id: string }[];
+  snap[key] = arr.filter((r) => r.id !== id) as never;
+  lsWrite(snap);
+}
+
+/* ───────────── Supabase 매퍼 ───────────── */
+
+const toCat = (r: Record<string, unknown>): Category => ({
+  id: r.id as string,
+  name: r.name as string,
+  type: r.type as Category["type"],
+  color: r.color as string,
+  icon: (r.icon as string) ?? undefined,
+});
+const fromCat = (c: Category) => ({
+  id: c.id,
+  name: c.name,
+  type: c.type,
+  color: c.color,
+  icon: c.icon ?? null,
+});
+
+const toRec = (r: Record<string, unknown>): RecurringExpense => ({
+  id: r.id as string,
+  name: r.name as string,
+  amount: Number(r.amount),
+  categoryId: r.category_id as string,
+  dayOfMonth: Number(r.day_of_month),
+  startDate: r.start_date as string,
+  endDate: (r.end_date as string) ?? null,
+  isInstallment: Boolean(r.is_installment),
+  installmentTotalMonths: r.installment_total_months
+    ? Number(r.installment_total_months)
+    : null,
+  installmentPaidMonths: Number(r.installment_paid_months ?? 0),
+  memo: (r.memo as string) ?? null,
+});
+const fromRec = (x: RecurringExpense) => ({
+  id: x.id,
+  name: x.name,
+  amount: x.amount,
+  category_id: x.categoryId,
+  day_of_month: x.dayOfMonth,
+  start_date: x.startDate,
+  end_date: x.endDate,
+  is_installment: x.isInstallment,
+  installment_total_months: x.installmentTotalMonths,
+  installment_paid_months: x.installmentPaidMonths,
+  memo: x.memo,
+});
+
+const toTxn = (r: Record<string, unknown>): Transaction => ({
+  id: r.id as string,
+  date: r.date as string,
+  amount: Number(r.amount),
+  type: r.type as Transaction["type"],
+  categoryId: r.category_id as string,
+  memo: (r.memo as string) ?? null,
+  member: r.member as Transaction["member"],
+  source: r.source as Transaction["source"],
+  recurringId: (r.recurring_id as string) ?? null,
+  isPaid: Boolean(r.is_paid),
+});
+const fromTxn = (x: Transaction) => ({
+  id: x.id,
+  date: x.date,
+  amount: x.amount,
+  type: x.type,
+  category_id: x.categoryId,
+  memo: x.memo,
+  member: x.member,
+  source: x.source,
+  recurring_id: x.recurringId,
+  is_paid: x.isPaid,
+});
+
+const toBudget = (r: Record<string, unknown>): Budget => ({
+  id: r.id as string,
+  yearMonth: r.year_month as string,
+  categoryId: (r.category_id as string) ?? null,
+  amount: Number(r.amount),
+});
+const fromBudget = (x: Budget) => ({
+  id: x.id,
+  year_month: x.yearMonth,
+  category_id: x.categoryId,
+  amount: x.amount,
+});
+
+const toGoal = (r: Record<string, unknown>): Goal => ({
+  id: r.id as string,
+  name: r.name as string,
+  targetAmount: Number(r.target_amount),
+  currentAmount: Number(r.current_amount ?? 0),
+  deadline: (r.deadline as string) ?? null,
+});
+const fromGoal = (x: Goal) => ({
+  id: x.id,
+  name: x.name,
+  target_amount: x.targetAmount,
+  current_amount: x.currentAmount,
+  deadline: x.deadline,
+});
+
+/* ───────────── 공개 API ───────────── */
+
+export async function loadAll(): Promise<DataSnapshot> {
+  if (!hasSupabase) return lsRead();
+  const sb = getSupabase()!;
+  const [cats, recs, txns, buds, goals] = await Promise.all([
+    sb.from("categories").select("*"),
+    sb.from("recurring_expenses").select("*"),
+    sb.from("transactions").select("*"),
+    sb.from("budgets").select("*"),
+    sb.from("goals").select("*"),
+  ]);
+  let categories = (cats.data ?? []).map(toCat);
+  if (categories.length === 0) {
+    // 최초 실행: 기본 카테고리 주입
+    await sb.from("categories").insert(SEED_CATEGORIES.map(fromCat));
+    categories = SEED_CATEGORIES;
+  }
+  return {
+    categories,
+    recurring: (recs.data ?? []).map(toRec),
+    transactions: (txns.data ?? []).map(toTxn),
+    budgets: (buds.data ?? []).map(toBudget),
+    goals: (goals.data ?? []).map(toGoal),
+  };
+}
+
+// 엔티티별 upsert/delete. id 없으면 생성.
+async function sbUpsert(table: string, row: Record<string, unknown>) {
+  const sb = getSupabase()!;
+  await sb.from(table).upsert(row);
+}
+async function sbDelete(table: string, id: string) {
+  const sb = getSupabase()!;
+  await sb.from(table).delete().eq("id", id);
+}
+
+export async function saveCategory(c: Category): Promise<Category> {
+  const row = { ...c, id: c.id || newId() };
+  if (hasSupabase) await sbUpsert("categories", fromCat(row));
+  else lsUpsert("categories", row);
+  return row;
+}
+export async function deleteCategory(id: string) {
+  if (hasSupabase) await sbDelete("categories", id);
+  else lsDelete("categories", id);
+}
+
+export async function saveRecurring(x: RecurringExpense): Promise<RecurringExpense> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("recurring_expenses", fromRec(row));
+  else lsUpsert("recurring", row);
+  return row;
+}
+export async function deleteRecurring(id: string) {
+  if (hasSupabase) await sbDelete("recurring_expenses", id);
+  else lsDelete("recurring", id);
+}
+
+export async function saveTransaction(x: Transaction): Promise<Transaction> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("transactions", fromTxn(row));
+  else lsUpsert("transactions", row);
+  return row;
+}
+export async function deleteTransaction(id: string) {
+  if (hasSupabase) await sbDelete("transactions", id);
+  else lsDelete("transactions", id);
+}
+
+export async function saveBudget(x: Budget): Promise<Budget> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("budgets", fromBudget(row));
+  else lsUpsert("budgets", row);
+  return row;
+}
+export async function deleteBudget(id: string) {
+  if (hasSupabase) await sbDelete("budgets", id);
+  else lsDelete("budgets", id);
+}
+
+export async function saveGoal(x: Goal): Promise<Goal> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("goals", fromGoal(row));
+  else lsUpsert("goals", row);
+  return row;
+}
+export async function deleteGoal(id: string) {
+  if (hasSupabase) await sbDelete("goals", id);
+  else lsDelete("goals", id);
+}

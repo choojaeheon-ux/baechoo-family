@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
+/* 배추가족 디자인 시스템 — 배추(채소) 모티프 따뜻한 그린 */
+@theme {
+  --color-cream: #faf7ef;
+  --color-card: #ffffff;
+  --color-leaf: #5b8c3e;
+  --color-leaf-dark: #3f6b2a;
+  --color-leaf-light: #e9f1da;
+  --color-sprout: #8ab560;
+  --color-bark: #36302420;
+  --color-ink: #2f2a20;
+  --color-stone: #7c766a;
+  --color-line: #ece7da;
+  --color-coral: #e07a5f;
+  --color-coral-light: #fbe7e0;
+  --color-sky: #5c93a8;
+  --color-gold: #d9a441;
+
+  --font-sans: "Pretendard", "Pretendard Variable", -apple-system,
+    BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI",
+    Roboto, sans-serif;
+
+  --radius-xl2: 1.25rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* iOS PWA 안전영역 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 입력 확대 방지 (iOS) */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 16px;
+}
+
+/* 숫자 정렬용 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 스크롤바 슬림 */
+* {
+  scrollbar-width: thin;
 }
