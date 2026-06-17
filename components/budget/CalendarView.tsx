@@ -32,11 +32,14 @@ export default function CalendarView({ ym }: { ym: string }) {
       categoryId: d.recurring.categoryId,
       memo: d.recurring.name,
       member,
+      paymentMethodId: d.recurring.paymentMethodId,
+      isSpecial: false,
+      habitTag: null,
       source: "auto",
       recurringId: d.recurring.id,
       isPaid: true,
     });
-    if (d.recurring.isInstallment) {
+    if (d.recurring.kind === "installment") {
       await saveRecurring({
         ...d.recurring,
         installmentPaidMonths: d.recurring.installmentPaidMonths + 1,
@@ -47,7 +50,7 @@ export default function CalendarView({ ym }: { ym: string }) {
   async function unpay(d: DueItem) {
     if (!d.paidTxn) return;
     await removeTransaction(d.paidTxn.id);
-    if (d.recurring.isInstallment) {
+    if (d.recurring.kind === "installment") {
       await saveRecurring({
         ...d.recurring,
         installmentPaidMonths: Math.max(d.recurring.installmentPaidMonths - 1, 0),
@@ -61,7 +64,12 @@ export default function CalendarView({ ym }: { ym: string }) {
     const day = Number(d.dueDate.slice(8));
     dueByDay.set(day, [...(dueByDay.get(day) ?? []), d]);
   }
-  const txnDays = new Set(monthTxns.map((t) => Number(t.date.slice(8))));
+  const txnDays = new Set(
+    monthTxns.filter((t) => !t.isSpecial).map((t) => Number(t.date.slice(8)))
+  );
+  const specialDays = new Set(
+    monthTxns.filter((t) => t.isSpecial).map((t) => Number(t.date.slice(8)))
+  );
 
   const cells: (number | null)[] = [
     ...Array(firstDow).fill(null),
@@ -112,15 +120,19 @@ export default function CalendarView({ ym }: { ym: string }) {
                   {txnDays.has(day) && items.length === 0 && (
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-sky)]" />
                   )}
+                  {specialDays.has(day) && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+                  )}
                 </span>
               </div>
             );
           })}
         </div>
         <div className="mt-2 flex justify-center gap-3 border-t border-line pt-2 text-[10px] text-stone">
-          <Legend color="var(--color-coral)" label="미납 고정지출" />
+          <Legend color="var(--color-coral)" label="고정지출 예정" />
           <Legend color="var(--color-leaf)" label="납부완료" />
-          <Legend color="var(--color-sky)" label="기타 지출" />
+          <Legend color="var(--color-sky)" label="기타지출" />
+          <Legend color="var(--color-gold)" label="특수지출" />
         </div>
       </Card>
 

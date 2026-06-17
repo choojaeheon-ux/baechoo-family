@@ -14,6 +14,7 @@ import type {
   Budget,
   Category,
   Goal,
+  PaymentMethod,
   RecurringExpense,
   Transaction,
 } from "./types";
@@ -22,11 +23,13 @@ interface DataContextValue {
   loading: boolean;
   mode: "cloud" | "local";
   categories: Category[];
+  paymentMethods: PaymentMethod[];
   recurring: RecurringExpense[];
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
   categoryById: (id: string) => Category | undefined;
+  paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
   // mutators
   saveTransaction: (t: Transaction) => Promise<void>;
@@ -39,6 +42,8 @@ interface DataContextValue {
   removeGoal: (id: string) => Promise<void>;
   saveCategory: (c: Category) => Promise<void>;
   removeCategory: (id: string) => Promise<void>;
+  savePaymentMethod: (p: PaymentMethod) => Promise<void>;
+  removePaymentMethod: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -46,6 +51,7 @@ const DataContext = createContext<DataContextValue | null>(null);
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -54,6 +60,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
     setCategories(snap.categories);
+    setPaymentMethods(snap.paymentMethods);
     setRecurring(snap.recurring);
     setTransactions(snap.transactions);
     setBudgets(snap.budgets);
@@ -74,6 +81,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const categoryById = useCallback(
     (id: string) => categories.find((c) => c.id === id),
     [categories]
+  );
+  const paymentMethodById = useCallback(
+    (id: string) => paymentMethods.find((p) => p.id === id),
+    [paymentMethods]
   );
 
   // 낙관적 업데이트 헬퍼
@@ -96,11 +107,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loading,
       mode: hasSupabase ? "cloud" : "local",
       categories,
+      paymentMethods,
       recurring,
       transactions,
       budgets,
       goals,
       categoryById,
+      paymentMethodById,
       refresh,
       saveTransaction: async (t) => {
         const saved = await repo.saveTransaction(t);
@@ -142,8 +155,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteCategory(id);
         setCategories((p) => p.filter((x) => x.id !== id));
       },
+      savePaymentMethod: async (p) => {
+        const saved = await repo.savePaymentMethod(p);
+        upsertLocal(setPaymentMethods, saved);
+      },
+      removePaymentMethod: async (id) => {
+        await repo.deletePaymentMethod(id);
+        setPaymentMethods((p) => p.filter((x) => x.id !== id));
+      },
     }),
-    [loading, categories, recurring, transactions, budgets, goals, categoryById, refresh]
+    [
+      loading,
+      categories,
+      paymentMethods,
+      recurring,
+      transactions,
+      budgets,
+      goals,
+      categoryById,
+      paymentMethodById,
+      refresh,
+    ]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

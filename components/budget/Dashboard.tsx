@@ -5,46 +5,44 @@ import {
   monthTransactions,
   sumBy,
   totalBudget,
-  reducibleItems,
+  monthRecurringTotal,
+  upcomingThisWeek,
 } from "@/lib/compute";
-import { dueItemsForMonth, installmentStatus } from "@/lib/recurring";
-import { won, ddayLabel, dday, weekdayKo } from "@/lib/format";
+import { won, weekdayKo, ddayLabel, dday } from "@/lib/format";
 import { Card, ProgressBar, SectionTitle, Pill, Empty } from "./ui";
+import type { Tab } from "./BudgetApp";
 
 export default function Dashboard({
   ym,
   onGoto,
 }: {
   ym: string;
-  onGoto: (t: "home" | "calendar" | "list" | "analysis" | "plans") => void;
+  onGoto: (t: Tab) => void;
 }) {
-  const { transactions, budgets, recurring, goals, categories, categoryById } =
-    useData();
+  const { transactions, budgets, recurring, goals, categoryById } = useData();
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
-  const income = sumBy(monthTxns, "income");
   const budget = totalBudget(budgets, ym);
   const remaining = budget - expense;
 
-  const due = dueItemsForMonth(recurring, transactions, ym);
-  const upcomingUnpaid = due
-    .filter((d) => !d.paidTxn)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const recurringTotal = monthRecurringTotal(recurring, transactions, ym);
+  const upcoming = upcomingThisWeek(recurring, transactions);
 
-  const installments = recurring
-    .map((r) => ({ r, st: installmentStatus(r) }))
-    .filter((x) => x.st && !x.st.done) as {
-    r: (typeof recurring)[number];
-    st: NonNullable<ReturnType<typeof installmentStatus>>;
-  }[];
-
-  const reducible = reducibleItems(transactions, budgets, categories, ym);
+  const recent = [...transactions]
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .slice(0, 5);
 
   return (
     <div className="space-y-1 pb-4">
-      {/* 예산 대비 사용 */}
-      <SectionTitle right={<Pill tone={remaining >= 0 ? "leaf" : "coral"}>{remaining >= 0 ? "여유" : "초과"}</Pill>}>
+      {/* 예산 요약 */}
+      <SectionTitle
+        right={
+          <Pill tone={remaining >= 0 ? "leaf" : "coral"}>
+            {remaining >= 0 ? "여유" : "초과"}
+          </Pill>
+        }
+      >
         이번 달 예산
       </SectionTitle>
       <Card>
@@ -57,11 +55,14 @@ export default function Dashboard({
               <span className="text-sm text-stone">/ {won(budget)}</span>
             </div>
             <ProgressBar value={expense} max={budget} />
-            <div className="mt-2 flex justify-between text-xs text-stone">
-              <span>{Math.round((expense / budget) * 100)}% 사용</span>
-              <span className={remaining >= 0 ? "text-leaf-dark" : "text-coral"}>
-                {remaining >= 0 ? `${won(remaining)} 남음` : `${won(-remaining)} 초과`}
-              </span>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <Stat label="예산" value={won(budget)} />
+              <Stat label="현재 사용액" value={won(expense)} tone="text-coral" />
+              <Stat
+                label="남은 예산"
+                value={won(remaining)}
+                tone={remaining >= 0 ? "text-leaf-dark" : "text-coral"}
+              />
             </div>
           </>
         ) : (
@@ -69,30 +70,93 @@ export default function Dashboard({
             onClick={() => onGoto("plans")}
             className="w-full py-3 text-sm text-stone"
           >
-            아직 이번 달 예산이 없어요. <span className="font-semibold text-leaf">설정하기 →</span>
+            아직 이번 달 예산이 없어요.{" "}
+            <span className="font-semibold text-leaf">설정하기 →</span>
           </button>
         )}
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3">
-          <div>
-            <p className="text-xs text-stone">수입</p>
-            <p className="font-bold tabular text-sky">{won(income)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-stone">지출</p>
-            <p className="font-bold tabular text-coral">{won(expense)}</p>
-          </div>
+      </Card>
+
+      {/* 저축 목표 달성률 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => onGoto("plans")}
+            className="text-xs font-semibold text-leaf"
+          >
+            관리 →
+          </button>
+        }
+      >
+        저축 목표 달성률
+      </SectionTitle>
+      <Card className="space-y-3">
+        {goals.length === 0 ? (
+          <Empty>연간 목표를 세워 보세요 (예: 비상금 500만원)</Empty>
+        ) : (
+          goals.map((g) => {
+            const pct = Math.min((g.currentAmount / g.targetAmount) * 100, 100);
+            return (
+              <div key={g.id}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">🎯 {g.name}</span>
+                  <span className="text-sm font-bold tabular text-leaf-dark">
+                    {Math.round(pct)}%
+                  </span>
+                </div>
+                <ProgressBar
+                  value={g.currentAmount}
+                  max={g.targetAmount}
+                  color="var(--color-gold)"
+                />
+                <p className="mt-1 text-xs text-stone">
+                  {won(g.currentAmount)} / {won(g.targetAmount)}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </Card>
+
+      {/* 이번 달 고정지출 예정 금액 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => onGoto("fixed")}
+            className="text-xs font-semibold text-leaf"
+          >
+            관리 →
+          </button>
+        }
+      >
+        이번 달 고정지출 예정
+      </SectionTitle>
+      <Card>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-stone">총 예정 금액</span>
+          <span className="text-xl font-extrabold tabular text-ink">
+            {won(recurringTotal)}
+          </span>
         </div>
       </Card>
 
-      {/* 다가오는 고정지출 */}
-      <SectionTitle right={<button onClick={() => onGoto("calendar")} className="text-xs font-semibold text-leaf">캘린더 →</button>}>
-        다가오는 고정지출
+      {/* 이번 주 예정 지출 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => onGoto("calendar")}
+            className="text-xs font-semibold text-leaf"
+          >
+            캘린더 →
+          </button>
+        }
+      >
+        이번 주 예정 지출
       </SectionTitle>
       <Card className="space-y-2">
-        {upcomingUnpaid.length === 0 ? (
-          <Empty>이번 달 미납 고정지출이 없어요 👍</Empty>
+        {upcoming.length === 0 ? (
+          <Empty>이번 주 예정된 고정지출이 없어요 👍</Empty>
         ) : (
-          upcomingUnpaid.slice(0, 5).map((d) => {
+          upcoming.map((d) => {
             const cat = categoryById(d.recurring.categoryId);
             const left = dday(d.dueDate);
             return (
@@ -101,13 +165,16 @@ export default function Dashboard({
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink">{d.recurring.name}</p>
                   <p className="text-xs text-stone">
-                    {Number(d.dueDate.slice(8))}일({weekdayKo(d.dueDate)})
+                    {Number(d.dueDate.slice(5, 7))}월 {Number(d.dueDate.slice(8))}일(
+                    {weekdayKo(d.dueDate)})
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold tabular text-ink">{won(d.recurring.amount)}</p>
-                  <Pill tone={left < 0 ? "coral" : left <= 3 ? "gold" : "stone"}>
-                    {left < 0 ? "지남" : ddayLabel(d.dueDate)}
+                  <p className="text-sm font-bold tabular text-ink">
+                    {won(d.recurring.amount)}
+                  </p>
+                  <Pill tone={left <= 1 ? "coral" : left <= 3 ? "gold" : "stone"}>
+                    {ddayLabel(d.dueDate)}
                   </Pill>
                 </div>
               </div>
@@ -116,83 +183,71 @@ export default function Dashboard({
         )}
       </Card>
 
-      {/* 할부 카운트다운 */}
-      {installments.length > 0 && (
-        <>
-          <SectionTitle>할부 카운트다운</SectionTitle>
-          <div className="grid grid-cols-1 gap-2">
-            {installments.map(({ r, st }) => (
-              <Card key={r.id}>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-sm font-bold text-ink">🧾 {r.name}</span>
-                  <Pill tone="leaf">
-                    {st.paid}/{st.total} 완료
-                  </Pill>
-                </div>
-                <ProgressBar value={st.paid} max={st.total} />
-                <div className="mt-2 flex justify-between text-xs text-stone">
-                  <span>{st.remainingMonths}개월 남음</span>
-                  <span className="font-semibold text-ink">남은 총액 {won(st.remainingAmount)}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* 목표 달성률 */}
-      {goals.length > 0 && (
-        <>
-          <SectionTitle right={<button onClick={() => onGoto("plans")} className="text-xs font-semibold text-leaf">관리 →</button>}>
-            목표 달성률
-          </SectionTitle>
-          <div className="space-y-2">
-            {goals.map((g) => {
-              const pct = Math.min((g.currentAmount / g.targetAmount) * 100, 100);
-              return (
-                <Card key={g.id}>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-sm font-bold text-ink">🎯 {g.name}</span>
-                    <span className="text-sm font-bold tabular text-leaf-dark">
-                      {Math.round(pct)}%
-                    </span>
-                  </div>
-                  <ProgressBar value={g.currentAmount} max={g.targetAmount} color="var(--color-gold)" />
-                  <p className="mt-2 text-xs text-stone">
-                    {won(g.currentAmount)} / {won(g.targetAmount)}
-                  </p>
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* 줄일 수 있는 항목 미리보기 */}
-      {reducible.length > 0 && (
-        <>
-          <SectionTitle right={<button onClick={() => onGoto("analysis")} className="text-xs font-semibold text-leaf">분석 →</button>}>
-            줄일 수 있는 항목
-          </SectionTitle>
-          <Card className="space-y-2">
-            {reducible.slice(0, 2).map((it) => (
-              <div key={it.category.id} className="flex items-center gap-3">
-                <span className="text-xl">{it.category.icon}</span>
+      {/* 최근 결제 5건 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => onGoto("list")}
+            className="text-xs font-semibold text-leaf"
+          >
+            전체 →
+          </button>
+        }
+      >
+        최근 결제 5건
+      </SectionTitle>
+      <Card className="space-y-1">
+        {recent.length === 0 ? (
+          <Empty>아직 거래 내역이 없어요.</Empty>
+        ) : (
+          recent.map((t) => {
+            const cat = categoryById(t.categoryId);
+            return (
+              <div key={t.id} className="flex items-center gap-3 py-1">
+                <span className="text-lg">{cat?.icon ?? "•"}</span>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-ink">{it.category.name}</p>
-                  <p className="text-xs text-coral">{it.reason}</p>
+                  <p className="text-sm font-semibold text-ink">
+                    {t.memo || cat?.name || "내역"}
+                  </p>
+                  <p className="text-xs text-stone">
+                    {Number(t.date.slice(5, 7))}.{Number(t.date.slice(8))} · {cat?.name}
+                  </p>
                 </div>
-                <span className="text-sm font-bold tabular text-ink">{won(it.spend)}</span>
+                <span
+                  className={`text-sm font-bold tabular ${
+                    t.type === "income" ? "text-sky" : "text-ink"
+                  }`}
+                >
+                  {t.type === "income" ? "+" : "-"}
+                  {won(t.amount)}
+                </span>
               </div>
-            ))}
-          </Card>
-        </>
-      )}
+            );
+          })
+        )}
+      </Card>
 
       <div className="h-2" />
       <p className="px-1 text-center text-[11px] text-stone">
         오늘도 배추가족 화이팅 🥬
       </p>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  tone = "text-ink",
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className="rounded-xl bg-cream py-2">
+      <p className="text-[11px] text-stone">{label}</p>
+      <p className={`mt-0.5 text-sm font-bold tabular ${tone}`}>{value}</p>
     </div>
   );
 }

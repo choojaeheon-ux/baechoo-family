@@ -9,7 +9,7 @@ import { Card, Empty, Pill } from "./ui";
 import { TransactionForm } from "./forms";
 
 export default function Transactions({ ym }: { ym: string }) {
-  const { transactions, categoryById } = useData();
+  const { transactions, categoryById, paymentMethodById } = useData();
   const [filter, setFilter] = useState<"all" | TxType>("all");
   const [edit, setEdit] = useState<Transaction | null>(null);
 
@@ -68,6 +68,9 @@ export default function Transactions({ ym }: { ym: string }) {
             </p>
             {items.map((t) => {
               const cat = categoryById(t.categoryId);
+              const pm = t.paymentMethodId
+                ? paymentMethodById(t.paymentMethodId)
+                : undefined;
               return (
                 <button
                   key={t.id}
@@ -76,11 +79,14 @@ export default function Transactions({ ym }: { ym: string }) {
                 >
                   <span className="text-xl">{cat?.icon ?? "•"}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-ink">
+                    <p className="flex items-center gap-1 text-sm font-semibold text-ink">
+                      {t.isSpecial && <span title="특수지출">⭐</span>}
                       {t.memo || cat?.name || "내역"}
                     </p>
-                    <p className="flex items-center gap-1 text-xs text-stone">
-                      {cat?.name}
+                    <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
+                      <span>{cat?.name}</span>
+                      {pm && <span>· {pm.name}</span>}
+                      {t.habitTag && <Pill tone="coral">{t.habitTag}</Pill>}
                       {t.source === "auto" && <Pill tone="stone">고정</Pill>}
                       <span>· {memberName(t.member)}</span>
                     </p>
@@ -91,7 +97,7 @@ export default function Transactions({ ym }: { ym: string }) {
                     }`}
                   >
                     {t.type === "income" ? "+" : "-"}
-                    {won(t.amount).replace("₩", "₩")}
+                    {won(t.amount)}
                   </span>
                 </button>
               );

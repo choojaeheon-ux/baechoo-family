@@ -9,7 +9,7 @@ export function recurringActiveInMonth(rec: RecurringExpense, ym: string): boole
   if (rec.endDate && rec.endDate < monthStart) return false;
 
   // 할부: 시작월부터 totalMonths 동안만 발생
-  if (rec.isInstallment && rec.installmentTotalMonths) {
+  if (rec.kind === "installment" && rec.installmentTotalMonths) {
     const startYm = yearMonthOf(rec.startDate);
     const elapsed = monthsBetween(startYm, ym); // 0 = 시작월
     if (elapsed < 0 || elapsed >= rec.installmentTotalMonths) return false;
@@ -58,7 +58,7 @@ export interface InstallmentStatus {
 }
 
 export function installmentStatus(rec: RecurringExpense): InstallmentStatus | null {
-  if (!rec.isInstallment || !rec.installmentTotalMonths) return null;
+  if (rec.kind !== "installment" || !rec.installmentTotalMonths) return null;
   const total = rec.installmentTotalMonths;
   const paid = Math.min(rec.installmentPaidMonths, total);
   const remainingMonths = Math.max(total - paid, 0);

@@ -1,12 +1,14 @@
 // 데이터 저장소 — Supabase 키가 있으면 클라우드, 없으면 localStorage
 import { getSupabase, hasSupabase } from "./supabase";
-import { SEED_CATEGORIES } from "./seed";
+import { SEED_CATEGORIES, SEED_PAYMENT_METHODS } from "./seed";
 import type {
   Budget,
   Category,
   DataSnapshot,
   Goal,
+  PaymentMethod,
   RecurringExpense,
+  RecurringKind,
   Transaction,
 } from "./types";
 
@@ -24,13 +26,18 @@ function lsRead(): DataSnapshot {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) {
-      const seeded = { ...emptySnapshot(), categories: SEED_CATEGORIES };
+      const seeded: DataSnapshot = {
+        ...emptySnapshot(),
+        categories: SEED_CATEGORIES,
+        paymentMethods: SEED_PAYMENT_METHODS,
+      };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
     }
-    const parsed = JSON.parse(raw) as DataSnapshot;
+    const parsed = JSON.parse(raw) as Partial<DataSnapshot>;
     return {
       categories: parsed.categories ?? [],
+      paymentMethods: parsed.paymentMethods ?? SEED_PAYMENT_METHODS,
       recurring: parsed.recurring ?? [],
       transactions: parsed.transactions ?? [],
       budgets: parsed.budgets ?? [],
@@ -47,7 +54,14 @@ function lsWrite(snap: DataSnapshot) {
 }
 
 function emptySnapshot(): DataSnapshot {
-  return { categories: [], recurring: [], transactions: [], budgets: [], goals: [] };
+  return {
+    categories: [],
+    paymentMethods: [],
+    recurring: [],
+    transactions: [],
+    budgets: [],
+    goals: [],
+  };
 }
 
 function lsUpsert<T extends { id: string }>(key: keyof DataSnapshot, row: T): T {
@@ -84,6 +98,13 @@ const fromCat = (c: Category) => ({
   icon: c.icon ?? null,
 });
 
+const toPm = (r: Record<string, unknown>): PaymentMethod => ({
+  id: r.id as string,
+  name: r.name as string,
+  kind: r.kind as PaymentMethod["kind"],
+});
+const fromPm = (p: PaymentMethod) => ({ id: p.id, name: p.name, kind: p.kind });
+
 const toRec = (r: Record<string, unknown>): RecurringExpense => ({
   id: r.id as string,
   name: r.name as string,
@@ -92,7 +113,9 @@ const toRec = (r: Record<string, unknown>): RecurringExpense => ({
   dayOfMonth: Number(r.day_of_month),
   startDate: r.start_date as string,
   endDate: (r.end_date as string) ?? null,
-  isInstallment: Boolean(r.is_installment),
+  kind: ((r.kind as RecurringKind) ??
+    (r.is_installment ? "installment" : "fixed")) as RecurringKind,
+  paymentMethodId: (r.payment_method_id as string) ?? null,
   installmentTotalMonths: r.installment_total_months
     ? Number(r.installment_total_months)
     : null,
@@ -107,7 +130,9 @@ const fromRec = (x: RecurringExpense) => ({
   day_of_month: x.dayOfMonth,
   start_date: x.startDate,
   end_date: x.endDate,
-  is_installment: x.isInstallment,
+  kind: x.kind,
+  is_installment: x.kind === "installment",
+  payment_method_id: x.paymentMethodId,
   installment_total_months: x.installmentTotalMonths,
   installment_paid_months: x.installmentPaidMonths,
   memo: x.memo,
@@ -121,6 +146,9 @@ const toTxn = (r: Record<string, unknown>): Transaction => ({
   categoryId: r.category_id as string,
   memo: (r.memo as string) ?? null,
   member: r.member as Transaction["member"],
+  paymentMethodId: (r.payment_method_id as string) ?? null,
+  isSpecial: Boolean(r.is_special),
+  habitTag: (r.habit_tag as string) ?? null,
   source: r.source as Transaction["source"],
   recurringId: (r.recurring_id as string) ?? null,
   isPaid: Boolean(r.is_paid),
@@ -133,6 +161,9 @@ const fromTxn = (x: Transaction) => ({
   category_id: x.categoryId,
   memo: x.memo,
   member: x.member,
+  payment_method_id: x.paymentMethodId,
+  is_special: x.isSpecial,
+  habit_tag: x.habitTag,
   source: x.source,
   recurring_id: x.recurringId,
   is_paid: x.isPaid,
@@ -171,8 +202,9 @@ const fromGoal = (x: Goal) => ({
 export async function loadAll(): Promise<DataSnapshot> {
   if (!hasSupabase) return lsRead();
   const sb = getSupabase()!;
-  const [cats, recs, txns, buds, goals] = await Promise.all([
+  const [cats, pms, recs, txns, buds, goals] = await Promise.all([
     sb.from("categories").select("*"),
+    sb.from("payment_methods").select("*"),
     sb.from("recurring_expenses").select("*"),
     sb.from("transactions").select("*"),
     sb.from("budgets").select("*"),
@@ -180,12 +212,17 @@ export async function loadAll(): Promise<DataSnapshot> {
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
-    // 최초 실행: 기본 카테고리 주입
     await sb.from("categories").insert(SEED_CATEGORIES.map(fromCat));
     categories = SEED_CATEGORIES;
   }
+  let paymentMethods = (pms.data ?? []).map(toPm);
+  if (paymentMethods.length === 0) {
+    await sb.from("payment_methods").insert(SEED_PAYMENT_METHODS.map(fromPm));
+    paymentMethods = SEED_PAYMENT_METHODS;
+  }
   return {
     categories,
+    paymentMethods,
     recurring: (recs.data ?? []).map(toRec),
     transactions: (txns.data ?? []).map(toTxn),
     budgets: (buds.data ?? []).map(toBudget),
@@ -193,14 +230,11 @@ export async function loadAll(): Promise<DataSnapshot> {
   };
 }
 
-// 엔티티별 upsert/delete. id 없으면 생성.
 async function sbUpsert(table: string, row: Record<string, unknown>) {
-  const sb = getSupabase()!;
-  await sb.from(table).upsert(row);
+  await getSupabase()!.from(table).upsert(row);
 }
 async function sbDelete(table: string, id: string) {
-  const sb = getSupabase()!;
-  await sb.from(table).delete().eq("id", id);
+  await getSupabase()!.from(table).delete().eq("id", id);
 }
 
 export async function saveCategory(c: Category): Promise<Category> {
@@ -212,6 +246,17 @@ export async function saveCategory(c: Category): Promise<Category> {
 export async function deleteCategory(id: string) {
   if (hasSupabase) await sbDelete("categories", id);
   else lsDelete("categories", id);
+}
+
+export async function savePaymentMethod(p: PaymentMethod): Promise<PaymentMethod> {
+  const row = { ...p, id: p.id || newId() };
+  if (hasSupabase) await sbUpsert("payment_methods", fromPm(row));
+  else lsUpsert("paymentMethods", row);
+  return row;
+}
+export async function deletePaymentMethod(id: string) {
+  if (hasSupabase) await sbDelete("payment_methods", id);
+  else lsDelete("paymentMethods", id);
 }
 
 export async function saveRecurring(x: RecurringExpense): Promise<RecurringExpense> {

@@ -2,7 +2,21 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { MEMBERS, type Budget, type Goal, type Member, type RecurringExpense, type Transaction, type TxType } from "@/lib/types";
+import {
+  HABIT_TAGS,
+  MEMBERS,
+  PAYMENT_KIND_LABEL,
+  RECURRING_KIND_LABEL,
+  type Budget,
+  type Category,
+  type Goal,
+  type Member,
+  type PaymentMethod,
+  type RecurringExpense,
+  type RecurringKind,
+  type Transaction,
+  type TxType,
+} from "@/lib/types";
 import { todayISO } from "@/lib/format";
 import { Field, inputCls, PrimaryButton, Sheet } from "./ui";
 
@@ -18,13 +32,18 @@ export function TransactionForm({
   initial?: Transaction;
   defaultDate?: string;
 }) {
-  const { categories, saveTransaction, removeTransaction } = useData();
+  const { categories, paymentMethods, saveTransaction, removeTransaction } = useData();
   const [type, setType] = useState<TxType>(initial?.type ?? "expense");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayISO());
   const [member, setMember] = useState<Member>(initial?.member ?? "chuchu");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    initial?.paymentMethodId ?? ""
+  );
+  const [habitTag, setHabitTag] = useState<string | null>(initial?.habitTag ?? null);
+  const [isSpecial, setIsSpecial] = useState(initial?.isSpecial ?? false);
 
   const cats = categories.filter((c) => c.type === type);
   const amt = Number(amount.replace(/[^0-9]/g, ""));
@@ -40,6 +59,9 @@ export function TransactionForm({
       categoryId: categoryId || cats[0].id,
       memo: memo || null,
       member,
+      paymentMethodId: paymentMethodId || null,
+      isSpecial: type === "expense" ? isSpecial : false,
+      habitTag: type === "expense" ? habitTag : null,
       source: initial?.source ?? "manual",
       recurringId: initial?.recurringId ?? null,
       isPaid: true,
@@ -70,6 +92,14 @@ export function TransactionForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </Field>
+      <Field label="내용 (메모)">
+        <input
+          className={inputCls}
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="예: 마트 장보기"
+        />
+      </Field>
       <Field label="카테고리">
         <div className="flex flex-wrap gap-2">
           {cats.map((c) => (
@@ -87,29 +117,69 @@ export function TransactionForm({
           ))}
         </div>
       </Field>
-      <Field label="날짜">
-        <input
-          type="date"
+      <Field label="결제수단">
+        <select
           className={inputCls}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+          value={paymentMethodId}
+          onChange={(e) => setPaymentMethodId(e.target.value)}
+        >
+          <option value="">선택 안함</option>
+          {paymentMethods.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
+            </option>
+          ))}
+        </select>
       </Field>
-      <Field label="입력자">
-        <Toggle
-          options={MEMBERS.map((m) => ({ v: m.id, label: `${m.emoji} ${m.name}` }))}
-          value={member}
-          onChange={(v) => setMember(v as Member)}
-        />
-      </Field>
-      <Field label="메모 (선택)">
-        <input
-          className={inputCls}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder="예: 마트 장보기"
-        />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="날짜">
+          <input
+            type="date"
+            className={inputCls}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </Field>
+        <Field label="입력자">
+          <Toggle
+            options={MEMBERS.map((m) => ({ v: m.id, label: `${m.emoji} ${m.name}` }))}
+            value={member}
+            onChange={(v) => setMember(v as Member)}
+          />
+        </Field>
+      </div>
+
+      {type === "expense" && (
+        <>
+          <Field label="습관 태그 (선택 · 줄일 항목 분석용)">
+            <div className="flex flex-wrap gap-2">
+              {HABIT_TAGS.map((h) => (
+                <button
+                  key={h}
+                  onClick={() => setHabitTag(habitTag === h ? null : h)}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                    habitTag === h
+                      ? "border-coral bg-coral-light text-coral"
+                      : "border-line text-stone"
+                  }`}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <label className="mb-3 flex items-center justify-between rounded-xl border border-line bg-cream px-3 py-2.5">
+            <span className="text-sm font-semibold text-ink">⭐ 특수지출 (비정기 큰 지출)</span>
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-[var(--color-gold)]"
+              checked={isSpecial}
+              onChange={(e) => setIsSpecial(e.target.checked)}
+            />
+          </label>
+        </>
+      )}
+
       <div className="mt-2">
         <PrimaryButton onClick={submit} disabled={!valid}>
           저장
@@ -130,24 +200,31 @@ export function TransactionForm({
   );
 }
 
-/* ───────── 고정지출 / 할부 ───────── */
+/* ───────── 고정지출 / 구독 / 할부·대출 ───────── */
 export function RecurringForm({
   open,
   onClose,
   initial,
+  defaultKind,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: RecurringExpense;
+  defaultKind?: RecurringKind;
 }) {
-  const { categories, saveRecurring, removeRecurring } = useData();
+  const { categories, paymentMethods, saveRecurring, removeRecurring } = useData();
   const cats = categories.filter((c) => c.type === "expense");
+  const [kind, setKind] = useState<RecurringKind>(
+    initial?.kind ?? defaultKind ?? "fixed"
+  );
   const [name, setName] = useState(initial?.name ?? "");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "cat-saving");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "cat-card");
   const [day, setDay] = useState(initial ? String(initial.dayOfMonth) : "25");
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayISO());
-  const [isInstallment, setIsInstallment] = useState(initial?.isInstallment ?? false);
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    initial?.paymentMethodId ?? ""
+  );
   const [totalMonths, setTotalMonths] = useState(
     initial?.installmentTotalMonths ? String(initial.installmentTotalMonths) : "12"
   );
@@ -168,33 +245,63 @@ export function RecurringForm({
       dayOfMonth: Number(day),
       startDate,
       endDate: initial?.endDate ?? null,
-      isInstallment,
-      installmentTotalMonths: isInstallment ? Number(totalMonths) : null,
-      installmentPaidMonths: isInstallment ? Number(paidMonths) : 0,
+      kind,
+      paymentMethodId: paymentMethodId || null,
+      installmentTotalMonths: kind === "installment" ? Number(totalMonths) : null,
+      installmentPaidMonths: kind === "installment" ? Number(paidMonths) : 0,
       memo: initial?.memo ?? null,
     });
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={initial ? "고정지출 수정" : "고정지출 추가"}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={initial ? "항목 수정" : "항목 추가"}
+    >
+      <Field label="종류">
+        <Toggle
+          options={(["fixed", "subscription", "installment"] as RecurringKind[]).map(
+            (k) => ({ v: k, label: RECURRING_KIND_LABEL[k] })
+          )}
+          value={kind}
+          onChange={(v) => setKind(v as RecurringKind)}
+        />
+      </Field>
       <Field label="이름">
         <input
           className={inputCls}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="예: 청약저축, 신한카드, 냉장고 할부"
+          placeholder={
+            kind === "subscription"
+              ? "예: 넷플릭스, 유튜브 프리미엄"
+              : kind === "installment"
+                ? "예: 냉장고 할부, 전세대출"
+                : "예: 청약저축, 통신비"
+          }
         />
       </Field>
-      <Field label="금액 (월)">
-        <input
-          className={inputCls + " text-right tabular"}
-          inputMode="numeric"
-          value={amount ? Number(amt).toLocaleString("ko-KR") : ""}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0"
-        />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="금액 (월)">
+          <input
+            className={inputCls + " text-right tabular"}
+            inputMode="numeric"
+            value={amount ? Number(amt).toLocaleString("ko-KR") : ""}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0"
+          />
+        </Field>
+        <Field label="결제일 (매달)">
+          <input
+            className={inputCls + " text-right tabular"}
+            inputMode="numeric"
+            value={day}
+            onChange={(e) => setDay(e.target.value)}
+          />
+        </Field>
+      </div>
       <Field label="카테고리">
         <select
           className={inputCls}
@@ -208,38 +315,24 @@ export function RecurringForm({
           ))}
         </select>
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="매달 출금일">
-          <input
-            className={inputCls + " text-right tabular"}
-            inputMode="numeric"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-          />
-        </Field>
-        <Field label="시작일">
-          <input
-            type="date"
-            className={inputCls}
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </Field>
-      </div>
+      <Field label="결제수단 (카드)">
+        <select
+          className={inputCls}
+          value={paymentMethodId}
+          onChange={(e) => setPaymentMethodId(e.target.value)}
+        >
+          <option value="">선택 안함</option>
+          {paymentMethods.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
+            </option>
+          ))}
+        </select>
+      </Field>
 
-      <label className="mb-3 flex items-center justify-between rounded-xl border border-line bg-cream px-3 py-2.5">
-        <span className="text-sm font-semibold text-ink">🧾 할부 항목</span>
-        <input
-          type="checkbox"
-          className="h-5 w-5 accent-[var(--color-leaf)]"
-          checked={isInstallment}
-          onChange={(e) => setIsInstallment(e.target.checked)}
-        />
-      </label>
-
-      {isInstallment && (
+      {kind === "installment" && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="총 할부 개월">
+          <Field label="총 개월 (할부/대출)">
             <input
               className={inputCls + " text-right tabular"}
               inputMode="numeric"
@@ -290,7 +383,7 @@ export function BudgetForm({
 }) {
   const { categories, budgets, saveBudget } = useData();
   const cats = categories.filter((c) => c.type === "expense");
-  const [scope, setScope] = useState<string>("__all__"); // __all__ or categoryId
+  const [scope, setScope] = useState<string>("__all__");
   const [amount, setAmount] = useState("");
 
   const amt = Number(amount.replace(/[^0-9]/g, ""));
@@ -345,7 +438,7 @@ export function BudgetForm({
   );
 }
 
-/* ───────── 목표 ───────── */
+/* ───────── 연간 목표 ───────── */
 export function GoalForm({
   open,
   onClose,
@@ -384,7 +477,7 @@ export function GoalForm({
           className={inputCls}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="예: 우주 출산준비금, 비상금 1000만원"
+          placeholder="예: 비상금 500만원, 여행자금 200만원"
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
@@ -424,6 +517,166 @@ export function GoalForm({
         <button
           onClick={async () => {
             await removeGoal(initial.id);
+            onClose();
+          }}
+          className="mt-3 w-full py-2 text-sm text-coral"
+        >
+          삭제
+        </button>
+      )}
+    </Sheet>
+  );
+}
+
+/* ───────── 카테고리 관리 ───────── */
+const EMOJI_CHOICES = [
+  "🍚", "🧺", "🍼", "💊", "🎮", "💳", "🐖", "🏠", "🧾", "🐶",
+  "📦", "💼", "💰", "🍔", "☕", "🚕", "🛍️", "🎬", "✈️", "🎁",
+];
+
+export function CategoryForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: Category;
+}) {
+  const { saveCategory, removeCategory } = useData();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [type, setType] = useState<TxType>(initial?.type ?? "expense");
+  const [icon, setIcon] = useState(initial?.icon ?? "📦");
+  const [color, setColor] = useState(initial?.color ?? "#8ab560");
+
+  const valid = name.trim().length > 0;
+
+  async function submit() {
+    if (!valid) return;
+    await saveCategory({
+      id: initial?.id ?? "",
+      name: name.trim(),
+      type,
+      icon,
+      color,
+    });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "카테고리 수정" : "카테고리 추가"}>
+      <Field label="구분">
+        <Toggle
+          options={[
+            { v: "expense", label: "지출" },
+            { v: "income", label: "수입" },
+          ]}
+          value={type}
+          onChange={(v) => setType(v as TxType)}
+        />
+      </Field>
+      <Field label="이름">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 생활용품"
+        />
+      </Field>
+      <Field label="아이콘">
+        <div className="flex flex-wrap gap-1.5">
+          {EMOJI_CHOICES.map((e) => (
+            <button
+              key={e}
+              onClick={() => setIcon(e)}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg ${
+                icon === e ? "border-leaf bg-leaf-light" : "border-line"
+              }`}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field label="색상">
+        <input
+          type="color"
+          className="h-10 w-full rounded-xl border border-line bg-cream"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+        />
+      </Field>
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <button
+          onClick={async () => {
+            await removeCategory(initial.id);
+            onClose();
+          }}
+          className="mt-3 w-full py-2 text-sm text-coral"
+        >
+          삭제
+        </button>
+      )}
+    </Sheet>
+  );
+}
+
+/* ───────── 결제수단 관리 ───────── */
+export function PaymentMethodForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: PaymentMethod;
+}) {
+  const { savePaymentMethod, removePaymentMethod } = useData();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [kind, setKind] = useState<PaymentMethod["kind"]>(initial?.kind ?? "card");
+
+  const valid = name.trim().length > 0;
+
+  async function submit() {
+    if (!valid) return;
+    await savePaymentMethod({ id: initial?.id ?? "", name: name.trim(), kind });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "결제수단 수정" : "결제수단 추가"}>
+      <Field label="종류">
+        <Toggle
+          options={(["card", "cash", "account"] as PaymentMethod["kind"][]).map((k) => ({
+            v: k,
+            label: PAYMENT_KIND_LABEL[k],
+          }))}
+          value={kind}
+          onChange={(v) => setKind(v as PaymentMethod["kind"])}
+        />
+      </Field>
+      <Field label="이름">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 신한카드, 삼성카드, 국민은행"
+        />
+      </Field>
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <button
+          onClick={async () => {
+            await removePaymentMethod(initial.id);
             onClose();
           }}
           className="mt-3 w-full py-2 text-sm text-coral"

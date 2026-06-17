@@ -10,15 +10,23 @@ import CalendarView from "./CalendarView";
 import Transactions from "./Transactions";
 import Analysis from "./Analysis";
 import Plans from "./Plans";
+import FixedExpenses from "./FixedExpenses";
 
-type Tab = "home" | "calendar" | "list" | "analysis" | "plans";
+export type Tab =
+  | "home"
+  | "calendar"
+  | "list"
+  | "plans"
+  | "analysis"
+  | "fixed";
 
 const SUBTABS: { id: Tab; label: string }[] = [
   { id: "home", label: "대시보드" },
   { id: "calendar", label: "캘린더" },
-  { id: "list", label: "내역" },
-  { id: "analysis", label: "분석" },
+  { id: "list", label: "거래내역" },
   { id: "plans", label: "예산·목표" },
+  { id: "analysis", label: "분석" },
+  { id: "fixed", label: "고정지출" },
 ];
 
 export default function BudgetApp() {
@@ -72,8 +80,9 @@ export default function BudgetApp() {
             {tab === "home" && <Dashboard ym={ym} onGoto={setTab} />}
             {tab === "calendar" && <CalendarView ym={ym} />}
             {tab === "list" && <Transactions ym={ym} />}
-            {tab === "analysis" && <Analysis ym={ym} />}
             {tab === "plans" && <Plans ym={ym} />}
+            {tab === "analysis" && <Analysis ym={ym} />}
+            {tab === "fixed" && <FixedExpenses />}
           </>
         )}
       </div>
@@ -83,7 +92,7 @@ export default function BudgetApp() {
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
           <button
             onClick={() => setAddOpen(true)}
-            className="pointer-events-auto absolute bottom-20 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-3xl text-white shadow-lg transition active:scale-90"
+            className="pointer-events-auto absolute right-4 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-3xl text-white shadow-lg transition active:scale-90"
             style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
             aria-label="내역 추가"
           >

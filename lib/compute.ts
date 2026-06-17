@@ -1,5 +1,6 @@
-import type { Budget, Category, Transaction } from "./types";
-import { yearMonthOf, shiftMonth } from "./format";
+import type { Budget, Category, RecurringExpense, Transaction } from "./types";
+import { yearMonthOf, shiftMonth, todayISO, currentYearMonth } from "./format";
+import { dueItemsForMonth, type DueItem } from "./recurring";
 
 export function monthTransactions(txns: Transaction[], ym: string): Transaction[] {
   return txns.filter((t) => yearMonthOf(t.date) === ym);
@@ -91,6 +92,56 @@ export function reducibleItems(
   return items.sort(
     (a, b) => b.overBy + (b.spend - b.prevSpend) - (a.overBy + (a.spend - a.prevSpend))
   );
+}
+
+// 습관 태그별 횟수·금액 집계 (줄일 수 있는 항목)
+export interface HabitStat {
+  tag: string;
+  count: number;
+  total: number;
+}
+export function habitSummary(txns: Transaction[], ym: string): HabitStat[] {
+  const m = new Map<string, HabitStat>();
+  for (const t of monthTransactions(txns, ym)) {
+    if (t.type !== "expense" || !t.habitTag) continue;
+    const cur = m.get(t.habitTag) ?? { tag: t.habitTag, count: 0, total: 0 };
+    cur.count += 1;
+    cur.total += t.amount;
+    m.set(t.habitTag, cur);
+  }
+  return [...m.values()].sort((a, b) => b.count - a.count);
+}
+
+// 이번 달 고정지출 예정 총액
+export function monthRecurringTotal(
+  recurring: RecurringExpense[],
+  transactions: Transaction[],
+  ym: string
+): number {
+  return dueItemsForMonth(recurring, transactions, ym).reduce(
+    (s, d) => s + d.recurring.amount,
+    0
+  );
+}
+
+// 이번 주(오늘~+7일) 예정 지출 (미납 고정지출)
+export function upcomingThisWeek(
+  recurring: RecurringExpense[],
+  transactions: Transaction[]
+): DueItem[] {
+  const today = todayISO();
+  const end = new Date(today);
+  end.setDate(end.getDate() + 7);
+  const endISO = end.toISOString().slice(0, 10);
+  const thisYm = currentYearMonth();
+  const nextYm = shiftMonth(thisYm, 1);
+  const items = [
+    ...dueItemsForMonth(recurring, transactions, thisYm),
+    ...dueItemsForMonth(recurring, transactions, nextYm),
+  ];
+  return items
+    .filter((d) => !d.paidTxn && d.dueDate >= today && d.dueDate <= endISO)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
 // 최근 N개월 지출 추이 (오래된→최신)

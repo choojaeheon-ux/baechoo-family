@@ -17,7 +17,7 @@ import {
   monthTransactions,
   spendByCategory,
   sumBy,
-  reducibleItems,
+  habitSummary,
   monthlyExpenseTrend,
   budgetForCategory,
 } from "@/lib/compute";
@@ -36,7 +36,7 @@ ChartJS.register(
 );
 
 export default function Analysis({ ym }: { ym: string }) {
-  const { transactions, budgets, categories } = useData();
+  const { transactions, budgets, categories, recurring } = useData();
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
@@ -48,7 +48,9 @@ export default function Analysis({ ym }: { ym: string }) {
     .sort((a, b) => b.amt - a.amt);
 
   const trend = monthlyExpenseTrend(transactions, ym, 6);
-  const reducible = reducibleItems(transactions, budgets, categories, ym);
+  const habits = habitSummary(transactions, ym);
+  const subs = recurring.filter((r) => r.kind === "subscription");
+  const subTotal = subs.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="space-y-1 pb-4">
@@ -145,29 +147,46 @@ export default function Analysis({ ym }: { ym: string }) {
         </div>
       </Card>
 
-      {/* 줄일 수 있는 항목 */}
+      {/* 줄일 수 있는 항목 (습관 횟수) */}
       <SectionTitle>줄일 수 있는 항목</SectionTitle>
-      <Card className="space-y-3">
-        {reducible.length === 0 ? (
-          <Empty>예산 초과·급증한 항목이 없어요. 잘 관리하고 있어요 👍</Empty>
+      <Card className="space-y-2">
+        {habits.length === 0 && subs.length === 0 ? (
+          <Empty>
+            내역 입력 시 &lsquo;배달·커피·구독&rsquo; 습관 태그를 달면
+            <br />
+            이번 달 횟수와 금액이 여기 모여요.
+          </Empty>
         ) : (
-          reducible.map((it) => (
-            <div key={it.category.id}>
-              <div className="mb-1 flex items-center gap-2">
-                <span className="text-lg">{it.category.icon}</span>
-                <span className="flex-1 text-sm font-semibold text-ink">
-                  {it.category.name}
+          <>
+            {habits.map((h) => (
+              <div key={h.tag} className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-coral-light text-sm font-bold text-coral">
+                  {h.count}
                 </span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-ink">{h.tag}</p>
+                  <p className="text-xs text-stone">이번 달 {h.count}회</p>
+                </div>
                 <span className="text-sm font-bold tabular text-coral">
-                  {won(it.spend)}
+                  {won(h.total)}
                 </span>
               </div>
-              {it.budget !== null && (
-                <ProgressBar value={it.spend} max={it.budget} />
-              )}
-              <p className="mt-1 text-xs text-coral">⚠️ {it.reason}</p>
-            </div>
-          ))
+            ))}
+            {subs.length > 0 && (
+              <div className="flex items-center gap-3 border-t border-line pt-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-coral-light text-sm font-bold text-coral">
+                  {subs.length}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-ink">구독 서비스</p>
+                  <p className="text-xs text-stone">{subs.length}개 구독 중</p>
+                </div>
+                <span className="text-sm font-bold tabular text-coral">
+                  {won(subTotal)}/월
+                </span>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
