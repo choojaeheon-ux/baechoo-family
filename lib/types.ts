@@ -74,6 +74,7 @@ export interface Transaction {
   habitTag: string | null; // 습관 태그
   source: "manual" | "auto";
   recurringId: string | null;
+  localCurrencyId: string | null; // 지역화폐 충전으로 생성된 거래면 해당 지역화폐 id
   isPaid: boolean;
 }
 
@@ -98,6 +99,8 @@ export interface LocalCurrency {
   name: string;
   balance: number; // 이월 포함 현재 잔액
   monthlyCharge: number; // 매월 충전금(기본값)
+  defaultCategoryId: string | null; // 충전 거래에 쓸 기본 카테고리
+  defaultPaymentMethodId: string | null; // 충전 거래에 쓸 기본 결제수단
 }
 
 // 무지출 챌린지 보상 규칙 (이번 달 누적 무지출 N일 → 보상)

@@ -66,6 +66,7 @@ export function TransactionForm({
       habitTag: type === "expense" ? habitTag : null,
       source: initial?.source ?? "manual",
       recurringId: initial?.recurringId ?? null,
+      localCurrencyId: initial?.localCurrencyId ?? null,
       isPaid: true,
     });
     onClose();
@@ -718,6 +719,8 @@ export function LocalCurrencyForm({
       name: name.trim(),
       balance: bal,
       monthlyCharge: mon,
+      defaultCategoryId: initial?.defaultCategoryId ?? null,
+      defaultPaymentMethodId: initial?.defaultPaymentMethodId ?? null,
     });
     onClose();
   }

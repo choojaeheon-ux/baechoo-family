@@ -81,6 +81,7 @@ export default function CalendarView({ ym }: { ym: string }) {
       habitTag: null,
       source: "auto",
       recurringId: d.recurring.id,
+      localCurrencyId: null,
       isPaid: true,
     });
     if (d.recurring.kind === "installment") {

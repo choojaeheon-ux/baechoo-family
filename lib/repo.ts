@@ -160,6 +160,7 @@ const toTxn = (r: Record<string, unknown>): Transaction => ({
   habitTag: (r.habit_tag as string) ?? null,
   source: r.source as Transaction["source"],
   recurringId: (r.recurring_id as string) ?? null,
+  localCurrencyId: (r.local_currency_id as string) ?? null,
   isPaid: Boolean(r.is_paid),
 });
 const fromTxn = (x: Transaction) => ({
@@ -175,6 +176,7 @@ const fromTxn = (x: Transaction) => ({
   habit_tag: x.habitTag,
   source: x.source,
   recurring_id: x.recurringId,
+  local_currency_id: x.localCurrencyId,
   is_paid: x.isPaid,
 });
 
@@ -196,12 +198,16 @@ const toLc = (r: Record<string, unknown>): LocalCurrency => ({
   name: r.name as string,
   balance: Number(r.balance ?? 0),
   monthlyCharge: Number(r.monthly_charge ?? 0),
+  defaultCategoryId: (r.default_category_id as string) ?? null,
+  defaultPaymentMethodId: (r.default_payment_method_id as string) ?? null,
 });
 const fromLc = (x: LocalCurrency) => ({
   id: x.id,
   name: x.name,
   balance: x.balance,
   monthly_charge: x.monthlyCharge,
+  default_category_id: x.defaultCategoryId,
+  default_payment_method_id: x.defaultPaymentMethodId,
 });
 
 const toRule = (r: Record<string, unknown>): RewardRule => ({
