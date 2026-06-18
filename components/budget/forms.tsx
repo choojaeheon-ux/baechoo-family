@@ -701,11 +701,19 @@ export function LocalCurrencyForm({
   onClose: () => void;
   initial?: LocalCurrency;
 }) {
-  const { saveLocalCurrency, removeLocalCurrency } = useData();
+  const { categories, paymentMethods, saveLocalCurrency, removeLocalCurrency } =
+    useData();
+  const cats = categories.filter((c) => c.type === "expense");
   const [name, setName] = useState(initial?.name ?? "");
   const [balance, setBalance] = useState(initial ? String(initial.balance) : "0");
   const [monthly, setMonthly] = useState(
     initial ? String(initial.monthlyCharge) : "0"
+  );
+  const [categoryId, setCategoryId] = useState(
+    initial?.defaultCategoryId ?? cats[0]?.id ?? ""
+  );
+  const [paymentMethodId, setPaymentMethodId] = useState(
+    initial?.defaultPaymentMethodId ?? ""
   );
 
   const bal = Number(balance.replace(/[^0-9]/g, ""));
@@ -719,8 +727,8 @@ export function LocalCurrencyForm({
       name: name.trim(),
       balance: bal,
       monthlyCharge: mon,
-      defaultCategoryId: initial?.defaultCategoryId ?? null,
-      defaultPaymentMethodId: initial?.defaultPaymentMethodId ?? null,
+      defaultCategoryId: categoryId || null,
+      defaultPaymentMethodId: paymentMethodId || null,
     });
     onClose();
   }
@@ -752,6 +760,33 @@ export function LocalCurrencyForm({
           onChange={(e) => setBalance(e.target.value)}
           placeholder="0"
         />
+      </Field>
+      <Field label="충전 시 기록할 카테고리">
+        <select
+          className={inputCls}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+        >
+          {cats.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.icon} {c.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="충전 시 결제수단">
+        <select
+          className={inputCls}
+          value={paymentMethodId}
+          onChange={(e) => setPaymentMethodId(e.target.value)}
+        >
+          <option value="">선택 안함</option>
+          {paymentMethods.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
+            </option>
+          ))}
+        </select>
       </Field>
       <div className="mt-2">
         <PrimaryButton onClick={submit} disabled={!valid}>
