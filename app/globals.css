@@ -51,6 +51,16 @@ button {
   font-size: 16px;
 }
 
+/* iOS Safari에서 date/time 입력이 고유 너비로 옆으로 늘어나는 것 방지.
+   min-width:auto(기본값) 때문에 width:100%여도 안 줄어들어 가로 넘침 발생 */
+input[type="date"],
+input[type="time"] {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* 숫자 정렬용 */
 .tabular {
   font-variant-numeric: tabular-nums;
