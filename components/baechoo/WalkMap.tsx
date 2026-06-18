@@ -46,7 +46,8 @@ function drawWalk(
   stools: Stool[],
   live: boolean,
   currentPos: LatLng | null,
-  pawTrail: boolean
+  pawTrail: boolean,
+  fit: boolean
 ) {
   // 기존 오버레이 제거
   overlays.forEach((o) => o.setMap(null));
@@ -155,7 +156,10 @@ function drawWalk(
     return;
   }
 
-  // 저장본: 전체가 보이게 맞춤
+  // fit=false면 사용자가 직접 맞춘 확대/이동을 유지 (응가 편집 등으로 재그릴 때)
+  if (!fit) return;
+
+  // 저장본: 전체가 보이게 맞춤 (최초 1회)
   const all = [
     ...route,
     ...stoolPts,
@@ -196,6 +200,7 @@ export default function WalkMap({
   const naverRef = useRef<NaverNS>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const overlaysRef = useRef<any[]>([]);
+  const fittedRef = useRef(false);
   const [failed, setFailed] = useState(false);
 
   // 지도 초기화 (마운트 1회)
@@ -223,10 +228,16 @@ export default function WalkMap({
           mapDataControl: false,
           scaleControl: false,
           logoControl: true,
-          zoomControl: false,
+          // 라이브가 아닌 인터랙티브 지도(상세·저장)에는 확대/축소 버튼 표시
+          zoomControl: interactive && !live,
+          zoomControlOptions: {
+            position: naver.maps.Position.TOP_RIGHT,
+            style: naver.maps.ZoomControlStyle.SMALL,
+          },
         });
         mapRef.current = map;
-        drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail);
+        fittedRef.current = true;
+        drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail, true);
       } catch {
         if (!cancelled) setFailed(true);
       }
@@ -251,7 +262,10 @@ export default function WalkMap({
     const naver = naverRef.current;
     if (!map || !naver) return;
     try {
-      drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail);
+      // 최초 1회만 화면 맞춤. 이후 갱신(응가 편집 등)은 사용자 확대/이동을 유지.
+      const fit = !fittedRef.current;
+      fittedRef.current = true;
+      drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail, fit);
     } catch {
       setFailed(true);
     }

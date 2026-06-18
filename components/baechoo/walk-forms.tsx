@@ -92,7 +92,7 @@ export function StoolEditor({
       {stools.map((s, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <select
-            className={inputCls + " flex-1"}
+            className={inputCls + " min-w-0 flex-1 pr-7 font-medium"}
             value={s.state}
             onChange={(e) =>
               update(i, { state: e.target.value as StoolState })
@@ -106,14 +106,14 @@ export function StoolEditor({
           </select>
           <input
             type="time"
-            className={inputCls + " w-28"}
+            className={inputCls + " w-[92px] shrink-0 px-2 text-sm"}
             value={s.time ?? ""}
             onChange={(e) => update(i, { time: e.target.value || null })}
           />
           <button
             type="button"
             onClick={() => remove(i)}
-            className="shrink-0 px-2 text-lg text-coral"
+            className="shrink-0 px-1.5 text-lg text-coral"
             aria-label="응가 삭제"
           >
             ✕
@@ -170,7 +170,6 @@ export function WalkSaveSheet({
         <WalkMap
           route={draft.route}
           stools={stools}
-          isStatic
           pawTrail
           className="mb-4 h-44 w-full overflow-hidden rounded-xl border border-line"
         />
@@ -336,9 +335,8 @@ export function WalkDetailSheet({
         <WalkMap
           route={walk.route}
           stools={stools}
-          isStatic
           pawTrail
-          className="mb-4 h-48 w-full overflow-hidden rounded-xl border border-line"
+          className="mb-4 h-56 w-full overflow-hidden rounded-xl border border-line"
         />
       )}
       <Field label="응가 기록">
