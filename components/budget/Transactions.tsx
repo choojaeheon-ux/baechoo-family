@@ -106,11 +106,13 @@ export default function Transactions({ ym }: { ym: string }) {
         ))
       )}
 
-      <TransactionForm
-        open={!!edit}
-        onClose={() => setEdit(null)}
-        initial={edit ?? undefined}
-      />
+      {edit && (
+        <TransactionForm
+          open={!!edit}
+          onClose={() => setEdit(null)}
+          initial={edit ?? undefined}
+        />
+      )}
     </div>
   );
 }

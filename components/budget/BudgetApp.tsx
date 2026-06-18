@@ -101,7 +101,9 @@ export default function BudgetApp() {
         </div>
       )}
 
-      <TransactionForm open={addOpen} onClose={() => setAddOpen(false)} />
+      {addOpen && (
+        <TransactionForm open={addOpen} onClose={() => setAddOpen(false)} />
+      )}
     </div>
   );
 }

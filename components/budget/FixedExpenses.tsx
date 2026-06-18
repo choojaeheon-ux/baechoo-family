@@ -234,22 +234,28 @@ export default function FixedExpenses() {
         </div>
       </Card>
 
-      <RecurringForm
-        open={recOpen}
-        onClose={() => setRecOpen(false)}
-        initial={editRec ?? undefined}
-        defaultKind={recKind}
-      />
-      <PaymentMethodForm
-        open={pmOpen}
-        onClose={() => setPmOpen(false)}
-        initial={editPm ?? undefined}
-      />
-      <LocalCurrencyForm
-        open={lcOpen}
-        onClose={() => setLcOpen(false)}
-        initial={editLc ?? undefined}
-      />
+      {recOpen && (
+        <RecurringForm
+          open={recOpen}
+          onClose={() => setRecOpen(false)}
+          initial={editRec ?? undefined}
+          defaultKind={recKind}
+        />
+      )}
+      {pmOpen && (
+        <PaymentMethodForm
+          open={pmOpen}
+          onClose={() => setPmOpen(false)}
+          initial={editPm ?? undefined}
+        />
+      )}
+      {lcOpen && (
+        <LocalCurrencyForm
+          open={lcOpen}
+          onClose={() => setLcOpen(false)}
+          initial={editLc ?? undefined}
+        />
+      )}
       <AmountSheet
         key={`charge-${chargeLc?.id ?? "none"}`}
         open={!!chargeLc}

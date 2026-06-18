@@ -179,17 +179,23 @@ export default function Plans({ ym }: { ym: string }) {
         </div>
       </Card>
 
-      <BudgetForm open={budgetOpen} onClose={() => setBudgetOpen(false)} ym={ym} />
-      <GoalForm
-        open={goalOpen}
-        onClose={() => setGoalOpen(false)}
-        initial={editGoal ?? undefined}
-      />
-      <CategoryForm
-        open={catOpen}
-        onClose={() => setCatOpen(false)}
-        initial={editCat ?? undefined}
-      />
+      {budgetOpen && (
+        <BudgetForm open={budgetOpen} onClose={() => setBudgetOpen(false)} ym={ym} />
+      )}
+      {goalOpen && (
+        <GoalForm
+          open={goalOpen}
+          onClose={() => setGoalOpen(false)}
+          initial={editGoal ?? undefined}
+        />
+      )}
+      {catOpen && (
+        <CategoryForm
+          open={catOpen}
+          onClose={() => setCatOpen(false)}
+          initial={editCat ?? undefined}
+        />
+      )}
     </div>
   );
 }

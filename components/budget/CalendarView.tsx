@@ -382,11 +382,13 @@ export default function CalendarView({ ym }: { ym: string }) {
         )}
       </Card>
 
-      <RewardRuleForm
-        open={ruleOpen}
-        onClose={() => setRuleOpen(false)}
-        initial={editRule ?? undefined}
-      />
+      {ruleOpen && (
+        <RewardRuleForm
+          open={ruleOpen}
+          onClose={() => setRuleOpen(false)}
+          initial={editRule ?? undefined}
+        />
+      )}
     </div>
   );
 }
