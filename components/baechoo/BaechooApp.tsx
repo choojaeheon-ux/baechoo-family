@@ -5,13 +5,15 @@ import { useData } from "@/lib/data-context";
 import MealList from "./MealList";
 import HealthList from "./HealthList";
 import ExamList from "./ExamList";
+import WalkList from "./WalkList";
 
-type Tab = "meal" | "health" | "exam";
+type Tab = "meal" | "health" | "exam" | "walk";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "meal", label: "식사" },
   { id: "health", label: "건강" },
   { id: "exam", label: "신체검사" },
+  { id: "walk", label: "산책" },
 ];
 
 export default function BaechooApp() {
@@ -40,7 +42,7 @@ export default function BaechooApp() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              className={`flex-1 rounded-full px-2 py-1.5 text-[13px] font-semibold transition ${
                 tab === t.id
                   ? "bg-leaf text-white"
                   : "bg-card text-stone border border-line"
@@ -59,8 +61,10 @@ export default function BaechooApp() {
           <MealList />
         ) : tab === "health" ? (
           <HealthList />
-        ) : (
+        ) : tab === "exam" ? (
           <ExamList />
+        ) : (
+          <WalkList />
         )}
       </div>
     </div>

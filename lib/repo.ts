@@ -25,6 +25,9 @@ import type {
   BaechooExam,
   BaechooCategory,
   BaechooHealthTodo,
+  BaechooWalk,
+  LatLng,
+  Stool,
   MealType,
   HealthType,
   ExamType,
@@ -80,6 +83,7 @@ function lsRead(): DataSnapshot {
       baechooExams: (parsed.baechooExams ?? []).map(normalizeExam),
       baechooCategories: parsed.baechooCategories ?? SEED_BAECHOO_CATEGORIES,
       baechooHealthTodos: parsed.baechooHealthTodos ?? [],
+      baechooWalks: parsed.baechooWalks ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -108,6 +112,7 @@ function emptySnapshot(): DataSnapshot {
     baechooExams: [],
     baechooCategories: [],
     baechooHealthTodos: [],
+    baechooWalks: [],
   };
 }
 
@@ -418,6 +423,28 @@ const fromHealthTodo = (x: BaechooHealthTodo) => ({
   done_dates: x.doneDates,
 });
 
+// 배추 — 산책 (route·stools는 jsonb 배열)
+const toWalk = (r: Record<string, unknown>): BaechooWalk => ({
+  id: r.id as string,
+  date: r.date as string,
+  startTime: (r.start_time as string) ?? null,
+  durationSec: Number(r.duration_sec ?? 0),
+  distanceM: Number(r.distance_m ?? 0),
+  route: Array.isArray(r.route) ? (r.route as LatLng[]) : [],
+  stools: Array.isArray(r.stools) ? (r.stools as Stool[]) : [],
+  memo: (r.memo as string) ?? null,
+});
+const fromWalk = (x: BaechooWalk) => ({
+  id: x.id,
+  date: x.date,
+  start_time: x.startTime,
+  duration_sec: x.durationSec,
+  distance_m: x.distanceM,
+  route: x.route,
+  stools: x.stools,
+  memo: x.memo,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -439,6 +466,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     exams,
     bcats,
     htodos,
+    walks,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -455,6 +483,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_exams").select("*"),
     sb.from("baechoo_categories").select("*"),
     sb.from("baechoo_health_todos").select("*"),
+    sb.from("baechoo_walks").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -489,6 +518,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooExams: (exams.data ?? []).map(toExam),
     baechooCategories,
     baechooHealthTodos: (htodos.data ?? []).map(toHealthTodo),
+    baechooWalks: (walks.data ?? []).map(toWalk),
   };
 }
 
@@ -666,4 +696,15 @@ export async function saveBaechooHealthTodo(
 export async function deleteBaechooHealthTodo(id: string) {
   if (hasSupabase) await sbDelete("baechoo_health_todos", id);
   else lsDelete("baechooHealthTodos", id);
+}
+
+export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_walks", fromWalk(row));
+  else lsUpsert("baechooWalks", row);
+  return row;
+}
+export async function deleteBaechooWalk(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_walks", id);
+  else lsDelete("baechooWalks", id);
 }

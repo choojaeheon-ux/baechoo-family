@@ -26,6 +26,7 @@ import type {
   BaechooExam,
   BaechooCategory,
   BaechooHealthTodo,
+  BaechooWalk,
 } from "./types";
 
 interface DataContextValue {
@@ -46,6 +47,7 @@ interface DataContextValue {
   baechooExams: BaechooExam[];
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
+  baechooWalks: BaechooWalk[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -80,6 +82,8 @@ interface DataContextValue {
   removeBaechooCategory: (id: string) => Promise<void>;
   saveBaechooHealthTodo: (t: BaechooHealthTodo) => Promise<void>;
   removeBaechooHealthTodo: (id: string) => Promise<void>;
+  saveBaechooWalk: (w: BaechooWalk) => Promise<void>;
+  removeBaechooWalk: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -103,6 +107,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [baechooHealthTodos, setBaechooHealthTodos] = useState<
     BaechooHealthTodo[]
   >([]);
+  const [baechooWalks, setBaechooWalks] = useState<BaechooWalk[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -121,6 +126,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooExams(snap.baechooExams);
     setBaechooCategories(snap.baechooCategories);
     setBaechooHealthTodos(snap.baechooHealthTodos);
+    setBaechooWalks(snap.baechooWalks);
   }, []);
 
   useEffect(() => {
@@ -177,6 +183,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooExams,
       baechooCategories,
       baechooHealthTodos,
+      baechooWalks,
       categoryById,
       paymentMethodById,
       refresh,
@@ -311,6 +318,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteBaechooHealthTodo(id);
         setBaechooHealthTodos((p) => p.filter((x) => x.id !== id));
       },
+      saveBaechooWalk: async (w) => {
+        const saved = await repo.saveBaechooWalk(w);
+        upsertLocal(setBaechooWalks, saved);
+      },
+      removeBaechooWalk: async (id) => {
+        await repo.deleteBaechooWalk(id);
+        setBaechooWalks((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -329,6 +344,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooExams,
       baechooCategories,
       baechooHealthTodos,
+      baechooWalks,
       categoryById,
       paymentMethodById,
       refresh,

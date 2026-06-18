@@ -265,6 +265,54 @@ export interface BaechooHealthTodo {
   doneDates: string[]; // daily: 체크된 날짜들
 }
 
+// 산책 기록 — GPS 경로 + 소요·거리 + 응가
+export type StoolState =
+  | "normal"
+  | "oily"
+  | "loose"
+  | "diarrhea"
+  | "watery"
+  | "fail";
+export const STOOL_STATE_LABEL: Record<StoolState, string> = {
+  normal: "정상",
+  oily: "기름기",
+  loose: "묽음",
+  diarrhea: "설사",
+  watery: "물",
+  fail: "응가실패",
+};
+export const STOOL_STATES: StoolState[] = [
+  "normal",
+  "oily",
+  "loose",
+  "diarrhea",
+  "watery",
+  "fail",
+];
+
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+export interface Stool {
+  state: StoolState;
+  time: string | null; // HH:MM
+  lat: number | null;
+  lng: number | null;
+}
+
+export interface BaechooWalk {
+  id: string;
+  date: string; // YYYY-MM-DD (startTime 파생)
+  startTime: string | null; // ISO timestamp
+  durationSec: number; // 소요 (타이머 합산)
+  distanceM: number; // 거리 (haversine 합산)
+  route: LatLng[]; // 추적 좌표 (수동입력은 빈 배열)
+  stools: Stool[]; // 산책 중 응가들
+  memo: string | null;
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -281,4 +329,5 @@ export interface DataSnapshot {
   baechooExams: BaechooExam[];
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
+  baechooWalks: BaechooWalk[];
 }
