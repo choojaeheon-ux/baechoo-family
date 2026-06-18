@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/todo52", label: "52주투두", icon: "🗓️" },
+  { href: "/todo52", label: "52주 투두", icon: "🗓️" },
   { href: "/budget", label: "가계부", icon: "💰" },
   { href: "/baechoo", label: "배추", icon: "🐶" },
   { href: "/uju", label: "우주", icon: "🍼" },
