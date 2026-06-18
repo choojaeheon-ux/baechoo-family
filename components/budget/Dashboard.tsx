@@ -9,7 +9,7 @@ import {
   monthRecurringTotal,
   upcomingThisWeek,
 } from "@/lib/compute";
-import { won, weekdayKo, ddayLabel, dday } from "@/lib/format";
+import { won, weekdayKo, ddayLabel, dday, todayISO } from "@/lib/format";
 import { Card, ProgressBar, SectionTitle, Pill, Empty } from "./ui";
 import { LocalCurrencyForm, AmountSheet } from "./forms";
 import type { Tab } from "./BudgetApp";
@@ -30,6 +30,8 @@ export default function Dashboard({
     categoryById,
     localCurrencies,
     saveLocalCurrency,
+    saveTransaction,
+    categories,
   } = useData();
 
   const [lcOpen, setLcOpen] = useState(false);
@@ -323,8 +325,26 @@ export default function Dashboard({
         label="충전 금액"
         defaultAmount={chargeLc?.monthlyCharge ?? 0}
         onConfirm={(amt) => {
-          if (chargeLc)
-            saveLocalCurrency({ ...chargeLc, balance: chargeLc.balance + amt });
+          if (!chargeLc) return;
+          saveLocalCurrency({ ...chargeLc, balance: chargeLc.balance + amt });
+          const fallbackCat = categories.find((c) => c.type === "expense");
+          const categoryId = chargeLc.defaultCategoryId ?? fallbackCat?.id ?? "";
+          saveTransaction({
+            id: "",
+            date: todayISO(),
+            amount: amt,
+            type: "expense",
+            categoryId,
+            memo: `${chargeLc.name} 충전`,
+            member: "chuchu",
+            paymentMethodId: chargeLc.defaultPaymentMethodId,
+            isSpecial: false,
+            habitTag: null,
+            source: "auto",
+            recurringId: null,
+            localCurrencyId: chargeLc.id,
+            isPaid: true,
+          });
         }}
       />
       <AmountSheet
