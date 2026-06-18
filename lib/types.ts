@@ -173,11 +173,12 @@ export interface BaechooMeal {
   memo: string | null;
 }
 
-// 건강 기록 — 병원·접종·약·증상·특이사항·양치·기타
+// 건강 기록 — 병원·접종·약·영양제·증상·특이사항·양치·기타
 export type HealthType =
   | "hospital"
   | "vaccine"
   | "medicine"
+  | "supplement"
   | "symptom"
   | "note"
   | "dental"
@@ -186,6 +187,7 @@ export const HEALTH_TYPE_LABEL: Record<HealthType, string> = {
   hospital: "병원",
   vaccine: "예방접종",
   medicine: "약",
+  supplement: "영양제",
   symptom: "증상",
   note: "특이사항",
   dental: "양치",
@@ -195,6 +197,7 @@ export const HEALTH_TYPES: HealthType[] = [
   "hospital",
   "vaccine",
   "medicine",
+  "supplement",
   "symptom",
   "note",
   "dental",

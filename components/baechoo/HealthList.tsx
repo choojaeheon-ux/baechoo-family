@@ -19,6 +19,7 @@ const TONE: Record<HealthType, "leaf" | "coral" | "stone" | "gold" | "sky"> = {
   hospital: "coral",
   vaccine: "sky",
   medicine: "coral",
+  supplement: "leaf",
   symptom: "gold",
   note: "stone",
   dental: "leaf",

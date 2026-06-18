@@ -203,7 +203,9 @@ export function HealthForm({
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
   const isDental = healthType === "dental";
-  const showNext = ["hospital", "vaccine", "medicine"].includes(healthType);
+  const showNext = ["hospital", "vaccine", "medicine", "supplement"].includes(
+    healthType
+  );
   const valid = title.trim().length > 0;
 
   const titleLabel =
@@ -213,6 +215,8 @@ export function HealthForm({
       ? "특이사항"
       : healthType === "dental"
       ? "양치 방법"
+      : healthType === "supplement"
+      ? "영양제 이름"
       : "내용";
   const titlePlaceholder =
     healthType === "symptom"
@@ -225,6 +229,8 @@ export function HealthForm({
       ? "예: 종합백신 3차"
       : healthType === "medicine"
       ? "예: 심장사상충 예방약"
+      : healthType === "supplement"
+      ? "예: 관절 영양제, 오메가3"
       : "내용을 적어주세요";
 
   async function submit() {
