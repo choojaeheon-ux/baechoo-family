@@ -27,6 +27,28 @@ function dotIcon(naver: NaverNS, color: string, size: number) {
   };
 }
 
+// 응가 마커 — 💩 아이콘, 상태는 테두리 색으로 구분
+function poopIcon(naver: NaverNS, color: string, size = 26) {
+  const half = size / 2;
+  return {
+    content: `<div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:#fff;border:2px solid ${color};box-shadow:0 1px 3px rgba(0,0,0,.3);font-size:${Math.round(
+      size * 0.6
+    )}px;line-height:1">💩</div>`,
+    anchor: new naver.maps.Point(half, half),
+  };
+}
+
+// 출발/도착 라벨 핀 — 점 위에 텍스트 배지가 떠 있는 형태
+function labelIcon(naver: NaverNS, text: string, bg: string) {
+  return {
+    content: `<div style="position:relative;width:14px;height:14px">
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></div>
+      <div style="position:absolute;left:50%;bottom:17px;transform:translateX(-50%);padding:1px 7px;border-radius:999px;background:${bg};color:#fff;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.3);font-family:system-ui,-apple-system,sans-serif">${text}</div>
+    </div>`,
+    anchor: new naver.maps.Point(7, 7),
+  };
+}
+
 // 강아지 발자국 아이콘 — 진행방향(bearing)으로 회전, 좌우 번갈아 오프셋
 function pawIcon(naver: NaverNS, bearingDeg: number, side: number) {
   const nudge = side % 2 === 0 ? -3 : 3;
@@ -81,23 +103,23 @@ function drawWalk(
         })
       );
     });
-    // 출발(초록)·도착(빨강) 점
+    // 출발·도착 라벨 핀
     overlays.push(
       new naver.maps.Marker({
         map,
         position: path[0],
-        icon: dotIcon(naver, "#5b8c3e", 12),
+        icon: labelIcon(naver, "출발", "#5b8c3e"),
         title: "출발",
-        zIndex: 50,
+        zIndex: 70,
       })
     );
     overlays.push(
       new naver.maps.Marker({
         map,
         position: path[path.length - 1],
-        icon: dotIcon(naver, "#d9534f", 12),
+        icon: labelIcon(naver, "도착", "#d9534f"),
         title: "도착",
-        zIndex: 50,
+        zIndex: 70,
       })
     );
   } else {
@@ -118,8 +140,9 @@ function drawWalk(
         new naver.maps.Marker({
           map,
           position: path[0],
-          icon: dotIcon(naver, "#5b8c3e", 12),
-          zIndex: 50,
+          icon: labelIcon(naver, "출발", "#5b8c3e"),
+          title: "출발",
+          zIndex: 70,
         })
       );
     }
@@ -133,7 +156,7 @@ function drawWalk(
       new naver.maps.Marker({
         map,
         position: new naver.maps.LatLng(s.lat, s.lng),
-        icon: dotIcon(naver, STOOL_COLOR[s.state] ?? "#9aa0a6", 14),
+        icon: poopIcon(naver, STOOL_COLOR[s.state] ?? "#9aa0a6"),
         title: STOOL_STATE_LABEL[s.state],
         zIndex: 60,
       })
