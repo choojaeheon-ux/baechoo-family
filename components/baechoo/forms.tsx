@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { todayISO } from "@/lib/format";
+import { todayISO, nowHHMM } from "@/lib/format";
 import {
   MEAL_TYPE_LABEL,
   HEALTH_TYPES,
@@ -10,14 +10,18 @@ import {
   EXAM_TYPE_LABEL,
   DENTAL_METHODS,
   CARE_ITEMS,
+  HEALTH_TODO_KIND_LABEL,
   type MealType,
   type HealthType,
   type ExamType,
+  type HealthTodoKind,
   type BaechooMeal,
   type BaechooHealth,
   type BaechooExam,
+  type BaechooHealthTodo,
 } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
+import CategorySelect from "./CategorySelect";
 
 // 토글 버튼 그룹 (식사/간식, 체중측정/관리 등)
 function Toggle<T extends string>({
@@ -74,7 +78,8 @@ export function MealForm({
   const { saveBaechooMeal, removeBaechooMeal } = useData();
   const [date, setDate] = useState(initial?.date ?? todayISO());
   const [mealType, setMealType] = useState<MealType>(initial?.mealType ?? "meal");
-  const [time, setTime] = useState(initial?.time ?? "");
+  // 신규 기록은 현재 시각을 기본값으로
+  const [time, setTime] = useState(initial?.time ?? (initial ? "" : nowHHMM()));
   const [content, setContent] = useState(initial?.content ?? "");
   const [topping, setTopping] = useState(initial?.topping ?? "");
   const [amount, setAmount] = useState(initial?.amount ?? "");
@@ -112,7 +117,7 @@ export function MealForm({
       </Field>
 
       <div className="flex gap-2">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <Field label="날짜">
             <input
               type="date"
@@ -122,7 +127,7 @@ export function MealForm({
             />
           </Field>
         </div>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <Field label="시간 (선택)">
             <input
               type="time"
@@ -135,22 +140,12 @@ export function MealForm({
       </div>
 
       <Field label={isMeal ? "사료종류" : "간식종류"}>
-        <input
-          className={inputCls}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={isMeal ? "예: 닭가슴살 사료" : "예: 북어트릿"}
-        />
+        <CategorySelect group="food" value={content} onChange={setContent} />
       </Field>
 
       {isMeal && (
         <Field label="토핑종류 (선택)">
-          <input
-            className={inputCls}
-            value={topping}
-            onChange={(e) => setTopping(e.target.value)}
-            placeholder="예: 황태채, 단호박"
-          />
+          <CategorySelect group="topping" value={topping} onChange={setTopping} />
         </Field>
       )}
 
@@ -346,19 +341,30 @@ export function ExamForm({
   onClose: () => void;
   initial?: BaechooExam;
 }) {
-  const { saveBaechooExam, removeBaechooExam } = useData();
+  const { saveBaechooExam, removeBaechooExam, baechooCategories } = useData();
   const [date, setDate] = useState(initial?.date ?? todayISO());
   const [examType, setExamType] = useState<ExamType>(initial?.examType ?? "measure");
-  const [weight, setWeight] = useState(
-    initial?.weight != null ? String(initial.weight) : ""
+  const [measureName, setMeasureName] = useState(
+    initial?.measureName ?? (initial?.weight != null ? "체중" : "체중")
+  );
+  const [valueStr, setValueStr] = useState(
+    initial?.value != null
+      ? String(initial.value)
+      : initial?.weight != null
+      ? String(initial.weight)
+      : ""
   );
   const [content, setContent] = useState(initial?.content ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
   const isMeasure = examType === "measure";
-  const weightNum = Number(weight);
+  const valueNum = Number(valueStr);
+  const unit =
+    baechooCategories.find(
+      (c) => c.group === "measure" && c.name === measureName
+    )?.unit ?? null;
   const valid = isMeasure
-    ? weight.trim().length > 0 && weightNum > 0
+    ? measureName.trim().length > 0 && valueStr.trim().length > 0 && valueNum > 0
     : content.trim().length > 0;
 
   function toggleCare(item: string) {
@@ -379,7 +385,10 @@ export function ExamForm({
       id: initial?.id ?? "",
       date,
       examType,
-      weight: isMeasure ? weightNum : null,
+      measureName: isMeasure ? measureName : null,
+      value: isMeasure ? valueNum : null,
+      unit: isMeasure ? unit : null,
+      weight: null, // deprecated — measureName/value로 대체
       content: isMeasure ? null : content.trim() || null,
       memo: memo.trim() || null,
     });
@@ -409,17 +418,33 @@ export function ExamForm({
       </Field>
 
       {isMeasure ? (
-        <Field label="체중 (kg)">
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            className={inputCls}
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="예: 4.2"
-          />
-        </Field>
+        <>
+          <Field label="측정항목">
+            <CategorySelect
+              group="measure"
+              value={measureName}
+              onChange={setMeasureName}
+            />
+          </Field>
+          <Field label={`측정값${unit ? ` (${unit})` : ""}`}>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                className={inputCls}
+                value={valueStr}
+                onChange={(e) => setValueStr(e.target.value)}
+                placeholder={measureName === "체중" ? "예: 4.2" : "예: 28"}
+              />
+              {unit && (
+                <span className="shrink-0 text-sm font-semibold text-stone">
+                  {unit}
+                </span>
+              )}
+            </div>
+          </Field>
+        </>
       ) : (
         <>
           <Field label="빠른 선택">
@@ -474,6 +499,94 @@ export function ExamForm({
         <DeleteButton
           onDelete={async () => {
             await removeBaechooExam(initial.id);
+            onClose();
+          }}
+        />
+      )}
+    </Sheet>
+  );
+}
+
+/* ───────────── 건강 투두 폼 ───────────── */
+export function HealthTodoForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: BaechooHealthTodo;
+}) {
+  const { saveBaechooHealthTodo, removeBaechooHealthTodo } = useData();
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [kind, setKind] = useState<HealthTodoKind>(initial?.kind ?? "once");
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? todayISO());
+
+  const isOnce = kind === "once";
+  const valid = title.trim().length > 0 && (!isOnce || dueDate);
+
+  async function submit() {
+    if (!valid) return;
+    await saveBaechooHealthTodo({
+      id: initial?.id ?? "",
+      title: title.trim(),
+      kind,
+      dueDate: isOnce ? dueDate : null,
+      done: initial?.done ?? false,
+      completedAt: initial?.completedAt ?? null,
+      doneDates: initial?.doneDates ?? [],
+    });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "할 일 수정" : "건강 할 일 추가"}>
+      <Field label="종류">
+        <Toggle
+          options={[
+            { id: "once", label: `${HEALTH_TODO_KIND_LABEL.once} (약·접종)` },
+            { id: "daily", label: `${HEALTH_TODO_KIND_LABEL.daily} (양치 등)` },
+          ]}
+          value={kind}
+          onChange={setKind}
+        />
+      </Field>
+
+      <Field label="할 일">
+        <input
+          className={inputCls}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={isOnce ? "예: 심장사상충 약, 종합백신 4차" : "예: 양치, 귀 세정"}
+        />
+      </Field>
+
+      {isOnce && (
+        <Field label="예정일">
+          <input
+            type="date"
+            className={inputCls}
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </Field>
+      )}
+
+      {!isOnce && (
+        <p className="mb-3 px-1 text-xs text-stone">
+          매일 할 일은 건강 탭 상단에서 그날그날 체크할 수 있어요.
+        </p>
+      )}
+
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <DeleteButton
+          onDelete={async () => {
+            await removeBaechooHealthTodo(initial.id);
             onClose();
           }}
         />

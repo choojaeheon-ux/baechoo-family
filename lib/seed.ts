@@ -1,4 +1,4 @@
-import type { Category, PaymentMethod } from "./types";
+import type { Category, PaymentMethod, BaechooCategory } from "./types";
 
 // 기본 카테고리 시드 (앱 최초 실행 시 자동 주입, 이후 관리 화면에서 수정)
 export const SEED_CATEGORIES: Category[] = [
@@ -23,4 +23,9 @@ export const SEED_CATEGORIES: Category[] = [
 export const SEED_PAYMENT_METHODS: PaymentMethod[] = [
   { id: "pm-cash", name: "현금", kind: "cash" },
   { id: "pm-account", name: "계좌이체", kind: "account" },
+];
+
+// 배추 측정항목 기본값 (체중만, 나머지는 직접 추가)
+export const SEED_BAECHOO_CATEGORIES: BaechooCategory[] = [
+  { id: "bcat-weight", group: "measure", name: "체중", unit: "kg" },
 ];

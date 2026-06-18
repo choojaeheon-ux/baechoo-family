@@ -30,22 +30,45 @@ function dateLabel(iso: string): string {
   return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))} (${weekdayKo(iso)})`;
 }
 
+// 측정 기록 한 줄 텍스트
+function measureText(r: BaechooExam): string {
+  if (r.examType === "measure")
+    return `${r.measureName ?? "측정"} ${r.value ?? ""}${r.unit ?? ""}`;
+  return r.content ?? "관리";
+}
+
 export default function ExamList() {
   const { baechooExams } = useData();
   const [form, setForm] = useState<{ open: boolean; initial?: BaechooExam }>({
     open: false,
   });
 
-  // 체중 추이 (측정 기록만, 날짜 오름차순)
-  const weightSeries = useMemo(
-    () =>
-      baechooExams
-        .filter((r) => r.examType === "measure" && r.weight != null)
-        .sort((a, b) => (a.date < b.date ? -1 : 1)),
-    [baechooExams]
-  );
+  // 측정항목별 추이 (값 있는 measure 기록)
+  const byMeasure = useMemo(() => {
+    const m = new Map<string, BaechooExam[]>();
+    for (const r of baechooExams) {
+      if (r.examType !== "measure" || r.value == null || !r.measureName) continue;
+      m.set(r.measureName, [...(m.get(r.measureName) ?? []), r]);
+    }
+    for (const [, arr] of m) arr.sort((a, b) => (a.date < b.date ? -1 : 1));
+    return m;
+  }, [baechooExams]);
 
-  const latest = weightSeries[weightSeries.length - 1];
+  // 2건 이상인 항목만 차트 대상
+  const chartable = useMemo(
+    () => [...byMeasure.entries()].filter(([, arr]) => arr.length >= 2).map(([k]) => k),
+    [byMeasure]
+  );
+  const [selMeasure, setSelMeasure] = useState<string | null>(null);
+  const activeMeasure =
+    selMeasure && chartable.includes(selMeasure)
+      ? selMeasure
+      : chartable.includes("체중")
+      ? "체중"
+      : chartable[0] ?? null;
+  const series = activeMeasure ? byMeasure.get(activeMeasure) ?? [] : [];
+  const unit = series[0]?.unit ?? "";
+  const latest = series[series.length - 1];
 
   // 전체 기록 날짜 내림차순 그룹
   const groups = useMemo(() => {
@@ -66,26 +89,44 @@ export default function ExamList() {
         + 신체검사 기록
       </button>
 
-      {/* 체중 추이 차트 */}
-      {weightSeries.length >= 2 && (
+      {/* 측정 추이 차트 */}
+      {activeMeasure && (
         <Card>
+          {chartable.length > 1 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {chartable.map((name) => (
+                <button
+                  key={name}
+                  onClick={() => setSelMeasure(name)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    activeMeasure === name
+                      ? "border-leaf bg-leaf text-white"
+                      : "border-line bg-cream text-stone"
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-bold text-ink">체중 추이</span>
+            <span className="text-sm font-bold text-ink">{activeMeasure} 추이</span>
             {latest && (
               <span className="text-sm font-bold text-leaf-dark">
-                최근 {latest.weight}kg
+                최근 {latest.value}
+                {unit}
               </span>
             )}
           </div>
           <div className="h-44">
             <Line
               data={{
-                labels: weightSeries.map(
+                labels: series.map(
                   (r) => `${Number(r.date.slice(5, 7))}/${Number(r.date.slice(8, 10))}`
                 ),
                 datasets: [
                   {
-                    data: weightSeries.map((r) => r.weight as number),
+                    data: series.map((r) => r.value as number),
                     borderColor: "#5b8c3e",
                     backgroundColor: "rgba(91,140,62,0.12)",
                     fill: true,
@@ -99,11 +140,11 @@ export default function ExamList() {
                 maintainAspectRatio: false,
                 plugins: {
                   legend: { display: false },
-                  tooltip: { callbacks: { label: (c) => ` ${c.parsed.y}kg` } },
+                  tooltip: {
+                    callbacks: { label: (c) => ` ${c.parsed.y}${unit}` },
+                  },
                 },
-                scales: {
-                  y: { ticks: { callback: (v) => `${v}kg` } },
-                },
+                scales: { y: { ticks: { callback: (v) => `${v}${unit}` } } },
               }}
             />
           </div>
@@ -129,9 +170,7 @@ export default function ExamList() {
                           {EXAM_TYPE_LABEL[r.examType]}
                         </Pill>
                         <span className="flex-1 truncate text-sm font-semibold text-ink">
-                          {r.examType === "measure"
-                            ? `${r.weight}kg`
-                            : r.content}
+                          {measureText(r)}
                         </span>
                       </div>
                       {r.memo && (

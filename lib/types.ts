@@ -212,10 +212,10 @@ export interface BaechooHealth {
   memo: string | null;
 }
 
-// 신체검사 — 체중측정 / 관리
+// 신체검사 — 측정 / 관리
 export type ExamType = "measure" | "care";
 export const EXAM_TYPE_LABEL: Record<ExamType, string> = {
-  measure: "체중측정",
+  measure: "측정",
   care: "관리",
 };
 // 관리 항목 빠른선택
@@ -225,9 +225,44 @@ export interface BaechooExam {
   id: string;
   date: string; // YYYY-MM-DD
   examType: ExamType;
-  weight: number | null; // kg (체중측정만)
+  measureName: string | null; // 측정 항목명 (체중·목둘레 등, 측정만)
+  value: number | null; // 측정값 (측정만)
+  unit: string | null; // 단위 (kg·cm 등, 측정만)
+  weight: number | null; // (deprecated) 구버전 호환 — measureName/value로 대체
   content: string | null; // 관리 내용 (관리만)
   memo: string | null;
+}
+
+// 편집 가능한 옵션 리스트 (사료종류·토핑종류·측정항목 공용)
+export type CategoryGroup = "food" | "topping" | "measure";
+export const CATEGORY_GROUP_LABEL: Record<CategoryGroup, string> = {
+  food: "사료종류",
+  topping: "토핑종류",
+  measure: "측정항목",
+};
+
+export interface BaechooCategory {
+  id: string;
+  group: CategoryGroup;
+  name: string;
+  unit: string | null; // measure만 사용 (kg·cm 등)
+}
+
+// 건강 투두 — once(약·접종 D-day) / daily(양치 등 매일 체크)
+export type HealthTodoKind = "once" | "daily";
+export const HEALTH_TODO_KIND_LABEL: Record<HealthTodoKind, string> = {
+  once: "예정일",
+  daily: "매일",
+};
+
+export interface BaechooHealthTodo {
+  id: string;
+  title: string;
+  kind: HealthTodoKind;
+  dueDate: string | null; // once: 예정일 (YYYY-MM-DD)
+  done: boolean; // once: 완료 여부
+  completedAt: string | null; // once: 완료일
+  doneDates: string[]; // daily: 체크된 날짜들
 }
 
 export interface DataSnapshot {
@@ -244,4 +279,6 @@ export interface DataSnapshot {
   baechooMeals: BaechooMeal[];
   baechooHealth: BaechooHealth[];
   baechooExams: BaechooExam[];
+  baechooCategories: BaechooCategory[];
+  baechooHealthTodos: BaechooHealthTodo[];
 }

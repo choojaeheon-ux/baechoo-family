@@ -1,6 +1,10 @@
 // 데이터 저장소 — Supabase 키가 있으면 클라우드, 없으면 localStorage
 import { getSupabase, hasSupabase } from "./supabase";
-import { SEED_CATEGORIES, SEED_PAYMENT_METHODS } from "./seed";
+import {
+  SEED_CATEGORIES,
+  SEED_PAYMENT_METHODS,
+  SEED_BAECHOO_CATEGORIES,
+} from "./seed";
 import type {
   Budget,
   Category,
@@ -19,9 +23,13 @@ import type {
   BaechooMeal,
   BaechooHealth,
   BaechooExam,
+  BaechooCategory,
+  BaechooHealthTodo,
   MealType,
   HealthType,
   ExamType,
+  CategoryGroup,
+  HealthTodoKind,
 } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
@@ -29,6 +37,14 @@ const LS_KEY = "baechoo-budget-v1";
 export function newId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// 구버전 localStorage 측정 기록(weight만 있음)을 measureName/value/unit로 승격
+function normalizeExam(x: BaechooExam): BaechooExam {
+  if (x.examType === "measure" && x.measureName == null && x.weight != null) {
+    return { ...x, measureName: "체중", value: x.weight, unit: "kg" };
+  }
+  return x;
 }
 
 /* ───────────── localStorage 어댑터 ───────────── */
@@ -42,6 +58,7 @@ function lsRead(): DataSnapshot {
         ...emptySnapshot(),
         categories: SEED_CATEGORIES,
         paymentMethods: SEED_PAYMENT_METHODS,
+        baechooCategories: SEED_BAECHOO_CATEGORIES,
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -60,7 +77,9 @@ function lsRead(): DataSnapshot {
       weekTodos: parsed.weekTodos ?? [],
       baechooMeals: parsed.baechooMeals ?? [],
       baechooHealth: parsed.baechooHealth ?? [],
-      baechooExams: parsed.baechooExams ?? [],
+      baechooExams: (parsed.baechooExams ?? []).map(normalizeExam),
+      baechooCategories: parsed.baechooCategories ?? SEED_BAECHOO_CATEGORIES,
+      baechooHealthTodos: parsed.baechooHealthTodos ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -87,6 +106,8 @@ function emptySnapshot(): DataSnapshot {
     baechooMeals: [],
     baechooHealth: [],
     baechooExams: [],
+    baechooCategories: [],
+    baechooHealthTodos: [],
   };
 }
 
@@ -331,22 +352,70 @@ const fromHealth = (x: BaechooHealth) => ({
   memo: x.memo,
 });
 
-// 배추 — 신체검사
-const toExam = (r: Record<string, unknown>): BaechooExam => ({
-  id: r.id as string,
-  date: r.date as string,
-  examType: (r.exam_type as ExamType) ?? "measure",
-  weight: r.weight == null ? null : Number(r.weight),
-  content: (r.content as string) ?? null,
-  memo: (r.memo as string) ?? null,
-});
+// 배추 — 신체검사 (체중→측정항목 일반화, 구버전 weight 호환)
+const toExam = (r: Record<string, unknown>): BaechooExam => {
+  const weight = r.weight == null ? null : Number(r.weight);
+  // measure_name 없는 구버전 행은 weight를 체중 측정으로 승격
+  const measureName =
+    (r.measure_name as string) ?? (weight != null ? "체중" : null);
+  const value = r.value == null ? weight : Number(r.value);
+  const unit = (r.unit as string) ?? (weight != null ? "kg" : null);
+  return {
+    id: r.id as string,
+    date: r.date as string,
+    examType: (r.exam_type as ExamType) ?? "measure",
+    measureName,
+    value,
+    unit,
+    weight,
+    content: (r.content as string) ?? null,
+    memo: (r.memo as string) ?? null,
+  };
+};
 const fromExam = (x: BaechooExam) => ({
   id: x.id,
   date: x.date,
   exam_type: x.examType,
+  measure_name: x.measureName,
+  value: x.value,
+  unit: x.unit,
   weight: x.weight,
   content: x.content,
   memo: x.memo,
+});
+
+// 배추 — 편집 카테고리 (사료·토핑·측정항목)
+const toBCat = (r: Record<string, unknown>): BaechooCategory => ({
+  id: r.id as string,
+  group: r.group as CategoryGroup,
+  name: r.name as string,
+  unit: (r.unit as string) ?? null,
+});
+const fromBCat = (x: BaechooCategory) => ({
+  id: x.id,
+  group: x.group,
+  name: x.name,
+  unit: x.unit,
+});
+
+// 배추 — 건강 투두
+const toHealthTodo = (r: Record<string, unknown>): BaechooHealthTodo => ({
+  id: r.id as string,
+  title: r.title as string,
+  kind: (r.kind as HealthTodoKind) ?? "once",
+  dueDate: (r.due_date as string) ?? null,
+  done: Boolean(r.done),
+  completedAt: (r.completed_at as string) ?? null,
+  doneDates: Array.isArray(r.done_dates) ? (r.done_dates as string[]) : [],
+});
+const fromHealthTodo = (x: BaechooHealthTodo) => ({
+  id: x.id,
+  title: x.title,
+  kind: x.kind,
+  due_date: x.dueDate,
+  done: x.done,
+  completed_at: x.completedAt,
+  done_dates: x.doneDates,
 });
 
 /* ───────────── 공개 API ───────────── */
@@ -368,6 +437,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     meals,
     healths,
     exams,
+    bcats,
+    htodos,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -382,6 +453,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_meals").select("*"),
     sb.from("baechoo_health").select("*"),
     sb.from("baechoo_exams").select("*"),
+    sb.from("baechoo_categories").select("*"),
+    sb.from("baechoo_health_todos").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -392,6 +465,13 @@ export async function loadAll(): Promise<DataSnapshot> {
   if (paymentMethods.length === 0) {
     await sb.from("payment_methods").insert(SEED_PAYMENT_METHODS.map(fromPm));
     paymentMethods = SEED_PAYMENT_METHODS;
+  }
+  let baechooCategories = (bcats.data ?? []).map(toBCat);
+  if (baechooCategories.length === 0) {
+    await sb
+      .from("baechoo_categories")
+      .insert(SEED_BAECHOO_CATEGORIES.map(fromBCat));
+    baechooCategories = SEED_BAECHOO_CATEGORIES;
   }
   return {
     categories,
@@ -407,6 +487,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooMeals: (meals.data ?? []).map(toMeal),
     baechooHealth: (healths.data ?? []).map(toHealth),
     baechooExams: (exams.data ?? []).map(toExam),
+    baechooCategories,
+    baechooHealthTodos: (htodos.data ?? []).map(toHealthTodo),
   };
 }
 
@@ -558,4 +640,30 @@ export async function saveBaechooExam(x: BaechooExam): Promise<BaechooExam> {
 export async function deleteBaechooExam(id: string) {
   if (hasSupabase) await sbDelete("baechoo_exams", id);
   else lsDelete("baechooExams", id);
+}
+
+export async function saveBaechooCategory(
+  x: BaechooCategory
+): Promise<BaechooCategory> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_categories", fromBCat(row));
+  else lsUpsert("baechooCategories", row);
+  return row;
+}
+export async function deleteBaechooCategory(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_categories", id);
+  else lsDelete("baechooCategories", id);
+}
+
+export async function saveBaechooHealthTodo(
+  x: BaechooHealthTodo
+): Promise<BaechooHealthTodo> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_health_todos", fromHealthTodo(row));
+  else lsUpsert("baechooHealthTodos", row);
+  return row;
+}
+export async function deleteBaechooHealthTodo(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_health_todos", id);
+  else lsDelete("baechooHealthTodos", id);
 }

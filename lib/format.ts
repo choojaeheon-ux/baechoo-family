@@ -18,6 +18,12 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
+// 현재 시각 "HH:MM" (식사 기록 시간 기본값용)
+export function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export function toISODate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
