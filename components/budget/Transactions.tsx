@@ -87,7 +87,11 @@ export default function Transactions({ ym }: { ym: string }) {
                       <span>{cat?.name}</span>
                       {pm && <span>· {pm.name}</span>}
                       {t.habitTag && <Pill tone="coral">{t.habitTag}</Pill>}
-                      {t.source === "auto" && <Pill tone="stone">고정</Pill>}
+                      {t.localCurrencyId ? (
+                        <Pill tone="leaf">충전</Pill>
+                      ) : (
+                        t.source === "auto" && <Pill tone="stone">고정</Pill>
+                      )}
                       <span>· {memberName(t.member)}</span>
                     </p>
                   </div>
