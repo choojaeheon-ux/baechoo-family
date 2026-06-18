@@ -143,7 +143,7 @@ export function Sheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 mx-auto w-full max-w-md rounded-t-3xl bg-card p-5 pb-8 shadow-2xl">
+      <div className="relative z-10 mx-auto w-full min-w-0 max-w-md overflow-hidden rounded-t-3xl bg-card p-5 pb-8 shadow-2xl">
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" />
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-bold text-ink">{title}</h3>
@@ -151,7 +151,9 @@ export function Sheet({
             ✕
           </button>
         </div>
-        <div className="max-h-[70dvh] overflow-y-auto">{children}</div>
+        <div className="max-h-[70dvh] overflow-y-auto overflow-x-hidden">
+          {children}
+        </div>
       </div>
     </div>
   );

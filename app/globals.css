@@ -52,9 +52,12 @@ button {
 }
 
 /* iOS Safari에서 date/time 입력이 고유 너비로 옆으로 늘어나는 것 방지.
-   min-width:auto(기본값) 때문에 width:100%여도 안 줄어들어 가로 넘침 발생 */
+   iOS는 appearance 기본값이면 width를 무시하므로 appearance:none 필수.
+   min-width:auto(기본값)도 0으로 낮춰 컨테이너 안으로 수축시킴 */
 input[type="date"],
 input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
   min-width: 0;
   max-width: 100%;
   width: 100%;
