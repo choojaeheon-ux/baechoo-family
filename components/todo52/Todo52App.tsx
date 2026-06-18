@@ -6,33 +6,45 @@ import {
   currentWeekNum,
   blockOfWeek,
   weeksInBlock,
+  weekLabel,
+  weekRange,
+  dday,
   TOTAL_BLOCKS,
 } from "@/lib/format";
 import type { WeekTodo } from "@/lib/types";
 import { ProgressBar } from "@/components/budget/ui";
-import WeekSection from "./WeekSection";
+import TodoGroup from "./TodoGroup";
 import { WeekTodoForm, TodoActionSheet } from "./forms";
+
+type View = "weeks" | "unscheduled";
 
 export default function Todo52App() {
   const { loading, mode, weekTodos } = useData();
   const year = new Date().getFullYear();
+  const [view, setView] = useState<View>("weeks");
   const [block, setBlock] = useState(blockOfWeek(currentWeekNum()));
-  const [form, setForm] = useState<{ open: boolean; initial?: WeekTodo; week: number }>(
-    { open: false, week: currentWeekNum() }
-  );
+  const [form, setForm] = useState<{
+    open: boolean;
+    initial?: WeekTodo;
+    week: number | null;
+  }>({ open: false, week: currentWeekNum() });
   const [actionTodo, setActionTodo] = useState<WeekTodo | null>(null);
 
   const weeks = weeksInBlock(block);
 
-  // 이 연도 할 일만, 주차별로 그룹
-  const byWeek = useMemo(() => {
+  // 이 연도 할 일만, 주차별로 그룹 (null = 날짜 미정)
+  const { byWeek, unscheduled } = useMemo(() => {
     const m = new Map<number, WeekTodo[]>();
+    const none: WeekTodo[] = [];
     for (const t of weekTodos) {
       if (t.year !== year) continue;
-      m.set(t.weekNum, [...(m.get(t.weekNum) ?? []), t]);
+      if (t.weekNum === null) none.push(t);
+      else m.set(t.weekNum, [...(m.get(t.weekNum) ?? []), t]);
     }
-    return m;
+    return { byWeek: m, unscheduled: none };
   }, [weekTodos, year]);
+
+  const unschedulePending = unscheduled.filter((t) => t.status === "pending").length;
 
   // 블록 진행률 (취소 제외, 완료/전체)
   const blockTodos = weeks.flatMap((w) => byWeek.get(w) ?? []);
@@ -58,60 +70,97 @@ export default function Todo52App() {
           </div>
         </div>
 
-        {/* 4주 블록 스위처 */}
-        <div className="flex items-center justify-center gap-3">
+        {/* 보기 토글 */}
+        <div className="mb-3 flex gap-1">
           <button
-            onClick={() => setBlock((b) => Math.max(b - 1, 1))}
-            disabled={block <= 1}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-stone hover:bg-leaf-light disabled:opacity-30"
+            onClick={() => setView("weeks")}
+            className={`flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              view === "weeks"
+                ? "bg-leaf text-white"
+                : "bg-card text-stone border border-line"
+            }`}
           >
-            ‹
+            주차별
           </button>
-          <span className="min-w-40 text-center text-base font-bold text-ink">
-            {year} · {first}~{last}주
-          </span>
           <button
-            onClick={() => setBlock((b) => Math.min(b + 1, TOTAL_BLOCKS))}
-            disabled={block >= TOTAL_BLOCKS}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-stone hover:bg-leaf-light disabled:opacity-30"
+            onClick={() => setView("unscheduled")}
+            className={`flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              view === "unscheduled"
+                ? "bg-leaf text-white"
+                : "bg-card text-stone border border-line"
+            }`}
           >
-            ›
+            날짜 미정{unschedulePending > 0 ? ` ${unschedulePending}` : ""}
           </button>
         </div>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="shrink-0 text-[11px] font-semibold text-stone">
-            블록 {block}/{TOTAL_BLOCKS}
-          </span>
-          <div className="flex-1">
-            <ProgressBar value={done} max={active.length} />
-          </div>
-          <span className="shrink-0 text-[11px] font-semibold text-leaf-dark tabular">
-            {done}/{active.length}
-          </span>
-        </div>
+
+        {/* 4주 블록 스위처 (주차별 보기에서만) */}
+        {view === "weeks" && (
+          <>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setBlock((b) => Math.max(b - 1, 1))}
+                disabled={block <= 1}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-stone hover:bg-leaf-light disabled:opacity-30"
+              >
+                ‹
+              </button>
+              <span className="min-w-40 text-center text-base font-bold text-ink">
+                {year} · {first}~{last}주
+              </span>
+              <button
+                onClick={() => setBlock((b) => Math.min(b + 1, TOTAL_BLOCKS))}
+                disabled={block >= TOTAL_BLOCKS}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-stone hover:bg-leaf-light disabled:opacity-30"
+              >
+                ›
+              </button>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="shrink-0 text-[11px] font-semibold text-stone">
+                블록 {block}/{TOTAL_BLOCKS}
+              </span>
+              <div className="flex-1">
+                <ProgressBar value={done} max={active.length} />
+              </div>
+              <span className="shrink-0 text-[11px] font-semibold text-leaf-dark tabular">
+                {done}/{active.length}
+              </span>
+            </div>
+          </>
+        )}
       </header>
 
       <div className="space-y-2 px-4 pt-2 pb-4">
         {loading ? (
           <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>
-        ) : (
+        ) : view === "weeks" ? (
           weeks.map((w) => (
-            <WeekSection
+            <TodoGroup
               key={w}
-              year={year}
-              weekNum={w}
+              title={weekLabel(year, w)}
+              muted={dday(weekRange(year, w)[1]) < 0}
               todos={byWeek.get(w) ?? []}
-              onAdd={(week) => setForm({ open: true, week })}
-              onEdit={(t) => setForm({ open: true, initial: t, week: t.weekNum })}
+              onAdd={() => setForm({ open: true, week: w })}
               onCheck={(t) => setActionTodo(t)}
+              onEdit={(t) => setForm({ open: true, initial: t, week: t.weekNum })}
             />
           ))
+        ) : (
+          <TodoGroup
+            title="날짜 미정"
+            todos={unscheduled}
+            onAdd={() => setForm({ open: true, week: null })}
+            onCheck={(t) => setActionTodo(t)}
+            onEdit={(t) => setForm({ open: true, initial: t, week: t.weekNum })}
+            emptyText="날짜 미정 할 일이 없어요. 추가하면 여기 모이고, 클릭해서 주차를 지정할 수 있어요."
+          />
         )}
       </div>
 
       {form.open && (
         <WeekTodoForm
-          key={form.initial?.id ?? `new-${form.week}`}
+          key={form.initial?.id ?? `new-${form.week ?? "none"}`}
           open={form.open}
           onClose={() => setForm((f) => ({ ...f, open: false }))}
           year={year}

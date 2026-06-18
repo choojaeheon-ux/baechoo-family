@@ -255,7 +255,7 @@ const fromGoal = (x: Goal) => ({
 const toWeekTodo = (r: Record<string, unknown>): WeekTodo => ({
   id: r.id as string,
   year: Number(r.year),
-  weekNum: Number(r.week_num),
+  weekNum: r.week_num == null ? null : Number(r.week_num),
   title: r.title as string,
   assignee: (r.assignee as TodoAssignee) ?? "together",
   dueDate: (r.due_date as string) ?? null,

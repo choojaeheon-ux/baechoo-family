@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { todayISO, weekLabel } from "@/lib/format";
+import { todayISO, weekLabel, currentWeekNum } from "@/lib/format";
 import {
   TODO_ASSIGNEES,
   type TodoAssignee,
@@ -23,7 +23,7 @@ export function WeekTodoForm({
   open: boolean;
   onClose: () => void;
   year: number;
-  defaultWeek: number;
+  defaultWeek: number | null;
   initial?: WeekTodo;
 }) {
   const { saveWeekTodo, removeWeekTodo } = useData();
@@ -31,7 +31,9 @@ export function WeekTodoForm({
   const [assignee, setAssignee] = useState<TodoAssignee>(
     initial?.assignee ?? "together"
   );
-  const [weekNum, setWeekNum] = useState(initial?.weekNum ?? defaultWeek);
+  const [weekNum, setWeekNum] = useState<number | null>(
+    initial?.weekNum ?? defaultWeek
+  );
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
@@ -87,9 +89,12 @@ export function WeekTodoForm({
       <Field label="주차">
         <select
           className={inputCls}
-          value={weekNum}
-          onChange={(e) => setWeekNum(Number(e.target.value))}
+          value={weekNum ?? "none"}
+          onChange={(e) =>
+            setWeekNum(e.target.value === "none" ? null : Number(e.target.value))
+          }
         >
+          <option value="none">날짜 미정</option>
           {WEEK_OPTIONS.map((w) => (
             <option key={w} value={w}>
               {weekLabel(year, w)}
@@ -150,11 +155,14 @@ export function TodoActionSheet({
 }) {
   const { saveWeekTodo } = useData();
   const [mode, setMode] = useState<"menu" | "defer">("menu");
-  const [newWeek, setNewWeek] = useState(todo?.weekNum ?? 1);
+  const [newWeek, setNewWeek] = useState(todo?.weekNum ?? currentWeekNum());
   const [newDue, setNewDue] = useState(todo?.dueDate ?? "");
 
   // todo가 바뀌면(시트 재오픈) 초기화 — key로 강제 리마운트(부모에서 처리)
   if (!todo) return null;
+
+  // 날짜 미정 항목이면 "미룸" 대신 "주차 지정"
+  const unscheduled = todo.weekNum === null;
 
   async function complete() {
     await saveWeekTodo({ ...todo!, status: "done", completedAt: todayISO() });
@@ -169,7 +177,8 @@ export function TodoActionSheet({
       ...todo!,
       weekNum: newWeek,
       dueDate: newDue || todo!.dueDate,
-      deferCount: todo!.deferCount + 1,
+      // 미정→주차 지정은 미룸 아님(횟수 유지), 기존 주차 변경은 미룸(횟수+1)
+      deferCount: todo!.weekNum === null ? todo!.deferCount : todo!.deferCount + 1,
       status: "pending",
     });
     onClose();
@@ -190,10 +199,14 @@ export function TodoActionSheet({
             onClick={() => setMode("defer")}
             className="flex w-full items-center gap-3 rounded-xl border border-line bg-cream px-4 py-3 text-left active:scale-[0.99]"
           >
-            <span className="text-xl">⏳</span>
+            <span className="text-xl">{unscheduled ? "📅" : "⏳"}</span>
             <div>
-              <p className="text-sm font-bold text-ink">미룸 (날짜 재지정)</p>
-              <p className="text-[11px] text-stone">다른 주차로 옮겨요</p>
+              <p className="text-sm font-bold text-ink">
+                {unscheduled ? "주차 지정" : "미룸 (날짜 재지정)"}
+              </p>
+              <p className="text-[11px] text-stone">
+                {unscheduled ? "할 일을 주차에 배치해요" : "다른 주차로 옮겨요"}
+              </p>
             </div>
           </button>
           <button
@@ -206,7 +219,7 @@ export function TodoActionSheet({
         </div>
       ) : (
         <div>
-          <Field label="옮길 주차">
+          <Field label={unscheduled ? "지정할 주차" : "옮길 주차"}>
             <select
               className={inputCls}
               value={newWeek}
@@ -228,7 +241,9 @@ export function TodoActionSheet({
             />
           </Field>
           <div className="mt-2">
-            <PrimaryButton onClick={applyDefer}>이 주차로 미루기</PrimaryButton>
+            <PrimaryButton onClick={applyDefer}>
+              {unscheduled ? "이 주차로 지정" : "이 주차로 미루기"}
+            </PrimaryButton>
           </div>
           <button
             onClick={() => setMode("menu")}

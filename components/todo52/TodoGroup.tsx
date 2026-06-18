@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { weekLabel, weekRange, ddayLabel, dday } from "@/lib/format";
+import { ddayLabel, dday } from "@/lib/format";
 import { todoAssigneeName, type WeekTodo } from "@/lib/types";
 import { Card, Pill } from "@/components/budget/ui";
 
@@ -67,28 +67,29 @@ function TodoRow({
   );
 }
 
-export default function WeekSection({
-  year,
-  weekNum,
+// 주차/날짜미정 공용 그룹 카드
+export default function TodoGroup({
+  title,
+  muted = false,
   todos,
   onAdd,
   onCheck,
   onEdit,
+  emptyText = "할 일이 없어요.",
 }: {
-  year: number;
-  weekNum: number;
+  title: string;
+  muted?: boolean;
   todos: WeekTodo[];
-  onAdd: (weekNum: number) => void;
+  onAdd: () => void;
   onCheck: (t: WeekTodo) => void;
   onEdit: (t: WeekTodo) => void;
+  emptyText?: string;
 }) {
   const { saveWeekTodo } = useData();
   const [showClosed, setShowClosed] = useState(false);
 
   const pending = todos.filter((t) => t.status === "pending");
   const closed = todos.filter((t) => t.status !== "pending");
-  const [, end] = weekRange(year, weekNum);
-  const isPast = dday(end) < 0;
 
   const revert = (t: WeekTodo) =>
     saveWeekTodo({ ...t, status: "pending", completedAt: null });
@@ -96,19 +97,16 @@ export default function WeekSection({
   return (
     <Card className="space-y-1">
       <div className="mb-1 flex items-center justify-between px-1">
-        <p className={`text-sm font-bold ${isPast ? "text-stone" : "text-ink"}`}>
-          {weekLabel(year, weekNum)}
+        <p className={`text-sm font-bold ${muted ? "text-stone" : "text-ink"}`}>
+          {title}
         </p>
-        <button
-          onClick={() => onAdd(weekNum)}
-          className="text-xs font-semibold text-leaf"
-        >
+        <button onClick={onAdd} className="text-xs font-semibold text-leaf">
           + 추가
         </button>
       </div>
 
       {pending.length === 0 && closed.length === 0 ? (
-        <p className="px-1 py-2 text-xs text-stone">할 일이 없어요.</p>
+        <p className="px-1 py-2 text-xs text-stone">{emptyText}</p>
       ) : (
         pending.map((t) => (
           <TodoRow
@@ -127,9 +125,7 @@ export default function WeekSection({
             onClick={() => setShowClosed((v) => !v)}
             className="flex w-full items-center justify-between px-1 py-1.5 text-xs font-semibold text-stone"
           >
-            <span>
-              완료·취소 {closed.length}개
-            </span>
+            <span>완료·취소 {closed.length}개</span>
             <span>{showClosed ? "▲" : "▼"}</span>
           </button>
           {showClosed &&

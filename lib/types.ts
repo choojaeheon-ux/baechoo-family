@@ -142,7 +142,7 @@ export const TODO_STATUS_LABEL: Record<TodoStatus, string> = {
 export interface WeekTodo {
   id: string;
   year: number;
-  weekNum: number; // 1-52
+  weekNum: number | null; // 1-52, null = 날짜 미정
   title: string; // 할 일 내용
   assignee: TodoAssignee;
   dueDate: string | null; // 언제까지 (YYYY-MM-DD)
