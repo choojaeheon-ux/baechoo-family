@@ -171,6 +171,7 @@ export function WalkSaveSheet({
           route={draft.route}
           stools={stools}
           isStatic
+          pawTrail
           className="mb-4 h-44 w-full overflow-hidden rounded-xl border border-line"
         />
       )}
@@ -336,6 +337,7 @@ export function WalkDetailSheet({
           route={walk.route}
           stools={stools}
           isStatic
+          pawTrail
           className="mb-4 h-48 w-full overflow-hidden rounded-xl border border-line"
         />
       )}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { STOOL_STATE_LABEL, type LatLng, type Stool } from "@/lib/types";
 import { loadNaverMaps } from "@/lib/naver-maps";
+import { routeDistance, pawPoints } from "@/lib/geo";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NaverNS = any;
@@ -26,6 +27,15 @@ function dotIcon(naver: NaverNS, color: string, size: number) {
   };
 }
 
+// 강아지 발자국 아이콘 — 진행방향(bearing)으로 회전, 좌우 번갈아 오프셋
+function pawIcon(naver: NaverNS, bearingDeg: number, side: number) {
+  const nudge = side % 2 === 0 ? -3 : 3;
+  return {
+    content: `<div style="font-size:15px;line-height:1;transform:rotate(${bearingDeg}deg) translateX(${nudge}px);transform-origin:center;filter:drop-shadow(0 0 1px rgba(0,0,0,.35))">🐾</div>`,
+    anchor: new naver.maps.Point(8, 8),
+  };
+}
+
 function drawWalk(
   naver: NaverNS,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,7 +45,8 @@ function drawWalk(
   route: LatLng[],
   stools: Stool[],
   live: boolean,
-  currentPos: LatLng | null
+  currentPos: LatLng | null,
+  pawTrail: boolean
 ) {
   // 기존 오버레이 제거
   overlays.forEach((o) => o.setMap(null));
@@ -43,27 +54,74 @@ function drawWalk(
 
   const path = route.map((p) => new naver.maps.LatLng(p.lat, p.lng));
 
-  if (path.length > 1) {
+  if (pawTrail && !live && path.length > 1) {
+    // 저장본: 강아지 발자국 트레일
+    // 흐린 점선 경로
     overlays.push(
       new naver.maps.Polyline({
         map,
         path,
         strokeColor: "#5b8c3e",
-        strokeWeight: 4,
-        strokeOpacity: 0.85,
+        strokeWeight: 3,
+        strokeOpacity: 0.3,
+        strokeStyle: "shortdash",
       })
     );
-  }
-  // 출발점
-  if (path.length > 0) {
+    // 발자국 (간격은 경로 길이에 비례, 최대 ~50개)
+    const total = routeDistance(route);
+    const interval = Math.max(14, total / 50);
+    pawPoints(route, interval).forEach((p, i) => {
+      overlays.push(
+        new naver.maps.Marker({
+          map,
+          position: new naver.maps.LatLng(p.lat, p.lng),
+          icon: pawIcon(naver, p.bearing, i),
+          zIndex: 40,
+        })
+      );
+    });
+    // 출발(초록)·도착(빨강) 점
     overlays.push(
       new naver.maps.Marker({
         map,
         position: path[0],
         icon: dotIcon(naver, "#5b8c3e", 12),
+        title: "출발",
         zIndex: 50,
       })
     );
+    overlays.push(
+      new naver.maps.Marker({
+        map,
+        position: path[path.length - 1],
+        icon: dotIcon(naver, "#d9534f", 12),
+        title: "도착",
+        zIndex: 50,
+      })
+    );
+  } else {
+    // 라이브/일반: 실선 경로 + 출발점
+    if (path.length > 1) {
+      overlays.push(
+        new naver.maps.Polyline({
+          map,
+          path,
+          strokeColor: "#5b8c3e",
+          strokeWeight: 4,
+          strokeOpacity: 0.85,
+        })
+      );
+    }
+    if (path.length > 0) {
+      overlays.push(
+        new naver.maps.Marker({
+          map,
+          position: path[0],
+          icon: dotIcon(naver, "#5b8c3e", 12),
+          zIndex: 50,
+        })
+      );
+    }
   }
   // 응가 마커 (위치 있는 것만)
   const stoolPts: LatLng[] = [];
@@ -121,6 +179,7 @@ export default function WalkMap({
   live = false,
   currentPos = null,
   isStatic = false,
+  pawTrail = false,
   className = "",
 }: {
   route: LatLng[];
@@ -128,6 +187,7 @@ export default function WalkMap({
   live?: boolean;
   currentPos?: LatLng | null;
   isStatic?: boolean;
+  pawTrail?: boolean;
   className?: string;
 }) {
   const divRef = useRef<HTMLDivElement>(null);
@@ -166,7 +226,7 @@ export default function WalkMap({
           zoomControl: false,
         });
         mapRef.current = map;
-        drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos);
+        drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail);
       } catch {
         if (!cancelled) setFailed(true);
       }
@@ -191,7 +251,7 @@ export default function WalkMap({
     const naver = naverRef.current;
     if (!map || !naver) return;
     try {
-      drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos);
+      drawWalk(naver, map, overlaysRef.current, route, stools, live, currentPos, pawTrail);
     } catch {
       setFailed(true);
     }
