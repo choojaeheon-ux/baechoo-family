@@ -119,6 +119,40 @@ export interface Coupon {
   used: boolean;
 }
 
+// 52주 투두 — 담당자(추추·배찌·함께)
+export type TodoAssignee = "chuchu" | "baejji" | "together";
+export const TODO_ASSIGNEES: { id: TodoAssignee; name: string; emoji: string }[] = [
+  { id: "chuchu", name: "추추", emoji: "🧑" },
+  { id: "baejji", name: "배찌", emoji: "👩" },
+  { id: "together", name: "함께", emoji: "👫" },
+];
+export function todoAssigneeName(id: TodoAssignee): string {
+  return TODO_ASSIGNEES.find((a) => a.id === id)?.name ?? id;
+}
+
+// 할 일 상태 — 진행/완료/취소 (미룸은 상태가 아니라 주 재지정 액션)
+export type TodoStatus = "pending" | "done" | "cancelled";
+export const TODO_STATUS_LABEL: Record<TodoStatus, string> = {
+  pending: "진행",
+  done: "완료",
+  cancelled: "취소",
+};
+
+// 52주 투두 1건 — 직접 선택한 주(weekNum)에 배치
+export interface WeekTodo {
+  id: string;
+  year: number;
+  weekNum: number; // 1-52
+  title: string; // 할 일 내용
+  assignee: TodoAssignee;
+  dueDate: string | null; // 언제까지 (YYYY-MM-DD)
+  memo: string | null; // 요청사항 메모
+  status: TodoStatus;
+  deferCount: number; // 미룸 횟수
+  createdAt: string; // YYYY-MM-DD
+  completedAt: string | null;
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -129,4 +163,5 @@ export interface DataSnapshot {
   localCurrencies: LocalCurrency[];
   rewardRules: RewardRule[];
   coupons: Coupon[];
+  weekTodos: WeekTodo[];
 }

@@ -13,6 +13,9 @@ import type {
   RecurringKind,
   RewardRule,
   Transaction,
+  TodoAssignee,
+  TodoStatus,
+  WeekTodo,
 } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
@@ -48,6 +51,7 @@ function lsRead(): DataSnapshot {
       localCurrencies: parsed.localCurrencies ?? [],
       rewardRules: parsed.rewardRules ?? [],
       coupons: parsed.coupons ?? [],
+      weekTodos: parsed.weekTodos ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -70,6 +74,7 @@ function emptySnapshot(): DataSnapshot {
     localCurrencies: [],
     rewardRules: [],
     coupons: [],
+    weekTodos: [],
   };
 }
 
@@ -247,22 +252,51 @@ const fromGoal = (x: Goal) => ({
   deadline: x.deadline,
 });
 
+const toWeekTodo = (r: Record<string, unknown>): WeekTodo => ({
+  id: r.id as string,
+  year: Number(r.year),
+  weekNum: Number(r.week_num),
+  title: r.title as string,
+  assignee: (r.assignee as TodoAssignee) ?? "together",
+  dueDate: (r.due_date as string) ?? null,
+  memo: (r.memo as string) ?? null,
+  status: (r.status as TodoStatus) ?? "pending",
+  deferCount: Number(r.defer_count ?? 0),
+  createdAt: (r.created_at as string) ?? "",
+  completedAt: (r.completed_at as string) ?? null,
+});
+const fromWeekTodo = (x: WeekTodo) => ({
+  id: x.id,
+  year: x.year,
+  week_num: x.weekNum,
+  title: x.title,
+  assignee: x.assignee,
+  due_date: x.dueDate,
+  memo: x.memo,
+  status: x.status,
+  defer_count: x.deferCount,
+  created_at: x.createdAt || null,
+  completed_at: x.completedAt,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
   if (!hasSupabase) return lsRead();
   const sb = getSupabase()!;
-  const [cats, pms, recs, txns, buds, goals, lcs, rules, coups] = await Promise.all([
-    sb.from("categories").select("*"),
-    sb.from("payment_methods").select("*"),
-    sb.from("recurring_expenses").select("*"),
-    sb.from("transactions").select("*"),
-    sb.from("budgets").select("*"),
-    sb.from("goals").select("*"),
-    sb.from("local_currencies").select("*"),
-    sb.from("reward_rules").select("*"),
-    sb.from("coupons").select("*"),
-  ]);
+  const [cats, pms, recs, txns, buds, goals, lcs, rules, coups, wtodos] =
+    await Promise.all([
+      sb.from("categories").select("*"),
+      sb.from("payment_methods").select("*"),
+      sb.from("recurring_expenses").select("*"),
+      sb.from("transactions").select("*"),
+      sb.from("budgets").select("*"),
+      sb.from("goals").select("*"),
+      sb.from("local_currencies").select("*"),
+      sb.from("reward_rules").select("*"),
+      sb.from("coupons").select("*"),
+      sb.from("week_todos").select("*"),
+    ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
     await sb.from("categories").insert(SEED_CATEGORIES.map(fromCat));
@@ -283,6 +317,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     localCurrencies: (lcs.data ?? []).map(toLc),
     rewardRules: (rules.data ?? []).map(toRule),
     coupons: (coups.data ?? []).map(toCoupon),
+    weekTodos: (wtodos.data ?? []).map(toWeekTodo),
   };
 }
 
@@ -390,4 +425,15 @@ export async function saveGoal(x: Goal): Promise<Goal> {
 export async function deleteGoal(id: string) {
   if (hasSupabase) await sbDelete("goals", id);
   else lsDelete("goals", id);
+}
+
+export async function saveWeekTodo(x: WeekTodo): Promise<WeekTodo> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("week_todos", fromWeekTodo(row));
+  else lsUpsert("weekTodos", row);
+  return row;
+}
+export async function deleteWeekTodo(id: string) {
+  if (hasSupabase) await sbDelete("week_todos", id);
+  else lsDelete("weekTodos", id);
 }

@@ -20,6 +20,7 @@ import type {
   RecurringExpense,
   RewardRule,
   Transaction,
+  WeekTodo,
 } from "./types";
 
 interface DataContextValue {
@@ -34,6 +35,7 @@ interface DataContextValue {
   localCurrencies: LocalCurrency[];
   rewardRules: RewardRule[];
   coupons: Coupon[];
+  weekTodos: WeekTodo[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -56,6 +58,8 @@ interface DataContextValue {
   removeRewardRule: (id: string) => Promise<void>;
   saveCoupon: (c: Coupon) => Promise<void>;
   removeCoupon: (id: string) => Promise<void>;
+  saveWeekTodo: (t: WeekTodo) => Promise<void>;
+  removeWeekTodo: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -71,6 +75,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [localCurrencies, setLocalCurrencies] = useState<LocalCurrency[]>([]);
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [weekTodos, setWeekTodos] = useState<WeekTodo[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -83,6 +88,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLocalCurrencies(snap.localCurrencies);
     setRewardRules(snap.rewardRules);
     setCoupons(snap.coupons);
+    setWeekTodos(snap.weekTodos);
   }, []);
 
   useEffect(() => {
@@ -133,6 +139,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       localCurrencies,
       rewardRules,
       coupons,
+      weekTodos,
       categoryById,
       paymentMethodById,
       refresh,
@@ -219,6 +226,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteCoupon(id);
         setCoupons((p) => p.filter((x) => x.id !== id));
       },
+      saveWeekTodo: async (t) => {
+        const saved = await repo.saveWeekTodo(t);
+        upsertLocal(setWeekTodos, saved);
+      },
+      removeWeekTodo: async (id) => {
+        await repo.deleteWeekTodo(id);
+        setWeekTodos((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -231,6 +246,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       localCurrencies,
       rewardRules,
       coupons,
+      weekTodos,
       categoryById,
       paymentMethodById,
       refresh,

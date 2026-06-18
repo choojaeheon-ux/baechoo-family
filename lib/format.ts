@@ -75,3 +75,66 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 export function weekdayKo(isoDate: string): string {
   return WEEKDAYS[new Date(isoDate).getDay()];
 }
+
+/* ───────────── 52주 (주차) 유틸 ─────────────
+   일요일 시작(기존 캘린더와 정합). week1 = 1/1이 속한 주(그 주 일요일부터).
+   1~52로 클램프 — week52가 12/31까지 흡수. */
+
+// 해당 날짜가 속한 주의 일요일
+function weekStart(d: Date): Date {
+  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  s.setDate(s.getDate() - s.getDay()); // 일요일로
+  return s;
+}
+
+// 연도의 1주차 시작(일요일)
+function yearWeek1Start(year: number): Date {
+  return weekStart(new Date(year, 0, 1));
+}
+
+// ISO 날짜 → 주차(1~52)
+export function weekNumOf(isoDate: string): number {
+  const d = new Date(isoDate);
+  const w1 = yearWeek1Start(d.getFullYear());
+  const diff = weekStart(d).getTime() - w1.getTime();
+  const n = Math.floor(diff / (7 * 86400000)) + 1;
+  return Math.min(Math.max(n, 1), 52);
+}
+
+export function currentWeekNum(): number {
+  return weekNumOf(todayISO());
+}
+
+// 주차 → [시작ISO, 끝ISO]. week52는 12/31까지 흡수(weekNumOf 클램프와 정합)
+export function weekRange(year: number, weekNum: number): [string, string] {
+  const start = yearWeek1Start(year);
+  start.setDate(start.getDate() + (weekNum - 1) * 7);
+  if (weekNum >= 52) {
+    return [toISODate(start), toISODate(new Date(year, 11, 31))];
+  }
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return [toISODate(start), toISODate(end)];
+}
+
+// "24주 (6/7~6/13)"
+export function weekLabel(year: number, weekNum: number): string {
+  const [s, e] = weekRange(year, weekNum);
+  const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}`;
+  return `${weekNum}주 (${md(s)}~${md(e)})`;
+}
+
+// 4주 블록 (1~13)
+export function blockOfWeek(weekNum: number): number {
+  return Math.ceil(weekNum / 4);
+}
+
+// 블록에 속한 주차 목록 (예: 6 → [21,22,23,24])
+export function weeksInBlock(block: number): number[] {
+  const start = (block - 1) * 4 + 1;
+  const out: number[] = [];
+  for (let w = start; w <= Math.min(block * 4, 52); w++) out.push(w);
+  return out;
+}
+
+export const TOTAL_BLOCKS = 13;
