@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description: "배추가족이 함께 쓰는 가계부 · 생활기록 앱",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-icon.png",
+    icon: "/icon-192-v2.png",
+    apple: "/apple-icon-v2.png",
   },
   appleWebApp: {
     capable: true,
