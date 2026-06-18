@@ -6,7 +6,6 @@ import { installmentStatus } from "@/lib/recurring";
 import { won } from "@/lib/format";
 import {
   PAYMENT_KIND_LABEL,
-  type LocalCurrency,
   type PaymentMethod,
   type RecurringExpense,
   type RecurringKind,
@@ -15,29 +14,20 @@ import { Card, SectionTitle, Empty, Pill } from "./ui";
 import {
   RecurringForm,
   PaymentMethodForm,
-  LocalCurrencyForm,
-  AmountSheet,
 } from "./forms";
 
 export default function FixedExpenses() {
   const {
     recurring,
     paymentMethods,
-    localCurrencies,
     categoryById,
     paymentMethodById,
-    saveLocalCurrency,
   } = useData();
   const [recOpen, setRecOpen] = useState(false);
   const [editRec, setEditRec] = useState<RecurringExpense | null>(null);
   const [recKind, setRecKind] = useState<RecurringKind>("fixed");
   const [pmOpen, setPmOpen] = useState(false);
   const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
-  const [lcOpen, setLcOpen] = useState(false);
-  const [editLc, setEditLc] = useState<LocalCurrency | null>(null);
-  const [chargeLc, setChargeLc] = useState<LocalCurrency | null>(null);
-  const [useLc, setUseLc] = useState<LocalCurrency | null>(null);
-
   const byKind = (k: RecurringKind) => recurring.filter((r) => r.kind === k);
 
   function openAdd(kind: RecurringKind) {
@@ -143,64 +133,6 @@ export default function FixedExpenses() {
         )}
       </Card>
 
-      {/* 지역화폐 */}
-      <SectionTitle
-        right={
-          <AddBtn
-            onClick={() => {
-              setEditLc(null);
-              setLcOpen(true);
-            }}
-          />
-        }
-      >
-        지역화폐
-      </SectionTitle>
-      <Card className="space-y-2">
-        {localCurrencies.length === 0 ? (
-          <Empty>온누리·경기지역화폐 등을 등록하고 매월 충전·잔액을 관리하세요.</Empty>
-        ) : (
-          localCurrencies.map((lc) => (
-            <div key={lc.id} className="rounded-xl bg-cream p-3">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    setEditLc(lc);
-                    setLcOpen(true);
-                  }}
-                  className="text-left"
-                >
-                  <p className="text-sm font-bold text-ink">🎟️ {lc.name}</p>
-                  <p className="text-[11px] text-stone">
-                    매월 충전 {won(lc.monthlyCharge)}
-                  </p>
-                </button>
-                <div className="text-right">
-                  <p className="text-[11px] text-stone">잔액(이월 포함)</p>
-                  <p className="text-lg font-extrabold tabular text-leaf-dark">
-                    {won(lc.balance)}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => setChargeLc(lc)}
-                  className="flex-1 rounded-lg bg-leaf py-1.5 text-xs font-semibold text-white active:scale-[0.98]"
-                >
-                  + 충전
-                </button>
-                <button
-                  onClick={() => setUseLc(lc)}
-                  className="flex-1 rounded-lg border border-line bg-card py-1.5 text-xs font-semibold text-stone active:scale-[0.98]"
-                >
-                  − 사용
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </Card>
-
       {/* 결제수단 관리 */}
       <SectionTitle
         right={
@@ -249,36 +181,6 @@ export default function FixedExpenses() {
           initial={editPm ?? undefined}
         />
       )}
-      {lcOpen && (
-        <LocalCurrencyForm
-          open={lcOpen}
-          onClose={() => setLcOpen(false)}
-          initial={editLc ?? undefined}
-        />
-      )}
-      <AmountSheet
-        key={`charge-${chargeLc?.id ?? "none"}`}
-        open={!!chargeLc}
-        onClose={() => setChargeLc(null)}
-        title={`${chargeLc?.name ?? ""} 충전`}
-        label="충전 금액"
-        defaultAmount={chargeLc?.monthlyCharge ?? 0}
-        onConfirm={(amt) => {
-          if (chargeLc)
-            saveLocalCurrency({ ...chargeLc, balance: chargeLc.balance + amt });
-        }}
-      />
-      <AmountSheet
-        key={`use-${useLc?.id ?? "none"}`}
-        open={!!useLc}
-        onClose={() => setUseLc(null)}
-        title={`${useLc?.name ?? ""} 사용`}
-        label="사용 금액"
-        onConfirm={(amt) => {
-          if (useLc)
-            saveLocalCurrency({ ...useLc, balance: Math.max(useLc.balance - amt, 0) });
-        }}
-      />
     </div>
   );
 }
