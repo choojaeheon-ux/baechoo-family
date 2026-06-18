@@ -141,8 +141,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         upsertLocal(setTransactions, saved);
       },
       removeTransaction: async (id) => {
+        const tx = transactions.find((t) => t.id === id);
         await repo.deleteTransaction(id);
         setTransactions((p) => p.filter((x) => x.id !== id));
+        if (tx?.localCurrencyId) {
+          const lc = localCurrencies.find((l) => l.id === tx.localCurrencyId);
+          if (lc) {
+            const saved = await repo.saveLocalCurrency({
+              ...lc,
+              balance: Math.max(lc.balance - tx.amount, 0),
+            });
+            upsertLocal(setLocalCurrencies, saved);
+          }
+        }
       },
       saveRecurring: async (r) => {
         const saved = await repo.saveRecurring(r);
