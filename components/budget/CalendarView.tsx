@@ -11,10 +11,16 @@ import {
   currentYearMonth,
   ddayLabel,
   dday,
+  weekdayKo,
 } from "@/lib/format";
 import { Card, SectionTitle, Pill, Empty, ProgressBar } from "./ui";
-import type { Member, RewardRule } from "@/lib/types";
-import { RewardRuleForm } from "./forms";
+import {
+  memberName,
+  type Member,
+  type RewardRule,
+  type Transaction,
+} from "@/lib/types";
+import { RewardRuleForm, TransactionForm } from "./forms";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -23,6 +29,7 @@ export default function CalendarView({ ym }: { ym: string }) {
     recurring,
     transactions,
     categoryById,
+    paymentMethodById,
     rewardRules,
     coupons,
     saveTransaction,
@@ -41,6 +48,13 @@ export default function CalendarView({ ym }: { ym: string }) {
   const [member, setMember] = useState<Member>("chuchu");
   const [ruleOpen, setRuleOpen] = useState(false);
   const [editRule, setEditRule] = useState<RewardRule | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [editTxn, setEditTxn] = useState<Transaction | null>(null);
+
+  // 월이 바뀌면 선택 해제 (다른 달의 잘못된 날짜 표시 방지)
+  useEffect(() => {
+    setSelectedDay(null);
+  }, [ym]);
 
   // 무지출 집계
   const noSpend = noSpendInfo(transactions, ym);
@@ -116,6 +130,27 @@ export default function CalendarView({ ym }: { ym: string }) {
     monthTxns.filter((t) => t.isSpecial).map((t) => Number(t.date.slice(8)))
   );
 
+  // 날짜별 거래 목록 (선택한 날 상세 패널용)
+  const txnsByDay = new Map<number, Transaction[]>();
+  for (const t of monthTxns) {
+    const day = Number(t.date.slice(8));
+    txnsByDay.set(day, [...(txnsByDay.get(day) ?? []), t]);
+  }
+  const selectedTxns = selectedDay
+    ? (txnsByDay.get(selectedDay) ?? []).sort(
+        (a, b) => b.id.localeCompare(a.id)
+      )
+    : [];
+  const selectedIso = selectedDay
+    ? `${ym}-${String(selectedDay).padStart(2, "0")}`
+    : null;
+  const selExpense = selectedTxns
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
+  const selIncome = selectedTxns
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + t.amount, 0);
+
   const cells: (number | null)[] = [
     ...Array(firstDow).fill(null),
     ...Array.from({ length: dim }, (_, i) => i + 1),
@@ -141,8 +176,15 @@ export default function CalendarView({ ym }: { ym: string }) {
             const allPaid = items.length > 0 && !hasUnpaid;
             const isToday = iso === today;
             const isNoSpend = noSpend.noSpendDays.has(day);
+            const isSelected = selectedDay === day;
             return (
-              <div key={day} className="flex flex-col items-center">
+              <button
+                key={day}
+                onClick={() =>
+                  setSelectedDay((prev) => (prev === day ? null : day))
+                }
+                className="flex flex-col items-center"
+              >
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
                     isToday
@@ -150,7 +192,7 @@ export default function CalendarView({ ym }: { ym: string }) {
                       : isNoSpend
                         ? "bg-leaf-light font-semibold text-leaf-dark"
                         : "text-ink"
-                  }`}
+                  } ${isSelected ? "ring-2 ring-leaf ring-offset-1" : ""}`}
                 >
                   {day}
                 </span>
@@ -174,7 +216,7 @@ export default function CalendarView({ ym }: { ym: string }) {
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
                   )}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -186,6 +228,77 @@ export default function CalendarView({ ym }: { ym: string }) {
           <Legend color="var(--color-leaf-light)" label="무지출" filled />
         </div>
       </Card>
+
+      {/* 선택한 날 거래 내역 */}
+      {selectedDay !== null && selectedIso && (
+        <Card className="space-y-1">
+          <div className="mb-1 flex items-center justify-between px-1">
+            <p className="text-sm font-bold text-ink">
+              {Number(selectedIso.slice(5, 7))}월 {selectedDay}일 (
+              {weekdayKo(selectedIso)})
+            </p>
+            <div className="flex items-center gap-2 text-xs font-semibold tabular">
+              {selIncome > 0 && (
+                <span className="text-sky">+{won(selIncome)}</span>
+              )}
+              {selExpense > 0 && (
+                <span className="text-coral">-{won(selExpense)}</span>
+              )}
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="text-stone"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          {selectedTxns.length === 0 ? (
+            <Empty>이 날은 거래 내역이 없어요.</Empty>
+          ) : (
+            selectedTxns.map((t) => {
+              const cat = categoryById(t.categoryId);
+              const pm = t.paymentMethodId
+                ? paymentMethodById(t.paymentMethodId)
+                : undefined;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setEditTxn(t)}
+                  className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
+                >
+                  <span className="text-xl">{cat?.icon ?? "•"}</span>
+                  <div className="flex-1">
+                    <p className="flex items-center gap-1 text-sm font-semibold text-ink">
+                      {t.isSpecial && <span title="특수지출">⭐</span>}
+                      {t.memo || cat?.name || "내역"}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
+                      <span>{cat?.name}</span>
+                      {pm && <span>· {pm.name}</span>}
+                      {t.habitTag && <Pill tone="coral">{t.habitTag}</Pill>}
+                      {t.localCurrencyId ? (
+                        <Pill tone="leaf">충전</Pill>
+                      ) : (
+                        t.source === "auto" && <Pill tone="stone">고정</Pill>
+                      )}
+                      <span>· {memberName(t.member)}</span>
+                    </p>
+                  </div>
+                  <span
+                    className={`text-sm font-bold tabular ${
+                      t.type === "income" ? "text-sky" : "text-ink"
+                    }`}
+                  >
+                    {t.type === "income" ? "+" : "-"}
+                    {won(t.amount)}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </Card>
+      )}
 
       {/* 무지출 챌린지 */}
       <SectionTitle
@@ -388,6 +501,14 @@ export default function CalendarView({ ym }: { ym: string }) {
           open={ruleOpen}
           onClose={() => setRuleOpen(false)}
           initial={editRule ?? undefined}
+        />
+      )}
+
+      {editTxn && (
+        <TransactionForm
+          open={!!editTxn}
+          onClose={() => setEditTxn(null)}
+          initial={editTxn ?? undefined}
         />
       )}
     </div>
