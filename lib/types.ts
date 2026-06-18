@@ -153,6 +153,83 @@ export interface WeekTodo {
   completedAt: string | null;
 }
 
+/* ───────────── 배추 생활기록부 ───────────── */
+
+// 식사/간식 기록
+export type MealType = "meal" | "snack";
+export const MEAL_TYPE_LABEL: Record<MealType, string> = {
+  meal: "식사",
+  snack: "간식",
+};
+
+export interface BaechooMeal {
+  id: string;
+  date: string; // YYYY-MM-DD
+  mealType: MealType;
+  time: string | null; // HH:MM
+  content: string; // 식사=사료종류, 간식=종류
+  topping: string | null; // 토핑종류 (식사만)
+  amount: string | null; // 실제로 먹은 양 (자유 텍스트)
+  memo: string | null;
+}
+
+// 건강 기록 — 병원·접종·약·증상·특이사항·양치·기타
+export type HealthType =
+  | "hospital"
+  | "vaccine"
+  | "medicine"
+  | "symptom"
+  | "note"
+  | "dental"
+  | "etc";
+export const HEALTH_TYPE_LABEL: Record<HealthType, string> = {
+  hospital: "병원",
+  vaccine: "예방접종",
+  medicine: "약",
+  symptom: "증상",
+  note: "특이사항",
+  dental: "양치",
+  etc: "기타",
+};
+export const HEALTH_TYPES: HealthType[] = [
+  "hospital",
+  "vaccine",
+  "medicine",
+  "symptom",
+  "note",
+  "dental",
+  "etc",
+];
+// 양치 방법 빠른선택
+export const DENTAL_METHODS = ["칫솔질", "양치껌"] as const;
+
+export interface BaechooHealth {
+  id: string;
+  date: string; // YYYY-MM-DD
+  healthType: HealthType;
+  title: string; // 내용 (증상·특이사항·양치 방법·검진명 등)
+  nextDate: string | null; // 다음 예정일 (재방문·다음 접종)
+  memo: string | null;
+}
+
+// 신체검사 — 체중측정 / 관리
+export type ExamType = "measure" | "care";
+export const EXAM_TYPE_LABEL: Record<ExamType, string> = {
+  measure: "체중측정",
+  care: "관리",
+};
+// 관리 항목 빠른선택
+export const CARE_ITEMS = ["빗질", "목욕", "발톱미용", "귀청소", "미용"] as const;
+
+export interface BaechooExam {
+  id: string;
+  date: string; // YYYY-MM-DD
+  examType: ExamType;
+  weight: number | null; // kg (체중측정만)
+  content: string | null; // 관리 내용 (관리만)
+  memo: string | null;
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -164,4 +241,7 @@ export interface DataSnapshot {
   rewardRules: RewardRule[];
   coupons: Coupon[];
   weekTodos: WeekTodo[];
+  baechooMeals: BaechooMeal[];
+  baechooHealth: BaechooHealth[];
+  baechooExams: BaechooExam[];
 }

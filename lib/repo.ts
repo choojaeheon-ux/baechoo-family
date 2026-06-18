@@ -16,6 +16,12 @@ import type {
   TodoAssignee,
   TodoStatus,
   WeekTodo,
+  BaechooMeal,
+  BaechooHealth,
+  BaechooExam,
+  MealType,
+  HealthType,
+  ExamType,
 } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
@@ -52,6 +58,9 @@ function lsRead(): DataSnapshot {
       rewardRules: parsed.rewardRules ?? [],
       coupons: parsed.coupons ?? [],
       weekTodos: parsed.weekTodos ?? [],
+      baechooMeals: parsed.baechooMeals ?? [],
+      baechooHealth: parsed.baechooHealth ?? [],
+      baechooExams: parsed.baechooExams ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -75,6 +84,9 @@ function emptySnapshot(): DataSnapshot {
     rewardRules: [],
     coupons: [],
     weekTodos: [],
+    baechooMeals: [],
+    baechooHealth: [],
+    baechooExams: [],
   };
 }
 
@@ -279,24 +291,98 @@ const fromWeekTodo = (x: WeekTodo) => ({
   completed_at: x.completedAt,
 });
 
+// 배추 — 식사/간식
+const toMeal = (r: Record<string, unknown>): BaechooMeal => ({
+  id: r.id as string,
+  date: r.date as string,
+  mealType: (r.meal_type as MealType) ?? "meal",
+  time: (r.time as string) ?? null,
+  content: (r.content as string) ?? "",
+  topping: (r.topping as string) ?? null,
+  amount: (r.amount as string) ?? null,
+  memo: (r.memo as string) ?? null,
+});
+const fromMeal = (x: BaechooMeal) => ({
+  id: x.id,
+  date: x.date,
+  meal_type: x.mealType,
+  time: x.time,
+  content: x.content,
+  topping: x.topping,
+  amount: x.amount,
+  memo: x.memo,
+});
+
+// 배추 — 건강
+const toHealth = (r: Record<string, unknown>): BaechooHealth => ({
+  id: r.id as string,
+  date: r.date as string,
+  healthType: (r.health_type as HealthType) ?? "etc",
+  title: (r.title as string) ?? "",
+  nextDate: (r.next_date as string) ?? null,
+  memo: (r.memo as string) ?? null,
+});
+const fromHealth = (x: BaechooHealth) => ({
+  id: x.id,
+  date: x.date,
+  health_type: x.healthType,
+  title: x.title,
+  next_date: x.nextDate,
+  memo: x.memo,
+});
+
+// 배추 — 신체검사
+const toExam = (r: Record<string, unknown>): BaechooExam => ({
+  id: r.id as string,
+  date: r.date as string,
+  examType: (r.exam_type as ExamType) ?? "measure",
+  weight: r.weight == null ? null : Number(r.weight),
+  content: (r.content as string) ?? null,
+  memo: (r.memo as string) ?? null,
+});
+const fromExam = (x: BaechooExam) => ({
+  id: x.id,
+  date: x.date,
+  exam_type: x.examType,
+  weight: x.weight,
+  content: x.content,
+  memo: x.memo,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
   if (!hasSupabase) return lsRead();
   const sb = getSupabase()!;
-  const [cats, pms, recs, txns, buds, goals, lcs, rules, coups, wtodos] =
-    await Promise.all([
-      sb.from("categories").select("*"),
-      sb.from("payment_methods").select("*"),
-      sb.from("recurring_expenses").select("*"),
-      sb.from("transactions").select("*"),
-      sb.from("budgets").select("*"),
-      sb.from("goals").select("*"),
-      sb.from("local_currencies").select("*"),
-      sb.from("reward_rules").select("*"),
-      sb.from("coupons").select("*"),
-      sb.from("week_todos").select("*"),
-    ]);
+  const [
+    cats,
+    pms,
+    recs,
+    txns,
+    buds,
+    goals,
+    lcs,
+    rules,
+    coups,
+    wtodos,
+    meals,
+    healths,
+    exams,
+  ] = await Promise.all([
+    sb.from("categories").select("*"),
+    sb.from("payment_methods").select("*"),
+    sb.from("recurring_expenses").select("*"),
+    sb.from("transactions").select("*"),
+    sb.from("budgets").select("*"),
+    sb.from("goals").select("*"),
+    sb.from("local_currencies").select("*"),
+    sb.from("reward_rules").select("*"),
+    sb.from("coupons").select("*"),
+    sb.from("week_todos").select("*"),
+    sb.from("baechoo_meals").select("*"),
+    sb.from("baechoo_health").select("*"),
+    sb.from("baechoo_exams").select("*"),
+  ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
     await sb.from("categories").insert(SEED_CATEGORIES.map(fromCat));
@@ -318,6 +404,9 @@ export async function loadAll(): Promise<DataSnapshot> {
     rewardRules: (rules.data ?? []).map(toRule),
     coupons: (coups.data ?? []).map(toCoupon),
     weekTodos: (wtodos.data ?? []).map(toWeekTodo),
+    baechooMeals: (meals.data ?? []).map(toMeal),
+    baechooHealth: (healths.data ?? []).map(toHealth),
+    baechooExams: (exams.data ?? []).map(toExam),
   };
 }
 
@@ -436,4 +525,37 @@ export async function saveWeekTodo(x: WeekTodo): Promise<WeekTodo> {
 export async function deleteWeekTodo(id: string) {
   if (hasSupabase) await sbDelete("week_todos", id);
   else lsDelete("weekTodos", id);
+}
+
+export async function saveBaechooMeal(x: BaechooMeal): Promise<BaechooMeal> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_meals", fromMeal(row));
+  else lsUpsert("baechooMeals", row);
+  return row;
+}
+export async function deleteBaechooMeal(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_meals", id);
+  else lsDelete("baechooMeals", id);
+}
+
+export async function saveBaechooHealth(x: BaechooHealth): Promise<BaechooHealth> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_health", fromHealth(row));
+  else lsUpsert("baechooHealth", row);
+  return row;
+}
+export async function deleteBaechooHealth(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_health", id);
+  else lsDelete("baechooHealth", id);
+}
+
+export async function saveBaechooExam(x: BaechooExam): Promise<BaechooExam> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_exams", fromExam(row));
+  else lsUpsert("baechooExams", row);
+  return row;
+}
+export async function deleteBaechooExam(id: string) {
+  if (hasSupabase) await sbDelete("baechoo_exams", id);
+  else lsDelete("baechooExams", id);
 }

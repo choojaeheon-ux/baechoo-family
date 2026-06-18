@@ -21,6 +21,9 @@ import type {
   RewardRule,
   Transaction,
   WeekTodo,
+  BaechooMeal,
+  BaechooHealth,
+  BaechooExam,
 } from "./types";
 
 interface DataContextValue {
@@ -36,6 +39,9 @@ interface DataContextValue {
   rewardRules: RewardRule[];
   coupons: Coupon[];
   weekTodos: WeekTodo[];
+  baechooMeals: BaechooMeal[];
+  baechooHealth: BaechooHealth[];
+  baechooExams: BaechooExam[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -60,6 +66,12 @@ interface DataContextValue {
   removeCoupon: (id: string) => Promise<void>;
   saveWeekTodo: (t: WeekTodo) => Promise<void>;
   removeWeekTodo: (id: string) => Promise<void>;
+  saveBaechooMeal: (m: BaechooMeal) => Promise<void>;
+  removeBaechooMeal: (id: string) => Promise<void>;
+  saveBaechooHealth: (h: BaechooHealth) => Promise<void>;
+  removeBaechooHealth: (id: string) => Promise<void>;
+  saveBaechooExam: (e: BaechooExam) => Promise<void>;
+  removeBaechooExam: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -76,6 +88,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [weekTodos, setWeekTodos] = useState<WeekTodo[]>([]);
+  const [baechooMeals, setBaechooMeals] = useState<BaechooMeal[]>([]);
+  const [baechooHealth, setBaechooHealth] = useState<BaechooHealth[]>([]);
+  const [baechooExams, setBaechooExams] = useState<BaechooExam[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -89,6 +104,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setRewardRules(snap.rewardRules);
     setCoupons(snap.coupons);
     setWeekTodos(snap.weekTodos);
+    setBaechooMeals(snap.baechooMeals);
+    setBaechooHealth(snap.baechooHealth);
+    setBaechooExams(snap.baechooExams);
   }, []);
 
   useEffect(() => {
@@ -140,6 +158,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       rewardRules,
       coupons,
       weekTodos,
+      baechooMeals,
+      baechooHealth,
+      baechooExams,
       categoryById,
       paymentMethodById,
       refresh,
@@ -234,6 +255,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteWeekTodo(id);
         setWeekTodos((p) => p.filter((x) => x.id !== id));
       },
+      saveBaechooMeal: async (m) => {
+        const saved = await repo.saveBaechooMeal(m);
+        upsertLocal(setBaechooMeals, saved);
+      },
+      removeBaechooMeal: async (id) => {
+        await repo.deleteBaechooMeal(id);
+        setBaechooMeals((p) => p.filter((x) => x.id !== id));
+      },
+      saveBaechooHealth: async (h) => {
+        const saved = await repo.saveBaechooHealth(h);
+        upsertLocal(setBaechooHealth, saved);
+      },
+      removeBaechooHealth: async (id) => {
+        await repo.deleteBaechooHealth(id);
+        setBaechooHealth((p) => p.filter((x) => x.id !== id));
+      },
+      saveBaechooExam: async (e) => {
+        const saved = await repo.saveBaechooExam(e);
+        upsertLocal(setBaechooExams, saved);
+      },
+      removeBaechooExam: async (id) => {
+        await repo.deleteBaechooExam(id);
+        setBaechooExams((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -247,6 +292,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       rewardRules,
       coupons,
       weekTodos,
+      baechooMeals,
+      baechooHealth,
+      baechooExams,
       categoryById,
       paymentMethodById,
       refresh,
