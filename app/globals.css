@@ -60,7 +60,6 @@ input[type="time"] {
   appearance: none;
   min-width: 0;
   max-width: 100%;
-  width: 100%;
   box-sizing: border-box;
 }
 

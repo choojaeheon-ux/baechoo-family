@@ -106,7 +106,8 @@ export function StoolEditor({
           </select>
           <input
             type="time"
-            className={inputCls + " w-[92px] shrink-0 px-2 text-sm"}
+            className={inputCls + " shrink-0 px-2 text-sm"}
+            style={{ width: 118 }}
             value={s.time ?? ""}
             onChange={(e) => update(i, { time: e.target.value || null })}
           />
