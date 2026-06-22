@@ -134,6 +134,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       try {
         await refresh();
+        // 30일 지난 휴지통 항목 자동 비우기(실패해도 무시)
+        repo.purgeOldBaechooTrash().catch(() => {});
       } finally {
         setLoading(false);
       }

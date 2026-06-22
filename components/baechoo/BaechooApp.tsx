@@ -6,6 +6,7 @@ import MealList from "./MealList";
 import HealthList from "./HealthList";
 import ExamList from "./ExamList";
 import WalkList from "./WalkList";
+import TrashSheet from "./TrashSheet";
 
 type Tab = "meal" | "health" | "exam" | "walk";
 
@@ -19,6 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
 export default function BaechooApp() {
   const { loading, mode } = useData();
   const [tab, setTab] = useState<Tab>("meal");
+  const [trashOpen, setTrashOpen] = useState(false);
 
   return (
     <div>
@@ -34,6 +36,14 @@ export default function BaechooApp() {
               {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setTrashOpen(true)}
+            aria-label="휴지통"
+            className="ml-auto rounded-full border border-line bg-card px-3 py-1.5 text-[13px] font-semibold text-stone active:scale-95"
+          >
+            휴지통
+          </button>
         </div>
 
         {/* 서브탭 토글 */}
@@ -67,6 +77,8 @@ export default function BaechooApp() {
           <WalkList />
         )}
       </div>
+
+      <TrashSheet open={trashOpen} onClose={() => setTrashOpen(false)} />
     </div>
   );
 }

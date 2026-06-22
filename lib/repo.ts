@@ -478,12 +478,12 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("reward_rules").select("*"),
     sb.from("coupons").select("*"),
     sb.from("week_todos").select("*"),
-    sb.from("baechoo_meals").select("*"),
-    sb.from("baechoo_health").select("*"),
-    sb.from("baechoo_exams").select("*"),
+    sb.from("baechoo_meals").select("*").is("deleted_at", null),
+    sb.from("baechoo_health").select("*").is("deleted_at", null),
+    sb.from("baechoo_exams").select("*").is("deleted_at", null),
     sb.from("baechoo_categories").select("*"),
-    sb.from("baechoo_health_todos").select("*"),
-    sb.from("baechoo_walks").select("*"),
+    sb.from("baechoo_health_todos").select("*").is("deleted_at", null),
+    sb.from("baechoo_walks").select("*").is("deleted_at", null),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -527,6 +527,13 @@ async function sbUpsert(table: string, row: Record<string, unknown>) {
 }
 async function sbDelete(table: string, id: string) {
   await getSupabase()!.from(table).delete().eq("id", id);
+}
+// 소프트 삭제: 실제로 지우지 않고 deleted_at만 기록(휴지통)
+async function sbSoftDelete(table: string, id: string) {
+  await getSupabase()!
+    .from(table)
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
 }
 
 export async function saveCategory(c: Category): Promise<Category> {
@@ -646,7 +653,7 @@ export async function saveBaechooMeal(x: BaechooMeal): Promise<BaechooMeal> {
   return row;
 }
 export async function deleteBaechooMeal(id: string) {
-  if (hasSupabase) await sbDelete("baechoo_meals", id);
+  if (hasSupabase) await sbSoftDelete("baechoo_meals", id);
   else lsDelete("baechooMeals", id);
 }
 
@@ -657,7 +664,7 @@ export async function saveBaechooHealth(x: BaechooHealth): Promise<BaechooHealth
   return row;
 }
 export async function deleteBaechooHealth(id: string) {
-  if (hasSupabase) await sbDelete("baechoo_health", id);
+  if (hasSupabase) await sbSoftDelete("baechoo_health", id);
   else lsDelete("baechooHealth", id);
 }
 
@@ -668,7 +675,7 @@ export async function saveBaechooExam(x: BaechooExam): Promise<BaechooExam> {
   return row;
 }
 export async function deleteBaechooExam(id: string) {
-  if (hasSupabase) await sbDelete("baechoo_exams", id);
+  if (hasSupabase) await sbSoftDelete("baechoo_exams", id);
   else lsDelete("baechooExams", id);
 }
 
@@ -694,7 +701,7 @@ export async function saveBaechooHealthTodo(
   return row;
 }
 export async function deleteBaechooHealthTodo(id: string) {
-  if (hasSupabase) await sbDelete("baechoo_health_todos", id);
+  if (hasSupabase) await sbSoftDelete("baechoo_health_todos", id);
   else lsDelete("baechooHealthTodos", id);
 }
 
@@ -705,6 +712,120 @@ export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {
   return row;
 }
 export async function deleteBaechooWalk(id: string) {
-  if (hasSupabase) await sbDelete("baechoo_walks", id);
+  if (hasSupabase) await sbSoftDelete("baechoo_walks", id);
   else lsDelete("baechooWalks", id);
+}
+
+/* ───────────── 휴지통 (소프트 삭제 항목) ───────────── */
+export type TrashKind = "meal" | "health" | "exam" | "healthTodo" | "walk";
+export interface TrashItem {
+  kind: TrashKind;
+  table: string;
+  id: string;
+  deletedAt: string;
+  label: string; // 종류 · 날짜 · 요점
+}
+
+const md = (iso?: string | null) =>
+  iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : "";
+
+// 휴지통 항목 전체 로드(삭제 시각 최신순)
+export async function loadBaechooTrash(): Promise<TrashItem[]> {
+  if (!hasSupabase) return [];
+  const sb = getSupabase()!;
+  const del = (table: string) =>
+    sb
+      .from(table)
+      .select("*")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false });
+  const [meals, healths, exams, htodos, walks] = await Promise.all([
+    del("baechoo_meals"),
+    del("baechoo_health"),
+    del("baechoo_exams"),
+    del("baechoo_health_todos"),
+    del("baechoo_walks"),
+  ]);
+  const items: TrashItem[] = [];
+  for (const r of meals.data ?? []) {
+    const m = toMeal(r);
+    items.push({
+      kind: "meal",
+      table: "baechoo_meals",
+      id: m.id,
+      deletedAt: r.deleted_at,
+      label: `식사 · ${md(m.date)} · ${m.content || "-"}`,
+    });
+  }
+  for (const r of healths.data ?? []) {
+    const h = toHealth(r);
+    items.push({
+      kind: "health",
+      table: "baechoo_health",
+      id: h.id,
+      deletedAt: r.deleted_at,
+      label: `건강 · ${md(h.date)} · ${h.title || "-"}`,
+    });
+  }
+  for (const r of exams.data ?? []) {
+    const e = toExam(r);
+    items.push({
+      kind: "exam",
+      table: "baechoo_exams",
+      id: e.id,
+      deletedAt: r.deleted_at,
+      label: `신체검사 · ${md(e.date)} · ${
+        e.measureName ?? e.content ?? "-"
+      }`,
+    });
+  }
+  for (const r of htodos.data ?? []) {
+    const t = toHealthTodo(r);
+    items.push({
+      kind: "healthTodo",
+      table: "baechoo_health_todos",
+      id: t.id,
+      deletedAt: r.deleted_at,
+      label: `할 일 · ${t.title || "-"}`,
+    });
+  }
+  for (const r of walks.data ?? []) {
+    const w = toWalk(r);
+    items.push({
+      kind: "walk",
+      table: "baechoo_walks",
+      id: w.id,
+      deletedAt: r.deleted_at,
+      label: `산책 · ${md(w.date)} · ${Math.round(w.distanceM)}m`,
+    });
+  }
+  items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
+  return items;
+}
+
+// 복원: deleted_at 제거
+export async function restoreBaechoo(table: string, id: string) {
+  if (hasSupabase)
+    await getSupabase()!.from(table).update({ deleted_at: null }).eq("id", id);
+}
+
+// 영구 삭제(휴지통에서 완전 제거)
+export async function hardDeleteBaechoo(table: string, id: string) {
+  if (hasSupabase) await getSupabase()!.from(table).delete().eq("id", id);
+}
+
+// 30일 지난 휴지통 항목 자동 비우기(앱 로드 시 호출)
+export async function purgeOldBaechooTrash(days = 30) {
+  if (!hasSupabase) return;
+  const sb = getSupabase()!;
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  await Promise.all(
+    [
+      "baechoo_meals",
+      "baechoo_health",
+      "baechoo_exams",
+      "baechoo_health_todos",
+      "baechoo_walks",
+    ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
+  );
 }

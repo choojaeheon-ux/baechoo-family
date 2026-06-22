@@ -33,10 +33,40 @@ function startHHMM(iso: string | null): string {
 }
 
 function DeleteButton({ onDelete }: { onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="mt-3 w-full py-2 text-sm text-coral"
+      >
+        삭제
+      </button>
+    );
+  }
   return (
-    <button onClick={onDelete} className="mt-3 w-full py-2 text-sm text-coral">
-      삭제
-    </button>
+    <div className="mt-3 space-y-1.5">
+      <p className="text-center text-xs text-stone">
+        삭제하면 휴지통으로 이동해요 (30일 후 자동 삭제)
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="flex-1 rounded-xl border border-line py-2 text-sm font-semibold text-stone"
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="flex-1 rounded-xl bg-coral py-2 text-sm font-bold text-white"
+        >
+          삭제 확정
+        </button>
+      </div>
+    </div>
   );
 }
 
