@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
 import { weekdayKo, currentYearMonth } from "@/lib/format";
 import { formatDuration, formatDistance } from "@/lib/geo";
@@ -50,6 +50,80 @@ function WalkCard({ r, onClick }: { r: BaechooWalk; onClick: () => void }) {
   );
 }
 
+// [임시 디버그] localStorage에 유실된 산책이 남아있는지 확인용. 확인 끝나면 제거.
+function DebugStorage() {
+  const [open, setOpen] = useState(false);
+  const [info, setInfo] = useState<string>("(불러오는 중…)");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    try {
+      const lines: string[] = [];
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) keys.push(k);
+      }
+      lines.push(`localStorage 키 ${keys.length}개:`);
+      for (const k of keys) {
+        const len = (localStorage.getItem(k) ?? "").length;
+        lines.push(`  • ${k} (${len.toLocaleString()}자)`);
+      }
+      lines.push("");
+
+      const raw = localStorage.getItem("baechoo-budget-v1");
+      if (!raw) {
+        lines.push('"baechoo-budget-v1" 키 없음 → 로컬에 저장된 데이터 없음');
+      } else {
+        const parsed = JSON.parse(raw);
+        const walks = Array.isArray(parsed?.baechooWalks)
+          ? parsed.baechooWalks
+          : [];
+        lines.push(`로컬 산책 기록: ${walks.length}건`);
+        for (const w of walks) {
+          lines.push(
+            `  - ${w.date} / ${Math.round(w.distanceM ?? 0)}m / ${
+              w.durationSec ?? 0
+            }초 / 응가 ${(w.stools ?? []).length} / start=${w.startTime ?? "-"}`
+          );
+        }
+      }
+      setInfo(lines.join("\n"));
+    } catch (e) {
+      setInfo("읽기 오류: " + String(e));
+    }
+  }, [open]);
+
+  return (
+    <div className="rounded-xl border border-dashed border-coral bg-coral-light/30 p-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-bold text-coral"
+      >
+        {open ? "▼" : "▶"} [임시 디버그] 로컬 저장소 확인
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-white p-2 text-[11px] leading-relaxed text-ink">
+            {info}
+          </pre>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard?.writeText(info);
+              setCopied(true);
+            }}
+            className="rounded-lg bg-coral px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            {copied ? "복사됨" : "전체 복사"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WalkList() {
   const { baechooWalks } = useData();
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -80,6 +154,8 @@ export default function WalkList() {
 
   return (
     <div className="space-y-4">
+      <DebugStorage />
+
       <div className="flex gap-2">
         <button
           onClick={() => setTracking(true)}
