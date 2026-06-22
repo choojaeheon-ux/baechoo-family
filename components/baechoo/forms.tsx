@@ -435,12 +435,17 @@ export function ExamForm({
           <Field label={`측정값${unit ? ` (${unit})` : ""}`}>
             <div className="flex items-center gap-2">
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
                 className={inputCls}
                 value={valueStr}
-                onChange={(e) => setValueStr(e.target.value)}
+                onChange={(e) =>
+                  setValueStr(
+                    e.target.value
+                      .replace(/[^0-9.]/g, "")
+                      .replace(/(\..*)\./g, "$1")
+                  )
+                }
                 placeholder={measureName === "체중" ? "예: 4.2" : "예: 28"}
               />
               {unit && (

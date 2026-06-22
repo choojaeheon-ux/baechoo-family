@@ -254,11 +254,13 @@ export function WalkManualForm({
         <div className="min-w-0 flex-1">
           <Field label="소요 (분)">
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
               className={inputCls}
               value={durationMin}
-              onChange={(e) => setDurationMin(e.target.value)}
+              onChange={(e) =>
+                setDurationMin(e.target.value.replace(/[^0-9]/g, ""))
+              }
               placeholder="예: 30"
             />
           </Field>
@@ -266,11 +268,17 @@ export function WalkManualForm({
         <div className="min-w-0 flex-1">
           <Field label="거리 (km, 선택)">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               className={inputCls}
               value={distanceKm}
-              onChange={(e) => setDistanceKm(e.target.value)}
+              onChange={(e) =>
+                setDistanceKm(
+                  e.target.value
+                    .replace(/[^0-9.]/g, "")
+                    .replace(/(\..*)\./g, "$1")
+                )
+              }
               placeholder="예: 1.2"
             />
           </Field>
