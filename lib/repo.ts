@@ -26,6 +26,7 @@ import type {
   BaechooCategory,
   BaechooHealthTodo,
   BaechooWalk,
+  UjuChecklist,
   LatLng,
   Stool,
   MealType,
@@ -84,6 +85,7 @@ function lsRead(): DataSnapshot {
       baechooCategories: parsed.baechooCategories ?? SEED_BAECHOO_CATEGORIES,
       baechooHealthTodos: parsed.baechooHealthTodos ?? [],
       baechooWalks: parsed.baechooWalks ?? [],
+      ujuChecklists: parsed.ujuChecklists ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -113,6 +115,7 @@ function emptySnapshot(): DataSnapshot {
     baechooCategories: [],
     baechooHealthTodos: [],
     baechooWalks: [],
+    ujuChecklists: [],
   };
 }
 
@@ -445,6 +448,26 @@ const fromWalk = (x: BaechooWalk) => ({
   memo: x.memo,
 });
 
+// 우주 — 체크리스트 (기한 D-day)
+const toUjuChecklist = (r: Record<string, unknown>): UjuChecklist => ({
+  id: r.id as string,
+  title: (r.title as string) ?? "",
+  dueDate: (r.due_date as string) ?? "",
+  done: Boolean(r.done),
+  completedAt: (r.completed_at as string) ?? null,
+  memo: (r.memo as string) ?? null,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromUjuChecklist = (x: UjuChecklist) => ({
+  id: x.id,
+  title: x.title,
+  due_date: x.dueDate,
+  done: x.done,
+  completed_at: x.completedAt,
+  memo: x.memo,
+  created_at: x.createdAt || null,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -467,6 +490,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     bcats,
     htodos,
     walks,
+    ujuChecks,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -484,6 +508,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_categories").select("*"),
     sb.from("baechoo_health_todos").select("*").is("deleted_at", null),
     sb.from("baechoo_walks").select("*").is("deleted_at", null),
+    sb.from("uju_checklists").select("*").is("deleted_at", null),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -519,6 +544,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooCategories,
     baechooHealthTodos: (htodos.data ?? []).map(toHealthTodo),
     baechooWalks: (walks.data ?? []).map(toWalk),
+    ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
   };
 }
 
@@ -716,8 +742,25 @@ export async function deleteBaechooWalk(id: string) {
   else lsDelete("baechooWalks", id);
 }
 
+export async function saveUjuChecklist(x: UjuChecklist): Promise<UjuChecklist> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("uju_checklists", fromUjuChecklist(row));
+  else lsUpsert("ujuChecklists", row);
+  return row;
+}
+export async function deleteUjuChecklist(id: string) {
+  if (hasSupabase) await sbSoftDelete("uju_checklists", id);
+  else lsDelete("ujuChecklists", id);
+}
+
 /* ───────────── 휴지통 (소프트 삭제 항목) ───────────── */
-export type TrashKind = "meal" | "health" | "exam" | "healthTodo" | "walk";
+export type TrashKind =
+  | "meal"
+  | "health"
+  | "exam"
+  | "healthTodo"
+  | "walk"
+  | "ujuChecklist";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -739,12 +782,13 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks] = await Promise.all([
+  const [meals, healths, exams, htodos, walks, ujuChecks] = await Promise.all([
     del("baechoo_meals"),
     del("baechoo_health"),
     del("baechoo_exams"),
     del("baechoo_health_todos"),
     del("baechoo_walks"),
+    del("uju_checklists"),
   ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
@@ -799,6 +843,16 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `산책 · ${md(w.date)} · ${Math.round(w.distanceM)}m`,
     });
   }
+  for (const r of ujuChecks.data ?? []) {
+    const c = toUjuChecklist(r);
+    items.push({
+      kind: "ujuChecklist",
+      table: "uju_checklists",
+      id: c.id,
+      deletedAt: r.deleted_at,
+      label: `체크리스트 · ${md(c.dueDate)} · ${c.title || "-"}`,
+    });
+  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -826,6 +880,7 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_exams",
       "baechoo_health_todos",
       "baechoo_walks",
+      "uju_checklists",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }

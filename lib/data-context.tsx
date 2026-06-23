@@ -27,6 +27,7 @@ import type {
   BaechooCategory,
   BaechooHealthTodo,
   BaechooWalk,
+  UjuChecklist,
 } from "./types";
 
 interface DataContextValue {
@@ -48,6 +49,7 @@ interface DataContextValue {
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
   baechooWalks: BaechooWalk[];
+  ujuChecklists: UjuChecklist[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -84,6 +86,8 @@ interface DataContextValue {
   removeBaechooHealthTodo: (id: string) => Promise<void>;
   saveBaechooWalk: (w: BaechooWalk) => Promise<void>;
   removeBaechooWalk: (id: string) => Promise<void>;
+  saveUjuChecklist: (c: UjuChecklist) => Promise<void>;
+  removeUjuChecklist: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -108,6 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     BaechooHealthTodo[]
   >([]);
   const [baechooWalks, setBaechooWalks] = useState<BaechooWalk[]>([]);
+  const [ujuChecklists, setUjuChecklists] = useState<UjuChecklist[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -127,6 +132,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooCategories(snap.baechooCategories);
     setBaechooHealthTodos(snap.baechooHealthTodos);
     setBaechooWalks(snap.baechooWalks);
+    setUjuChecklists(snap.ujuChecklists);
   }, []);
 
   useEffect(() => {
@@ -186,6 +192,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooCategories,
       baechooHealthTodos,
       baechooWalks,
+      ujuChecklists,
       categoryById,
       paymentMethodById,
       refresh,
@@ -328,6 +335,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteBaechooWalk(id);
         setBaechooWalks((p) => p.filter((x) => x.id !== id));
       },
+      saveUjuChecklist: async (c) => {
+        const saved = await repo.saveUjuChecklist(c);
+        upsertLocal(setUjuChecklists, saved);
+      },
+      removeUjuChecklist: async (id) => {
+        await repo.deleteUjuChecklist(id);
+        setUjuChecklists((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -347,6 +362,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooCategories,
       baechooHealthTodos,
       baechooWalks,
+      ujuChecklists,
       categoryById,
       paymentMethodById,
       refresh,

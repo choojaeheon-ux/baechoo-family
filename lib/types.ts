@@ -316,6 +316,19 @@ export interface BaechooWalk {
   memo: string | null;
 }
 
+/* ───────────── 우주 육아기록부 ───────────── */
+
+// 기한(D-day) 있는 체크리스트 항목 — 예방접종·출산 준비물 등 (개별 평면 항목)
+export interface UjuChecklist {
+  id: string;
+  title: string;
+  dueDate: string; // 기한 (YYYY-MM-DD, 절대 날짜)
+  done: boolean;
+  completedAt: string | null; // 완료일
+  memo: string | null;
+  createdAt: string; // YYYY-MM-DD
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -333,4 +346,5 @@ export interface DataSnapshot {
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
   baechooWalks: BaechooWalk[];
+  ujuChecklists: UjuChecklist[];
 }
