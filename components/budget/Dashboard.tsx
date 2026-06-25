@@ -41,6 +41,8 @@ export default function Dashboard({
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
+  const income = sumBy(monthTxns, "income");
+  const balance = income - expense;
   const budget = totalBudget(budgets, ym);
   const remaining = budget - expense;
 
@@ -53,6 +55,18 @@ export default function Dashboard({
 
   return (
     <div className="space-y-1 pb-4">
+      {/* 이번 달 수입·지출 요약 */}
+      <SectionTitle>이번 달 수입·지출</SectionTitle>
+      <div className="grid grid-cols-3 gap-2">
+        <Stat label="수입" value={won(income)} tone="text-sky" />
+        <Stat label="지출" value={won(expense)} tone="text-coral" />
+        <Stat
+          label="잔액"
+          value={won(balance)}
+          tone={balance >= 0 ? "text-leaf-dark" : "text-coral"}
+        />
+      </div>
+
       {/* 예산 요약 */}
       <SectionTitle
         right={

@@ -35,7 +35,7 @@ export default function Transactions({ ym }: { ym: string }) {
       <div className="mt-3 grid grid-cols-3 gap-2">
         <SummaryBox label="수입" value={won(income)} tone="text-sky" />
         <SummaryBox label="지출" value={won(expense)} tone="text-coral" />
-        <SummaryBox label="합계" value={won(income - expense)} tone="text-ink" />
+        <SummaryBox label="잔액" value={won(income - expense)} tone="text-ink" />
       </div>
 
       <div className="flex gap-1">
