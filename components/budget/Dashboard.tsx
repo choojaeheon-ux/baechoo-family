@@ -58,9 +58,9 @@ export default function Dashboard({
       {/* 이번 달 수입·지출 요약 */}
       <SectionTitle>이번 달 수입·지출</SectionTitle>
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="수입" value={won(income)} tone="text-sky" />
-        <Stat label="지출" value={won(expense)} tone="text-coral" />
-        <Stat
+        <SummaryBox label="수입" value={won(income)} tone="text-sky" />
+        <SummaryBox label="지출" value={won(expense)} tone="text-coral" />
+        <SummaryBox
           label="잔액"
           value={won(balance)}
           tone={balance >= 0 ? "text-leaf-dark" : "text-coral"}
@@ -372,6 +372,23 @@ export default function Dashboard({
             saveLocalCurrency({ ...useLc, balance: Math.max(useLc.balance - amt, 0) });
         }}
       />
+    </div>
+  );
+}
+
+function SummaryBox({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-card p-2.5 text-center">
+      <p className="text-[11px] text-stone">{label}</p>
+      <p className={`mt-0.5 text-sm font-bold tabular ${tone}`}>{value}</p>
     </div>
   );
 }
