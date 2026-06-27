@@ -11,14 +11,41 @@ import { TransactionForm } from "./forms";
 export default function Transactions({ ym }: { ym: string }) {
   const { transactions, categoryById, paymentMethodById } = useData();
   const [filter, setFilter] = useState<"all" | TxType>("all");
+  const [catFilter, setCatFilter] = useState<string | null>(null);
   const [edit, setEdit] = useState<Transaction | null>(null);
+
+  // 이번 달 + 타입 필터(전체/지출/수입)까지만 적용한 기준 목록 (카테고리 필터 전)
+  const typeTxns = useMemo(
+    () =>
+      monthTransactions(transactions, ym).filter(
+        (t) => filter === "all" || t.type === filter
+      ),
+    [transactions, ym, filter]
+  );
+
+  // 칩으로 보여줄 카테고리: 현재 타입 필터 안에서 거래가 있는 카테고리만, 금액 큰 순
+  const chipCats = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const t of typeTxns)
+      totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
+    return [...totals.entries()]
+      .map(([id, amt]) => ({ cat: categoryById(id), amt }))
+      .filter((r): r is { cat: NonNullable<typeof r.cat>; amt: number } => !!r.cat)
+      .sort((a, b) => b.amt - a.amt);
+  }, [typeTxns, categoryById]);
+
+  // 선택한 카테고리가 현재 칩 목록에 없으면(타입 필터 변경 등) 자동으로 전체 취급
+  const effCat =
+    catFilter !== null && chipCats.some((r) => r.cat.id === catFilter)
+      ? catFilter
+      : null;
 
   const monthTxns = useMemo(
     () =>
-      monthTransactions(transactions, ym)
-        .filter((t) => filter === "all" || t.type === filter)
+      typeTxns
+        .filter((t) => effCat === null || t.categoryId === effCat)
         .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
-    [transactions, ym, filter]
+    [typeTxns, effCat]
   );
 
   const grouped = useMemo(() => {
@@ -27,8 +54,14 @@ export default function Transactions({ ym }: { ym: string }) {
     return [...g.entries()];
   }, [monthTxns]);
 
-  const expense = sumBy(monthTransactions(transactions, ym), "expense");
-  const income = sumBy(monthTransactions(transactions, ym), "income");
+  // 요약(수입/지출/잔액): 카테고리 선택 시 그 카테고리 기준, 아니면 이번 달 전체
+  const summaryBase = useMemo(() => {
+    const all = monthTransactions(transactions, ym);
+    return effCat === null ? all : all.filter((t) => t.categoryId === effCat);
+  }, [transactions, ym, effCat]);
+
+  const expense = sumBy(summaryBase, "expense");
+  const income = sumBy(summaryBase, "income");
 
   return (
     <div className="space-y-2 pb-4">
@@ -51,6 +84,35 @@ export default function Transactions({ ym }: { ym: string }) {
           </button>
         ))}
       </div>
+
+      {chipCats.length > 0 && (
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
+          <button
+            onClick={() => setCatFilter(null)}
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition ${
+              effCat === null
+                ? "bg-leaf text-white"
+                : "bg-card border border-line text-stone"
+            }`}
+          >
+            전체
+          </button>
+          {chipCats.map(({ cat }) => (
+            <button
+              key={cat.id}
+              onClick={() => setCatFilter(cat.id)}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition ${
+                effCat === cat.id
+                  ? "bg-leaf text-white"
+                  : "bg-card border border-line text-stone"
+              }`}
+            >
+              {cat.icon ? `${cat.icon} ` : ""}
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {grouped.length === 0 ? (
         <Card>
