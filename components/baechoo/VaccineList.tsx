@@ -5,7 +5,8 @@ import { useData } from "@/lib/data-context";
 import { todayISO, addMonths, dday, ddayLabel } from "@/lib/format";
 import { STANDARD_VACCINES, type BaechooVaccine } from "@/lib/types";
 import { Card, Pill, SectionTitle } from "@/components/budget/ui";
-import { VaccineForm } from "./forms";
+import { VaccineDetailSheet } from "./forms";
+import { latestDose, nextDoseNumber } from "@/lib/vaccine";
 
 // 체크 동그라미 (HealthTodos 패턴)
 function Check({ onClick }: { onClick: () => void }) {
@@ -38,14 +39,13 @@ export default function VaccineList() {
     [baechooVaccines]
   );
 
-  // 체크 = 오늘 접종 기록 + 다음 예정일 +interval개월
+  // 빠른 기록: 다음 차수를 오늘 날짜로 추가 + 다음 예정일 = 오늘+주기
   async function complete(v: BaechooVaccine) {
     const today = todayISO();
     await saveBaechooVaccine({
       ...v,
-      lastDone: today,
+      doses: [...v.doses, { n: nextDoseNumber(v.doses), date: today }],
       nextDue: addMonths(today, v.intervalMonths),
-      history: [...v.history, today],
     });
   }
 
@@ -59,10 +59,9 @@ export default function VaccineList() {
         await saveBaechooVaccine({
           id: "",
           name,
-          lastDone: null,
           nextDue: null,
           intervalMonths: 12,
-          history: [],
+          doses: [],
           memo: null,
           createdAt: todayISO(),
         });
@@ -97,7 +96,7 @@ export default function VaccineList() {
             disabled={seeding}
             className="mt-2 w-full rounded-xl border border-dashed border-leaf bg-leaf-light/40 py-2.5 text-sm font-bold text-leaf-dark active:scale-[0.99] disabled:opacity-50"
           >
-            표준 백신 추가 (종합·코로나·켄넬코프·인플루엔자·광견병)
+            표준 백신 추가 (배추 정기 7종)
           </button>
         </Card>
       ) : (
@@ -105,6 +104,7 @@ export default function VaccineList() {
           <div className="space-y-2">
             {sorted.map((v) => {
               const left = v.nextDue ? dday(v.nextDue) : null;
+              const last = latestDose(v.doses);
               return (
                 <div key={v.id} className="flex items-center gap-3">
                   <Check onClick={() => complete(v)} />
@@ -116,13 +116,11 @@ export default function VaccineList() {
                       {v.name}
                     </span>
                     <span className="block text-[11px] text-stone">
-                      {v.lastDone
-                        ? `마지막 접종 ${v.lastDone}`
-                        : "접종 기록 없음"}
+                      {last ? `최근 ${last.n}차 · ${last.date}` : "접종 기록 없음"}
                     </span>
                   </button>
                   {left === null ? (
-                    <Pill tone="stone">미접종</Pill>
+                    <Pill tone="stone">{last ? "예정 없음" : "미접종"}</Pill>
                   ) : (
                     <Pill tone={left < 0 ? "coral" : left <= 30 ? "gold" : "stone"}>
                       {ddayLabel(v.nextDue!)}
@@ -136,7 +134,7 @@ export default function VaccineList() {
       )}
 
       {form.open && (
-        <VaccineForm
+        <VaccineDetailSheet
           key={form.initial?.id ?? "new"}
           open={form.open}
           onClose={() => setForm({ open: false })}

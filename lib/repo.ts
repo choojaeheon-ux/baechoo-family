@@ -28,6 +28,7 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
+  VaccineDose,
   LatLng,
   Stool,
   MealType,
@@ -471,24 +472,22 @@ const fromUjuChecklist = (x: UjuChecklist) => ({
   created_at: x.createdAt || null,
 });
 
-// 배추 — 예방접종 (history는 jsonb 배열)
+// 배추 — 예방접종 (doses는 jsonb 배열 [{n,date}])
 const toVaccine = (r: Record<string, unknown>): BaechooVaccine => ({
   id: r.id as string,
   name: (r.name as string) ?? "",
-  lastDone: (r.last_done as string) ?? null,
   nextDue: (r.next_due as string) ?? null,
   intervalMonths: Number(r.interval_months ?? 12),
-  history: Array.isArray(r.history) ? (r.history as string[]) : [],
+  doses: Array.isArray(r.doses) ? (r.doses as VaccineDose[]) : [],
   memo: (r.memo as string) ?? null,
   createdAt: (r.created_at as string) ?? "",
 });
 const fromVaccine = (x: BaechooVaccine) => ({
   id: x.id,
   name: x.name,
-  last_done: x.lastDone,
   next_due: x.nextDue,
   interval_months: x.intervalMonths,
-  history: x.history,
+  doses: x.doses,
   memo: x.memo,
   created_at: x.createdAt || null,
 });
