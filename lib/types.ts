@@ -316,6 +316,29 @@ export interface BaechooWalk {
   memo: string | null;
 }
 
+/* ───────────── 배추 예방접종 ───────────── */
+
+// 예방접종 — 매년 부스터(체크 시 접종일 기록 + 다음 예정일 +interval개월)
+export interface BaechooVaccine {
+  id: string;
+  name: string;
+  lastDone: string | null;    // 마지막 접종일 (YYYY-MM-DD, 미접종이면 null)
+  nextDue: string | null;     // 다음 예정일 (YYYY-MM-DD, 미접종이면 null)
+  intervalMonths: number;     // 추가접종 주기(개월, 기본 12)
+  history: string[];          // 접종일 누적 (YYYY-MM-DD 오름차순)
+  memo: string | null;
+  createdAt: string;          // YYYY-MM-DD
+}
+
+// 표준 성견 연례 백신 프리셋 ("표준 백신 추가" 버튼)
+export const STANDARD_VACCINES: string[] = [
+  "종합백신 (DHPPL)",
+  "코로나 장염",
+  "켄넬코프 (기관지염)",
+  "인플루엔자",
+  "광견병",
+];
+
 /* ───────────── 우주 육아기록부 ───────────── */
 
 // 기한(D-day) 있는 체크리스트 항목 — 예방접종·출산 준비물 등 (개별 평면 항목)
@@ -347,4 +370,5 @@ export interface DataSnapshot {
   baechooHealthTodos: BaechooHealthTodo[];
   baechooWalks: BaechooWalk[];
   ujuChecklists: UjuChecklist[];
+  baechooVaccines: BaechooVaccine[];
 }

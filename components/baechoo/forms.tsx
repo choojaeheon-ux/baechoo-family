@@ -19,6 +19,7 @@ import {
   type BaechooHealth,
   type BaechooExam,
   type BaechooHealthTodo,
+  type BaechooVaccine,
 } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 import CategorySelect from "./CategorySelect";
@@ -625,6 +626,111 @@ export function HealthTodoForm({
         <DeleteButton
           onDelete={async () => {
             await removeBaechooHealthTodo(initial.id);
+            onClose();
+          }}
+        />
+      )}
+    </Sheet>
+  );
+}
+
+/* ───────────── 예방접종 폼 ───────────── */
+export function VaccineForm({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: BaechooVaccine;
+}) {
+  const { saveBaechooVaccine, removeBaechooVaccine } = useData();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [lastDone, setLastDone] = useState(initial?.lastDone ?? "");
+  const [nextDue, setNextDue] = useState(initial?.nextDue ?? "");
+  const [interval, setInterval] = useState(String(initial?.intervalMonths ?? 12));
+  const [memo, setMemo] = useState(initial?.memo ?? "");
+
+  const valid = name.trim().length > 0;
+
+  async function submit() {
+    if (!valid) return;
+    const months = Number(interval) || 12;
+    await saveBaechooVaccine({
+      id: initial?.id ?? "",
+      name: name.trim(),
+      lastDone: lastDone || null,
+      nextDue: nextDue || null,
+      intervalMonths: months,
+      history: initial?.history ?? [],
+      memo: memo.trim() || null,
+      createdAt: initial?.createdAt ?? todayISO(),
+    });
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={initial ? "백신 수정" : "백신 추가"}>
+      <Field label="백신 이름">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 종합백신 (DHPPL), 광견병"
+        />
+      </Field>
+
+      <div className="flex gap-2">
+        <div className="min-w-0 flex-1">
+          <Field label="마지막 접종일 (선택)">
+            <input
+              type="date"
+              className={inputCls}
+              value={lastDone}
+              onChange={(e) => setLastDone(e.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="min-w-0 flex-1">
+          <Field label="다음 예정일 (선택)">
+            <input
+              type="date"
+              className={inputCls}
+              value={nextDue}
+              onChange={(e) => setNextDue(e.target.value)}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <Field label="추가접종 주기 (개월)">
+        <input
+          type="text"
+          className={inputCls}
+          inputMode="numeric"
+          value={interval}
+          onChange={(e) => setInterval(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="12"
+        />
+      </Field>
+
+      <Field label="메모 (선택)">
+        <input
+          className={inputCls}
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+        />
+      </Field>
+
+      <div className="mt-2">
+        <PrimaryButton onClick={submit} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      </div>
+      {initial && (
+        <DeleteButton
+          onDelete={async () => {
+            await removeBaechooVaccine(initial.id);
             onClose();
           }}
         />

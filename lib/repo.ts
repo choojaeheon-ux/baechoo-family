@@ -27,6 +27,7 @@ import type {
   BaechooHealthTodo,
   BaechooWalk,
   UjuChecklist,
+  BaechooVaccine,
   LatLng,
   Stool,
   MealType,
@@ -86,6 +87,7 @@ function lsRead(): DataSnapshot {
       baechooHealthTodos: parsed.baechooHealthTodos ?? [],
       baechooWalks: parsed.baechooWalks ?? [],
       ujuChecklists: parsed.ujuChecklists ?? [],
+      baechooVaccines: parsed.baechooVaccines ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -116,6 +118,7 @@ function emptySnapshot(): DataSnapshot {
     baechooHealthTodos: [],
     baechooWalks: [],
     ujuChecklists: [],
+    baechooVaccines: [],
   };
 }
 
@@ -468,6 +471,28 @@ const fromUjuChecklist = (x: UjuChecklist) => ({
   created_at: x.createdAt || null,
 });
 
+// 배추 — 예방접종 (history는 jsonb 배열)
+const toVaccine = (r: Record<string, unknown>): BaechooVaccine => ({
+  id: r.id as string,
+  name: (r.name as string) ?? "",
+  lastDone: (r.last_done as string) ?? null,
+  nextDue: (r.next_due as string) ?? null,
+  intervalMonths: Number(r.interval_months ?? 12),
+  history: Array.isArray(r.history) ? (r.history as string[]) : [],
+  memo: (r.memo as string) ?? null,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromVaccine = (x: BaechooVaccine) => ({
+  id: x.id,
+  name: x.name,
+  last_done: x.lastDone,
+  next_due: x.nextDue,
+  interval_months: x.intervalMonths,
+  history: x.history,
+  memo: x.memo,
+  created_at: x.createdAt || null,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -491,6 +516,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     htodos,
     walks,
     ujuChecks,
+    vaccines,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -509,6 +535,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_health_todos").select("*").is("deleted_at", null),
     sb.from("baechoo_walks").select("*").is("deleted_at", null),
     sb.from("uju_checklists").select("*").is("deleted_at", null),
+    sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -545,6 +572,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooHealthTodos: (htodos.data ?? []).map(toHealthTodo),
     baechooWalks: (walks.data ?? []).map(toWalk),
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
+    baechooVaccines: (vaccines.data ?? []).map(toVaccine),
   };
 }
 
@@ -753,6 +781,19 @@ export async function deleteUjuChecklist(id: string) {
   else lsDelete("ujuChecklists", id);
 }
 
+export async function saveBaechooVaccine(
+  x: BaechooVaccine
+): Promise<BaechooVaccine> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_vaccines", fromVaccine(row));
+  else lsUpsert("baechooVaccines", row);
+  return row;
+}
+export async function deleteBaechooVaccine(id: string) {
+  if (hasSupabase) await sbSoftDelete("baechoo_vaccines", id);
+  else lsDelete("baechooVaccines", id);
+}
+
 /* ───────────── 휴지통 (소프트 삭제 항목) ───────────── */
 export type TrashKind =
   | "meal"
@@ -760,7 +801,8 @@ export type TrashKind =
   | "exam"
   | "healthTodo"
   | "walk"
-  | "ujuChecklist";
+  | "ujuChecklist"
+  | "vaccine";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -782,14 +824,16 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks, ujuChecks] = await Promise.all([
-    del("baechoo_meals"),
-    del("baechoo_health"),
-    del("baechoo_exams"),
-    del("baechoo_health_todos"),
-    del("baechoo_walks"),
-    del("uju_checklists"),
-  ]);
+  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines] =
+    await Promise.all([
+      del("baechoo_meals"),
+      del("baechoo_health"),
+      del("baechoo_exams"),
+      del("baechoo_health_todos"),
+      del("baechoo_walks"),
+      del("uju_checklists"),
+      del("baechoo_vaccines"),
+    ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
     const m = toMeal(r);
@@ -853,6 +897,16 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `체크리스트 · ${md(c.dueDate)} · ${c.title || "-"}`,
     });
   }
+  for (const r of vaccines.data ?? []) {
+    const v = toVaccine(r);
+    items.push({
+      kind: "vaccine",
+      table: "baechoo_vaccines",
+      id: v.id,
+      deletedAt: r.deleted_at,
+      label: `예방접종 · ${v.name || "-"}`,
+    });
+  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -881,6 +935,7 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_health_todos",
       "baechoo_walks",
       "uju_checklists",
+      "baechoo_vaccines",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }
