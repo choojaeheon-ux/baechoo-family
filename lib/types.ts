@@ -318,25 +318,32 @@ export interface BaechooWalk {
 
 /* ───────────── 배추 예방접종 ───────────── */
 
-// 예방접종 — 매년 부스터(체크 시 접종일 기록 + 다음 예정일 +interval개월)
+// 차수별 접종 기록
+export interface VaccineDose {
+  n: number;      // 차수 (1, 2, ... 비연속 가능)
+  date: string;   // 접종일 (YYYY-MM-DD)
+}
+
+// 예방접종 — 백신별 차수 기록. 최근 접종일은 doses에서 파생.
 export interface BaechooVaccine {
   id: string;
   name: string;
-  lastDone: string | null;    // 마지막 접종일 (YYYY-MM-DD, 미접종이면 null)
-  nextDue: string | null;     // 다음 예정일 (YYYY-MM-DD, 미접종이면 null)
+  nextDue: string | null;     // 다음 예정일 (YYYY-MM-DD, 없으면 null)
   intervalMonths: number;     // 추가접종 주기(개월, 기본 12)
-  history: string[];          // 접종일 누적 (YYYY-MM-DD 오름차순)
+  doses: VaccineDose[];       // 차수별 접종 기록
   memo: string | null;
   createdAt: string;          // YYYY-MM-DD
 }
 
-// 표준 성견 연례 백신 프리셋 ("표준 백신 추가" 버튼)
+// 표준 백신 프리셋 ("표준 백신 추가" 버튼) — 배추 정기 7종
 export const STANDARD_VACCINES: string[] = [
-  "종합백신 (DHPPL)",
-  "코로나 장염",
-  "켄넬코프 (기관지염)",
-  "인플루엔자",
-  "광견병",
+  "켄넬코프백신",
+  "코로나장염백신",
+  "종합백신",
+  "광견병백신",
+  "심장사상충",
+  "외부기생충",
+  "신종인플루엔자백신",
 ];
 
 /* ───────────── 우주 육아기록부 ───────────── */
