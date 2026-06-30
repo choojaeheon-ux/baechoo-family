@@ -705,6 +705,7 @@ export function VaccineForm({
 
       <Field label="추가접종 주기 (개월)">
         <input
+          type="text"
           className={inputCls}
           inputMode="numeric"
           value={interval}

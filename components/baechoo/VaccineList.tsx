@@ -19,10 +19,6 @@ function Check({ onClick }: { onClick: () => void }) {
   );
 }
 
-function dateLabelKo(iso: string): string {
-  return `${iso.slice(0, 4)}-${iso.slice(5, 7)}-${iso.slice(8, 10)}`;
-}
-
 export default function VaccineList() {
   const { baechooVaccines, saveBaechooVaccine } = useData();
   const [form, setForm] = useState<{ open: boolean; initial?: BaechooVaccine }>({
@@ -121,7 +117,7 @@ export default function VaccineList() {
                     </span>
                     <span className="block text-[11px] text-stone">
                       {v.lastDone
-                        ? `마지막 접종 ${dateLabelKo(v.lastDone)}`
+                        ? `마지막 접종 ${v.lastDone}`
                         : "접종 기록 없음"}
                     </span>
                   </button>
