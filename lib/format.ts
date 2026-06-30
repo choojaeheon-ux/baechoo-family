@@ -77,6 +77,15 @@ export function ddayLabel(isoDate: string): string {
   return `D+${-d}`;
 }
 
+// iso 날짜에 n개월 더하기 (월말 초과 시 그 달 말일로 클램프)
+export function addMonths(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const targetMonthIndex = m - 1 + n;       // 0-based
+  const lastDay = new Date(y, targetMonthIndex + 1, 0).getDate();
+  const day = Math.min(d, lastDay);
+  return toISODate(new Date(y, targetMonthIndex, day));
+}
+
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 export function weekdayKo(isoDate: string): string {
   return WEEKDAYS[new Date(isoDate).getDay()];
