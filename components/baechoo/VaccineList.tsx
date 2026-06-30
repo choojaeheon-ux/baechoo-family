@@ -120,7 +120,7 @@ export default function VaccineList() {
                     </span>
                   </button>
                   {left === null ? (
-                    <Pill tone="stone">미접종</Pill>
+                    <Pill tone="stone">{last ? "예정 없음" : "미접종"}</Pill>
                   ) : (
                     <Pill tone={left < 0 ? "coral" : left <= 30 ? "gold" : "stone"}>
                       {ddayLabel(v.nextDue!)}
