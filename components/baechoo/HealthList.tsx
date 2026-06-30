@@ -7,6 +7,7 @@ import { HEALTH_TYPE_LABEL, type HealthType, type BaechooHealth } from "@/lib/ty
 import { Card, Empty, Pill } from "@/components/budget/ui";
 import { HealthForm } from "./forms";
 import HealthTodos from "./HealthTodos";
+import VaccineList from "./VaccineList";
 import BaechooCalendar from "./BaechooCalendar";
 import ViewToggle from "./ViewToggle";
 
@@ -80,6 +81,9 @@ export default function HealthList() {
     <div className="space-y-4">
       {/* 할 일 (약·접종 D-day + 매일 양치) */}
       <HealthTodos />
+
+      {/* 예방접종 체크리스트 */}
+      <VaccineList />
 
       <button
         onClick={() => setForm({ open: true })}
