@@ -26,23 +26,34 @@ export function spendByCategory(txns: Transaction[]): Map<string, number> {
   return m;
 }
 
-// 전체 월예산: categoryId=null 예산이 있으면 그것, 없으면 카테고리 예산 합
-export function totalBudget(budgets: Budget[], ym: string): number {
-  const monthly = budgets.filter((b) => b.yearMonth === ym);
-  const overall = monthly.find((b) => b.categoryId === null);
-  if (overall) return overall.amount;
-  return monthly.reduce((s, b) => s + b.amount, 0);
-}
-
 export function budgetForCategory(
   budgets: Budget[],
   ym: string,
-  categoryId: string
+  categoryId: string | null
 ): number | null {
-  const b = budgets.find(
+  const override = budgets.find(
     (x) => x.yearMonth === ym && x.categoryId === categoryId
   );
-  return b ? b.amount : null;
+  if (override) return override.amount;
+  const base = budgets.find(
+    (x) => x.yearMonth === null && x.categoryId === categoryId
+  );
+  return base ? base.amount : null;
+}
+
+// 전체 월예산: categoryId=null 예산이 있으면 그것, 없으면 카테고리 예산 합
+export function totalBudget(budgets: Budget[], ym: string): number {
+  const overall = budgetForCategory(budgets, ym, null); // 전체 예산(카테고리 null)
+  if (overall !== null) return overall;
+  const catIds = new Set(
+    budgets.filter((x) => x.categoryId !== null).map((x) => x.categoryId!)
+  );
+  let sum = 0;
+  for (const id of catIds) {
+    const v = budgetForCategory(budgets, ym, id);
+    if (v !== null) sum += v;
+  }
+  return sum;
 }
 
 export interface ReducibleItem {
