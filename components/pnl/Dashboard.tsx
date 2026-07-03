@@ -8,6 +8,7 @@ import { Card, MonthSwitcher } from "@/components/budget/ui";
 import WaterfallChart from "./WaterfallChart";
 import BepGauge from "./BepGauge";
 import CompositionDonut from "./CompositionDonut";
+import AssetReconcile from "./AssetReconcile";
 
 export default function Dashboard() {
   const { transactions, categoryById } = useData();
@@ -45,6 +46,8 @@ export default function Dashboard() {
           </tbody>
         </table>
       </Card>
+
+      <AssetReconcile month={month} operatingProfit={summary.operatingProfit} />
     </div>
   );
 }
