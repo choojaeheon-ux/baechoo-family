@@ -60,7 +60,10 @@ export default function Plans({ ym }: { ym: string }) {
                 수정
               </button>
               <button
-                onClick={() => removeBudget(baseOverall.id)}
+                onClick={() => {
+                  if (window.confirm("전체 월예산(기본)을 삭제할까요? 매달 적용이 사라집니다."))
+                    removeBudget(baseOverall.id);
+                }}
                 className="text-xs text-coral"
               >
                 삭제
@@ -93,7 +96,14 @@ export default function Plans({ ym }: { ym: string }) {
                       수정
                     </button>
                     <button
-                      onClick={() => removeBudget(bud.id)}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `${cat?.name ?? "이"} 기본 예산을 삭제할까요? 매달 적용이 사라집니다.`
+                          )
+                        )
+                          removeBudget(bud.id);
+                      }}
                       className="text-xs text-coral"
                     >
                       삭제
@@ -136,10 +146,15 @@ export default function Plans({ ym }: { ym: string }) {
                       수정
                     </button>
                     <button
-                      onClick={() => removeBudget(ov.id)}
-                      className="text-xs text-coral"
+                      onClick={() => {
+                        const msg = base
+                          ? `${label} 이번 달 조정을 취소하고 기본 예산(${won(base.amount)})으로 되돌릴까요?`
+                          : `${label} 예산을 삭제할까요? 되돌릴 기본 예산이 없어 완전히 삭제됩니다.`;
+                        if (window.confirm(msg)) removeBudget(ov.id);
+                      }}
+                      className={`text-xs ${base ? "text-leaf" : "text-coral"}`}
                     >
-                      기본으로
+                      {base ? "기본으로 되돌리기" : "삭제"}
                     </button>
                   </div>
                 </div>
