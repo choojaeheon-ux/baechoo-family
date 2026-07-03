@@ -377,3 +377,15 @@ export interface DataSnapshot {
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
 }
+
+export type PnlClass =
+  | "revenue"
+  | "fixed"
+  | "saving"
+  | "variable"
+  | "excluded";
+
+// 손익분류 상수 (카테고리 id 기준 — 이름은 사용자가 바꿀 수 있어 불안정)
+export const EXCLUDED_CAT_IDS = ["cat-card"];
+export const FIXED_CAT_IDS = ["cat-housing", "cat-installment"];
+export const SAVING_CAT_IDS = ["cat-saving"];
