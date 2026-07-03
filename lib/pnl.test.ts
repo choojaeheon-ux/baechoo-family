@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyTx } from "./pnl";
+import { classifyTx, computePnl, buildWaterfall } from "./pnl";
 import type { Transaction, Category } from "./types";
 
 function tx(over: Partial<Transaction>): Transaction {
@@ -32,5 +32,54 @@ describe("classifyTx", () => {
   });
   it("일반 지출은 variable", () => {
     expect(classifyTx(tx({ categoryId: "cat-food" }), cat("cat-food", "expense"))).toBe("variable");
+  });
+});
+
+describe("computePnl", () => {
+  const catById = (id: string): Category | undefined => {
+    if (id === "cat-salary") return cat("cat-salary", "income");
+    return cat(id, "expense");
+  };
+  const txns: Transaction[] = [
+    tx({ id: "a", type: "income", categoryId: "cat-salary", amount: 5_000_000 }),
+    tx({ id: "b", categoryId: "cat-housing", amount: 1_900_000 }),
+    tx({ id: "c", categoryId: "cat-saving", amount: 1_000_000 }),
+    tx({ id: "d", categoryId: "cat-food", amount: 1_200_000, habitTag: "외식" }),
+    tx({ id: "e", categoryId: "cat-hobby", amount: 500_000 }),
+    tx({ id: "f", categoryId: "cat-card", amount: 3_000_000 }), // 제외
+  ];
+
+  it("항목별 합계·운영이익·BEP", () => {
+    const s = computePnl(txns, catById);
+    expect(s.revenue).toBe(5_000_000);
+    expect(s.fixed).toBe(1_900_000);
+    expect(s.saving).toBe(1_000_000);
+    expect(s.variable).toBe(1_700_000);
+    expect(s.grossProfit).toBe(2_100_000);
+    expect(s.operatingProfit).toBe(400_000);
+    expect(s.bepAchieved).toBe(true);
+    expect(s.variableByHabit["외식"]).toBe(1_200_000);
+  });
+
+  it("매출 0이면 운영이익률 0", () => {
+    const s = computePnl([tx({ categoryId: "cat-food", amount: 100 })], catById);
+    expect(s.revenue).toBe(0);
+    expect(s.operatingMargin).toBe(0);
+    expect(s.bepAchieved).toBe(false);
+  });
+});
+
+describe("buildWaterfall", () => {
+  it("매출→차감→운영이익 세그먼트 range", () => {
+    const s = computePnl([
+      tx({ id: "a", type: "income", categoryId: "cat-salary", amount: 5_000_000 }),
+      tx({ id: "b", categoryId: "cat-housing", amount: 1_900_000 }),
+      tx({ id: "c", categoryId: "cat-saving", amount: 1_000_000 }),
+      tx({ id: "d", categoryId: "cat-food", amount: 1_700_000 }),
+    ], (id) => id === "cat-salary" ? cat(id, "income") : cat(id, "expense"));
+    const segs = buildWaterfall(s);
+    expect(segs[0]).toMatchObject({ label: "매출", range: [0, 5_000_000], kind: "revenue" });
+    expect(segs[1]).toMatchObject({ label: "고정비", range: [3_100_000, 5_000_000], kind: "deduct" });
+    expect(segs[4]).toMatchObject({ label: "운영이익", range: [0, 400_000], kind: "profit" });
   });
 });

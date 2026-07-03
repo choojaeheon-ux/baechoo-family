@@ -389,3 +389,22 @@ export type PnlClass =
 export const EXCLUDED_CAT_IDS = ["cat-card"];
 export const FIXED_CAT_IDS = ["cat-housing", "cat-installment"];
 export const SAVING_CAT_IDS = ["cat-saving"];
+
+export interface PnlSummary {
+  revenue: number;
+  fixed: number;
+  saving: number;
+  grossProfit: number;     // revenue - fixed - saving
+  variable: number;
+  operatingProfit: number; // grossProfit - variable
+  operatingMargin: number; // operatingProfit / revenue (revenue 0이면 0)
+  bepAchieved: boolean;    // operatingProfit >= 0
+  variableByHabit: Record<string, number>;
+}
+
+export interface WaterfallSegment {
+  label: string;
+  range: [number, number];
+  value: number;
+  kind: "revenue" | "deduct" | "profit";
+}
