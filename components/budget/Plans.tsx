@@ -87,7 +87,7 @@ export default function Plans({ ym }: { ym: string }) {
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-stone">
-                      {won(used)} / {won(applied)}
+                      {won(used)} / {won(bud.amount)}
                     </span>
                     <button onClick={() => openEdit(bud)} className="text-xs text-leaf">
                       수정
