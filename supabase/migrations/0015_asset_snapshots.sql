@@ -11,6 +11,3 @@ alter table asset_snapshots enable row level security;
 drop policy if exists "family_all" on asset_snapshots;
 create policy "family_all" on asset_snapshots
   for all to anon, authenticated using (true) with check (true);
-
-create unique index if not exists idx_asset_snapshots_year_month
-  on asset_snapshots(year_month);
