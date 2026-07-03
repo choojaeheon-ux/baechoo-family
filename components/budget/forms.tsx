@@ -19,7 +19,7 @@ import {
   type Transaction,
   type TxType,
 } from "@/lib/types";
-import { todayISO } from "@/lib/format";
+import { todayISO, ymLabel } from "@/lib/format";
 import { Field, inputCls, PrimaryButton, Sheet } from "./ui";
 
 /* ───────── 거래 입력 ───────── */
@@ -379,27 +379,35 @@ export function BudgetForm({
   open,
   onClose,
   ym,
+  initial,
 }: {
   open: boolean;
   onClose: () => void;
   ym: string;
+  initial?: Budget;
 }) {
   const { categories, budgets, saveBudget } = useData();
   const cats = categories.filter((c) => c.type === "expense");
-  const [scope, setScope] = useState<string>("__all__");
-  const [amount, setAmount] = useState("");
+  const [scope, setScope] = useState<string>(
+    initial ? (initial.categoryId ?? "__all__") : "__all__"
+  );
+  const [range, setRange] = useState<"base" | "month">(
+    initial ? (initial.yearMonth === null ? "base" : "month") : "base"
+  );
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
 
   const amt = Number(amount.replace(/[^0-9]/g, ""));
 
   async function submit() {
     if (amt <= 0) return;
     const categoryId = scope === "__all__" ? null : scope;
+    const targetYm = range === "base" ? null : ym;
     const existing = budgets.find(
-      (b) => b.yearMonth === ym && b.categoryId === categoryId
+      (b) => b.yearMonth === targetYm && b.categoryId === categoryId
     );
     await saveBudget({
       id: existing?.id ?? "",
-      yearMonth: ym,
+      yearMonth: targetYm,
       categoryId,
       amount: amt,
     } as Budget);
@@ -422,6 +430,22 @@ export function BudgetForm({
             </option>
           ))}
         </select>
+      </Field>
+      <Field label="적용 범위">
+        <div className="flex gap-1">
+          {(["base", "month"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+                range === r ? "bg-leaf text-white" : "bg-card border border-line text-stone"
+              }`}
+            >
+              {r === "base" ? "기본 예산 (매달)" : `이번 달만 (${ymLabel(ym)})`}
+            </button>
+          ))}
+        </div>
       </Field>
       <Field label="예산 금액">
         <input
