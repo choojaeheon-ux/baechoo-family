@@ -12,6 +12,16 @@ import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 
 const WEEK_OPTIONS = Array.from({ length: 52 }, (_, i) => i + 1);
 
+// 선택 가능한 연도: 작년 ~ 내후년 (Todo52App 헤더와 동일)
+function yearOptionsFrom(base: number): number[] {
+  const thisYear = new Date().getFullYear();
+  const lo = Math.min(thisYear - 1, base);
+  const hi = Math.max(thisYear + 2, base);
+  const out: number[] = [];
+  for (let y = lo; y <= hi; y++) out.push(y);
+  return out;
+}
+
 // 할 일 추가/수정 폼
 export function WeekTodoForm({
   open,
@@ -155,8 +165,10 @@ export function TodoActionSheet({
 }) {
   const { saveWeekTodo } = useData();
   const [mode, setMode] = useState<"menu" | "defer">("menu");
+  const [newYear, setNewYear] = useState(todo?.year ?? year);
   const [newWeek, setNewWeek] = useState(todo?.weekNum ?? currentWeekNum());
   const [newDue, setNewDue] = useState(todo?.dueDate ?? "");
+  const yearOptions = yearOptionsFrom(todo?.year ?? year);
 
   // todo가 바뀌면(시트 재오픈) 초기화 — key로 강제 리마운트(부모에서 처리)
   if (!todo) return null;
@@ -175,6 +187,7 @@ export function TodoActionSheet({
   async function applyDefer() {
     await saveWeekTodo({
       ...todo!,
+      year: newYear,
       weekNum: newWeek,
       dueDate: newDue || todo!.dueDate,
       // 미정→주차 지정은 미룸 아님(횟수 유지), 기존 주차 변경은 미룸(횟수+1)
@@ -219,6 +232,19 @@ export function TodoActionSheet({
         </div>
       ) : (
         <div>
+          <Field label={unscheduled ? "지정할 연도" : "옮길 연도"}>
+            <select
+              className={inputCls}
+              value={newYear}
+              onChange={(e) => setNewYear(Number(e.target.value))}
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}년
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label={unscheduled ? "지정할 주차" : "옮길 주차"}>
             <select
               className={inputCls}
@@ -227,7 +253,7 @@ export function TodoActionSheet({
             >
               {WEEK_OPTIONS.map((w) => (
                 <option key={w} value={w}>
-                  {weekLabel(year, w)}
+                  {weekLabel(newYear, w)}
                 </option>
               ))}
             </select>
