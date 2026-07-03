@@ -20,7 +20,10 @@ type View = "weeks" | "unscheduled";
 
 export default function Todo52App() {
   const { loading, mode, weekTodos } = useData();
-  const year = new Date().getFullYear();
+  const thisYear = new Date().getFullYear();
+  // 선택 가능한 연도: 작년 ~ 내후년 (회고 1년 + 계획 2년)
+  const yearOptions = [thisYear - 1, thisYear, thisYear + 1, thisYear + 2];
+  const [year, setYear] = useState(thisYear);
   const [view, setView] = useState<View>("weeks");
   const [block, setBlock] = useState(blockOfWeek(currentWeekNum()));
   const [form, setForm] = useState<{
@@ -68,6 +71,18 @@ export default function Todo52App() {
               {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
             </p>
           </div>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="ml-auto rounded-full border border-line bg-card px-3 py-1.5 text-sm font-bold text-ink"
+            aria-label="연도 선택"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}년
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* 보기 토글 */}
