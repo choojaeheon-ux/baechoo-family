@@ -80,7 +80,7 @@ export interface Transaction {
 
 export interface Budget {
   id: string;
-  yearMonth: string; // YYYY-MM
+  yearMonth: string | null; // null = 기본 예산(매달 적용), "YYYY-MM" = 그 달 오버라이드
   categoryId: string | null; // null = 전체 예산
   amount: number;
 }

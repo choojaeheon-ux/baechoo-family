@@ -235,7 +235,7 @@ const fromTxn = (x: Transaction) => ({
 
 const toBudget = (r: Record<string, unknown>): Budget => ({
   id: r.id as string,
-  yearMonth: r.year_month as string,
+  yearMonth: (r.year_month as string) ?? null,
   categoryId: (r.category_id as string) ?? null,
   amount: Number(r.amount),
 });
