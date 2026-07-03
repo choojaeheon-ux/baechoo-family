@@ -6,6 +6,8 @@ import { computePnl, buildWaterfall } from "@/lib/pnl";
 import { won, currentYearMonth } from "@/lib/format";
 import { Card, MonthSwitcher } from "@/components/budget/ui";
 import WaterfallChart from "./WaterfallChart";
+import BepGauge from "./BepGauge";
+import CompositionDonut from "./CompositionDonut";
 
 export default function Dashboard() {
   const { transactions, categoryById } = useData();
@@ -25,6 +27,11 @@ export default function Dashboard() {
       <Card>
         <WaterfallChart segments={segments} />
       </Card>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card><BepGauge margin={summary.operatingMargin} achieved={summary.bepAchieved} /></Card>
+        <Card><CompositionDonut s={summary} /></Card>
+      </div>
 
       <Card>
         <table className="w-full text-sm">
