@@ -2,86 +2,152 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { totalBudget, monthTransactions, spendByCategory } from "@/lib/compute";
+import {
+  totalBudget,
+  monthTransactions,
+  spendByCategory,
+  budgetForCategory,
+} from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
 import { Card, SectionTitle, Empty, ProgressBar } from "./ui";
 import { BudgetForm, GoalForm, CategoryForm } from "./forms";
-import type { Category, Goal } from "@/lib/types";
+import type { Budget, Category, Goal } from "@/lib/types";
 
 export default function Plans({ ym }: { ym: string }) {
   const { budgets, goals, categories, transactions, categoryById, removeBudget } =
     useData();
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetInitial, setBudgetInitial] = useState<Budget | undefined>(undefined);
   const [goalOpen, setGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [catOpen, setCatOpen] = useState(false);
   const [editCat, setEditCat] = useState<Category | null>(null);
 
-  const monthBudgets = budgets.filter((b) => b.yearMonth === ym);
-  const overall = monthBudgets.find((b) => b.categoryId === null);
-  const catBudgets = monthBudgets.filter((b) => b.categoryId !== null);
+  const baseBudgets = budgets.filter((b) => b.yearMonth === null);
+  const baseOverall = baseBudgets.find((b) => b.categoryId === null);
+  const baseCats = baseBudgets.filter((b) => b.categoryId !== null);
+  const overrides = budgets.filter((b) => b.yearMonth === ym);
   const spend = spendByCategory(monthTransactions(transactions, ym));
+
+  const openNew = () => {
+    setBudgetInitial(undefined);
+    setBudgetOpen(true);
+  };
+  const openEdit = (bud: Budget) => {
+    setBudgetInitial(bud);
+    setBudgetOpen(true);
+  };
 
   return (
     <div className="space-y-1 pb-4">
-      {/* 월 예산 */}
+      {/* 기본 예산 */}
       <SectionTitle
         right={
-          <button
-            onClick={() => setBudgetOpen(true)}
-            className="text-xs font-semibold text-leaf"
-          >
+          <button onClick={openNew} className="text-xs font-semibold text-leaf">
             + 설정
           </button>
         }
       >
-        {ymLabel(ym)} 월 예산
+        기본 예산 · 매달 적용
       </SectionTitle>
       <Card className="space-y-3">
-        {overall && (
-          <Row
-            label="전체 월예산"
-            value={won(overall.amount)}
-            onDelete={() => removeBudget(overall.id)}
-          />
+        {baseOverall && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-ink">전체 월예산</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm tabular text-ink">{won(baseOverall.amount)}</span>
+              <button onClick={() => openEdit(baseOverall)} className="text-xs text-leaf">
+                수정
+              </button>
+              <button
+                onClick={() => removeBudget(baseOverall.id)}
+                className="text-xs text-coral"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         )}
-        {catBudgets.length === 0 && !overall ? (
+        {baseCats.length === 0 && !baseOverall ? (
           <Empty>
-            카테고리별 예산을 설정해 보세요
+            카테고리별 기본 예산을 설정해 보세요
             <br />
-            (식비·생활용품·육아·병원·취미…)
+            (한 번 설정하면 매달 적용됩니다)
           </Empty>
         ) : (
-          catBudgets.map((b) => {
-            const cat = categoryById(b.categoryId!);
-            const used = spend.get(b.categoryId!) ?? 0;
+          baseCats.map((bud) => {
+            const cat = categoryById(bud.categoryId!);
+            const applied = budgetForCategory(budgets, ym, bud.categoryId!) ?? bud.amount;
+            const used = spend.get(bud.categoryId!) ?? 0;
             return (
-              <div key={b.id}>
+              <div key={bud.id}>
                 <div className="mb-1 flex items-center justify-between">
                   <span className="text-sm font-semibold text-ink">
                     {cat?.icon} {cat?.name}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-stone">
-                      {won(used)} / {won(b.amount)}
+                      {won(used)} / {won(applied)}
                     </span>
+                    <button onClick={() => openEdit(bud)} className="text-xs text-leaf">
+                      수정
+                    </button>
                     <button
-                      onClick={() => removeBudget(b.id)}
+                      onClick={() => removeBudget(bud.id)}
                       className="text-xs text-coral"
                     >
                       삭제
                     </button>
                   </div>
                 </div>
-                <ProgressBar value={used} max={b.amount} />
+                <ProgressBar value={used} max={applied} />
               </div>
             );
           })
         )}
         <div className="border-t border-line pt-2 text-right text-xs text-stone">
-          합계 기준 예산 {won(totalBudget(budgets, ym))}
+          {ymLabel(ym)} 적용 합계 {won(totalBudget(budgets, ym))}
         </div>
       </Card>
+
+      {/* 이번 달 조정 */}
+      {overrides.length > 0 && (
+        <>
+          <SectionTitle>{ymLabel(ym)} 이번 달 조정</SectionTitle>
+          <Card className="space-y-2">
+            {overrides.map((ov) => {
+              const label =
+                ov.categoryId === null
+                  ? "전체 월예산"
+                  : categoryById(ov.categoryId)?.name ?? "카테고리";
+              const icon = ov.categoryId === null ? "" : categoryById(ov.categoryId)?.icon ?? "";
+              const base = baseBudgets.find((b) => b.categoryId === ov.categoryId);
+              return (
+                <div key={ov.id} className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-ink">
+                    {icon} {label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm tabular text-ink">{won(ov.amount)}</span>
+                    {base && (
+                      <span className="text-xs text-stone">(기본 {won(base.amount)})</span>
+                    )}
+                    <button onClick={() => openEdit(ov)} className="text-xs text-leaf">
+                      수정
+                    </button>
+                    <button
+                      onClick={() => removeBudget(ov.id)}
+                      className="text-xs text-coral"
+                    >
+                      기본으로
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        </>
+      )}
 
       {/* 연간 목표 */}
       <SectionTitle
@@ -180,7 +246,12 @@ export default function Plans({ ym }: { ym: string }) {
       </Card>
 
       {budgetOpen && (
-        <BudgetForm open={budgetOpen} onClose={() => setBudgetOpen(false)} ym={ym} />
+        <BudgetForm
+          open={budgetOpen}
+          onClose={() => setBudgetOpen(false)}
+          ym={ym}
+          initial={budgetInitial}
+        />
       )}
       {goalOpen && (
         <GoalForm
@@ -196,30 +267,6 @@ export default function Plans({ ym }: { ym: string }) {
           initial={editCat ?? undefined}
         />
       )}
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  onDelete,
-}: {
-  label: string;
-  value: string;
-  onDelete?: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-ink">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold tabular text-ink">{value}</span>
-        {onDelete && (
-          <button onClick={onDelete} className="text-xs text-coral">
-            삭제
-          </button>
-        )}
-      </div>
     </div>
   );
 }
