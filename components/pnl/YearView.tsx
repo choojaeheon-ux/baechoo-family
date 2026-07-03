@@ -5,7 +5,9 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  BarController,
   BarElement,
+  LineController,
   LineElement,
   PointElement,
   Tooltip,
@@ -21,7 +23,9 @@ import { Card } from "@/components/budget/ui";
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  BarController,
   BarElement,
+  LineController,
   LineElement,
   PointElement,
   Tooltip,
@@ -70,7 +74,6 @@ export default function YearView({ year }: { year: number }) {
 
   const options: ChartOptions<"bar" | "line"> = {
     plugins: {
-      legend: { display: true },
       tooltip: {
         callbacks: {
           label: (ctx) =>

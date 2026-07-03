@@ -41,9 +41,6 @@ export function computePnl(
   };
 }
 
-// 연 집계는 호출자가 그 해 거래만 넘겨 computePnl 재사용
-export const computeYearPnl = computePnl;
-
 export function buildWaterfall(s: PnlSummary): WaterfallSegment[] {
   const afterFixed = s.revenue - s.fixed;
   const afterSaving = afterFixed - s.saving;

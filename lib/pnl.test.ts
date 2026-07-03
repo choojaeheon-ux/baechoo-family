@@ -82,4 +82,17 @@ describe("buildWaterfall", () => {
     expect(segs[1]).toMatchObject({ label: "고정비", range: [3_100_000, 5_000_000], kind: "deduct" });
     expect(segs[4]).toMatchObject({ label: "운영이익", range: [0, 400_000], kind: "profit" });
   });
+
+  it("운영이익 적자(손실)면 변동비·운영이익 세그먼트가 음수 range", () => {
+    const s = computePnl([
+      tx({ id: "a", type: "income", categoryId: "cat-salary", amount: 3_000_000 }),
+      tx({ id: "b", categoryId: "cat-housing", amount: 1_900_000 }),
+      tx({ id: "c", categoryId: "cat-saving", amount: 1_000_000 }),
+      tx({ id: "d", categoryId: "cat-food", amount: 700_000 }),
+    ], (id) => id === "cat-salary" ? cat(id, "income") : cat(id, "expense"));
+    expect(s.operatingProfit).toBe(-600_000);
+    const segs = buildWaterfall(s);
+    expect(segs[3]).toMatchObject({ label: "변동비", range: [-600_000, 100_000], kind: "deduct" });
+    expect(segs[4]).toMatchObject({ label: "운영이익", range: [-600_000, 0], kind: "profit" });
+  });
 });
