@@ -335,14 +335,12 @@ export interface BaechooVaccine {
   createdAt: string;          // YYYY-MM-DD
 }
 
-// 표준 백신 프리셋 ("표준 백신 추가" 버튼) — 배추 정기 7종
+// 표준 백신 프리셋 ("표준 백신 추가" 버튼) — 배추 정기 백신 5종 (모두 연 1회)
 export const STANDARD_VACCINES: string[] = [
   "켄넬코프백신",
   "코로나장염백신",
   "종합백신",
   "광견병백신",
-  "심장사상충",
-  "외부기생충",
   "신종인플루엔자백신",
 ];
 
