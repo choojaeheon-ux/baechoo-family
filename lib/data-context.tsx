@@ -11,6 +11,7 @@ import {
 import { hasSupabase } from "./supabase";
 import * as repo from "./repo";
 import type {
+  AssetSnapshot,
   Budget,
   Category,
   Coupon,
@@ -52,6 +53,7 @@ interface DataContextValue {
   baechooWalks: BaechooWalk[];
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
+  assetSnapshots: AssetSnapshot[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -92,6 +94,8 @@ interface DataContextValue {
   removeUjuChecklist: (id: string) => Promise<void>;
   saveBaechooVaccine: (v: BaechooVaccine) => Promise<void>;
   removeBaechooVaccine: (id: string) => Promise<void>;
+  saveAssetSnapshot: (a: AssetSnapshot) => Promise<void>;
+  removeAssetSnapshot: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -118,6 +122,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [baechooWalks, setBaechooWalks] = useState<BaechooWalk[]>([]);
   const [ujuChecklists, setUjuChecklists] = useState<UjuChecklist[]>([]);
   const [baechooVaccines, setBaechooVaccines] = useState<BaechooVaccine[]>([]);
+  const [assetSnapshots, setAssetSnapshots] = useState<AssetSnapshot[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -139,6 +144,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooWalks(snap.baechooWalks);
     setUjuChecklists(snap.ujuChecklists);
     setBaechooVaccines(snap.baechooVaccines);
+    setAssetSnapshots(snap.assetSnapshots);
   }, []);
 
   useEffect(() => {
@@ -200,6 +206,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooWalks,
       ujuChecklists,
       baechooVaccines,
+      assetSnapshots,
       categoryById,
       paymentMethodById,
       refresh,
@@ -358,6 +365,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteBaechooVaccine(id);
         setBaechooVaccines((p) => p.filter((x) => x.id !== id));
       },
+      saveAssetSnapshot: async (a) => {
+        const saved = await repo.saveAssetSnapshot(a);
+        upsertLocal(setAssetSnapshots, saved);
+      },
+      removeAssetSnapshot: async (id) => {
+        await repo.deleteAssetSnapshot(id);
+        setAssetSnapshots((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -379,6 +394,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooWalks,
       ujuChecklists,
       baechooVaccines,
+      assetSnapshots,
       categoryById,
       paymentMethodById,
       refresh,

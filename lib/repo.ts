@@ -6,6 +6,7 @@ import {
   SEED_BAECHOO_CATEGORIES,
 } from "./seed";
 import type {
+  AssetSnapshot,
   Budget,
   Category,
   Coupon,
@@ -89,6 +90,7 @@ function lsRead(): DataSnapshot {
       baechooWalks: parsed.baechooWalks ?? [],
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: parsed.baechooVaccines ?? [],
+      assetSnapshots: parsed.assetSnapshots ?? [],
     };
   } catch {
     return emptySnapshot();
@@ -120,6 +122,7 @@ function emptySnapshot(): DataSnapshot {
     baechooWalks: [],
     ujuChecklists: [],
     baechooVaccines: [],
+    assetSnapshots: [],
   };
 }
 
@@ -280,6 +283,17 @@ const fromCoupon = (x: Coupon) => ({
   name: x.name,
   earned_year_month: x.earnedYearMonth,
   used: x.used,
+});
+
+const toAssetSnapshot = (r: Record<string, unknown>): AssetSnapshot => ({
+  id: r.id as string,
+  yearMonth: r.year_month as string,
+  totalAssets: Number(r.total_assets ?? 0),
+});
+const fromAssetSnapshot = (x: AssetSnapshot) => ({
+  id: x.id,
+  year_month: x.yearMonth,
+  total_assets: x.totalAssets,
 });
 
 const toGoal = (r: Record<string, unknown>): Goal => ({
@@ -516,6 +530,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     walks,
     ujuChecks,
     vaccines,
+    assetSnaps,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -535,6 +550,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_walks").select("*").is("deleted_at", null),
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
+    sb.from("asset_snapshots").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -572,6 +588,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooWalks: (walks.data ?? []).map(toWalk),
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
+    assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
   };
 }
 
@@ -642,6 +659,17 @@ export async function saveBudget(x: Budget): Promise<Budget> {
 export async function deleteBudget(id: string) {
   if (hasSupabase) await sbDelete("budgets", id);
   else lsDelete("budgets", id);
+}
+
+export async function saveAssetSnapshot(x: AssetSnapshot): Promise<AssetSnapshot> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("asset_snapshots", fromAssetSnapshot(row));
+  else lsUpsert("assetSnapshots", row);
+  return row;
+}
+export async function deleteAssetSnapshot(id: string) {
+  if (hasSupabase) await sbDelete("asset_snapshots", id);
+  else lsDelete("assetSnapshots", id);
 }
 
 export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency> {

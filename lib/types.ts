@@ -357,6 +357,13 @@ export interface UjuChecklist {
   createdAt: string; // YYYY-MM-DD
 }
 
+// 월말 총자산 스냅샷 (현금+계좌+투자 잔액 합계) — 가족 P&L
+export interface AssetSnapshot {
+  id: string;
+  yearMonth: string; // "YYYY-MM"
+  totalAssets: number; // 현금+계좌+투자 잔액 합계
+}
+
 export interface DataSnapshot {
   categories: Category[];
   paymentMethods: PaymentMethod[];
@@ -376,6 +383,7 @@ export interface DataSnapshot {
   baechooWalks: BaechooWalk[];
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
+  assetSnapshots: AssetSnapshot[];
 }
 
 export type PnlClass =
