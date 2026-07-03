@@ -12,6 +12,7 @@ export default function Transactions({ ym }: { ym: string }) {
   const { transactions, categoryById, paymentMethodById } = useData();
   const [filter, setFilter] = useState<"all" | TxType>("all");
   const [catFilter, setCatFilter] = useState<string | null>(null);
+  const [pmFilter, setPmFilter] = useState<string | null>(null);
   const [edit, setEdit] = useState<Transaction | null>(null);
 
   // 이번 달 + 타입 필터(전체/지출/수입)까지만 적용한 기준 목록 (카테고리 필터 전)
@@ -34,18 +35,35 @@ export default function Transactions({ ym }: { ym: string }) {
       .sort((a, b) => b.amt - a.amt);
   }, [typeTxns, categoryById]);
 
-  // 선택한 카테고리가 현재 칩 목록에 없으면(타입 필터 변경 등) 자동으로 전체 취급
+  // 드롭다운으로 보여줄 결제수단: 현재 타입 필터 안에서 거래가 있는 결제수단만, 금액 큰 순
+  const chipPms = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const t of typeTxns)
+      if (t.paymentMethodId)
+        totals.set(t.paymentMethodId, (totals.get(t.paymentMethodId) ?? 0) + t.amount);
+    return [...totals.entries()]
+      .map(([id, amt]) => ({ pm: paymentMethodById(id), amt }))
+      .filter((r): r is { pm: NonNullable<typeof r.pm>; amt: number } => !!r.pm)
+      .sort((a, b) => b.amt - a.amt);
+  }, [typeTxns, paymentMethodById]);
+
+  // 선택값이 현재 목록에 없으면(타입 필터 변경 등) 자동으로 전체 취급
   const effCat =
     catFilter !== null && chipCats.some((r) => r.cat.id === catFilter)
       ? catFilter
+      : null;
+  const effPm =
+    pmFilter !== null && chipPms.some((r) => r.pm.id === pmFilter)
+      ? pmFilter
       : null;
 
   const monthTxns = useMemo(
     () =>
       typeTxns
         .filter((t) => effCat === null || t.categoryId === effCat)
+        .filter((t) => effPm === null || t.paymentMethodId === effPm)
         .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
-    [typeTxns, effCat]
+    [typeTxns, effCat, effPm]
   );
 
   const grouped = useMemo(() => {
@@ -54,11 +72,13 @@ export default function Transactions({ ym }: { ym: string }) {
     return [...g.entries()];
   }, [monthTxns]);
 
-  // 요약(수입/지출/잔액): 카테고리 선택 시 그 카테고리 기준, 아니면 이번 달 전체
+  // 요약(수입/지출/잔액): 카테고리·결제수단 선택 시 그 기준, 아니면 이번 달 전체
   const summaryBase = useMemo(() => {
-    const all = monthTransactions(transactions, ym);
-    return effCat === null ? all : all.filter((t) => t.categoryId === effCat);
-  }, [transactions, ym, effCat]);
+    let all = monthTransactions(transactions, ym);
+    if (effCat !== null) all = all.filter((t) => t.categoryId === effCat);
+    if (effPm !== null) all = all.filter((t) => t.paymentMethodId === effPm);
+    return all;
+  }, [transactions, ym, effCat, effPm]);
 
   const expense = sumBy(summaryBase, "expense");
   const income = sumBy(summaryBase, "income");
@@ -71,48 +91,47 @@ export default function Transactions({ ym }: { ym: string }) {
         <SummaryBox label="잔액" value={won(income - expense)} tone="text-ink" />
       </div>
 
-      <div className="flex gap-1">
-        {(["all", "expense", "income"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-              filter === f ? "bg-leaf text-white" : "bg-card border border-line text-stone"
-            }`}
-          >
-            {f === "all" ? "전체" : f === "expense" ? "지출" : "수입"}
-          </button>
-        ))}
-      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as "all" | TxType)}
+          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+          aria-label="유형 필터"
+        >
+          <option value="all">전체</option>
+          <option value="expense">지출</option>
+          <option value="income">수입</option>
+        </select>
 
-      {chipCats.length > 0 && (
-        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
-          <button
-            onClick={() => setCatFilter(null)}
-            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition ${
-              effCat === null
-                ? "bg-leaf text-white"
-                : "bg-card border border-line text-stone"
-            }`}
-          >
-            전체
-          </button>
+        <select
+          value={effCat ?? ""}
+          onChange={(e) => setCatFilter(e.target.value || null)}
+          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+          aria-label="카테고리 필터"
+        >
+          <option value="">카테고리 전체</option>
           {chipCats.map(({ cat }) => (
-            <button
-              key={cat.id}
-              onClick={() => setCatFilter(cat.id)}
-              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition ${
-                effCat === cat.id
-                  ? "bg-leaf text-white"
-                  : "bg-card border border-line text-stone"
-              }`}
-            >
+            <option key={cat.id} value={cat.id}>
               {cat.icon ? `${cat.icon} ` : ""}
               {cat.name}
-            </button>
+            </option>
           ))}
-        </div>
-      )}
+        </select>
+
+        <select
+          value={effPm ?? ""}
+          onChange={(e) => setPmFilter(e.target.value || null)}
+          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+          aria-label="결제수단 필터"
+        >
+          <option value="">결제수단 전체</option>
+          {chipPms.map(({ pm }) => (
+            <option key={pm.id} value={pm.id}>
+              {pm.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {grouped.length === 0 ? (
         <Card>
