@@ -20,11 +20,9 @@ import {
   type BaechooExam,
   type BaechooHealthTodo,
   type BaechooVaccine,
-  type VaccineDose,
 } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 import CategorySelect from "./CategorySelect";
-import { nextDoseNumber } from "@/lib/vaccine";
 
 // 토글 버튼 그룹 (식사/간식, 체중측정/관리 등)
 function Toggle<T extends string>({
@@ -636,7 +634,7 @@ export function HealthTodoForm({
   );
 }
 
-/* ───────────── 예방접종 상세시트 (차수 관리) ───────────── */
+/* ───────────── 예방접종 상세시트 ───────────── */
 export function VaccineDetailSheet({
   open,
   onClose,
@@ -648,36 +646,17 @@ export function VaccineDetailSheet({
 }) {
   const { saveBaechooVaccine, removeBaechooVaccine } = useData();
   const [name, setName] = useState(initial?.name ?? "");
-  const [doses, setDoses] = useState<VaccineDose[]>(initial?.doses ?? []);
-  const [nextDue, setNextDue] = useState(initial?.nextDue ?? "");
-  const [interval, setInterval] = useState(String(initial?.intervalMonths ?? 12));
+  const [lastDone, setLastDone] = useState(initial?.lastDone ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
   const valid = name.trim().length > 0;
 
-  function updateDose(i: number, patch: Partial<VaccineDose>) {
-    setDoses((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
-  }
-  function addDose() {
-    setDoses((prev) => [...prev, { n: nextDoseNumber(prev), date: todayISO() }]);
-  }
-  function removeDose(i: number) {
-    setDoses((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
   async function submit() {
     if (!valid) return;
-    const months = Number(interval) || 12;
-    const cleaned = doses
-      .filter((d) => d.date)
-      .map((d) => ({ n: Number(d.n) || 1, date: d.date }))
-      .sort((a, b) => a.n - b.n);
     await saveBaechooVaccine({
       id: initial?.id ?? "",
       name: name.trim(),
-      nextDue: nextDue || null,
-      intervalMonths: months,
-      doses: cleaned,
+      lastDone: lastDone || null,
       memo: memo.trim() || null,
       createdAt: initial?.createdAt ?? todayISO(),
     });
@@ -695,72 +674,14 @@ export function VaccineDetailSheet({
         />
       </Field>
 
-      <Field label="차수별 접종일">
-        <div className="space-y-2">
-          {doses.length === 0 && (
-            <p className="text-xs text-stone">아직 접종 차수가 없어요. 아래에서 추가하세요.</p>
-          )}
-          {doses.map((d, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                className={`${inputCls} w-12 text-center`}
-                value={String(d.n)}
-                onChange={(e) =>
-                  updateDose(i, { n: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 })
-                }
-              />
-              <span className="shrink-0 text-xs text-stone">차</span>
-              <input
-                type="date"
-                className={`${inputCls} min-w-0 flex-1`}
-                value={d.date}
-                onChange={(e) => updateDose(i, { date: e.target.value })}
-              />
-              <button
-                type="button"
-                onClick={() => removeDose(i)}
-                className="shrink-0 px-1 text-sm text-coral"
-              >
-                삭제
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addDose}
-            className="w-full rounded-xl border border-dashed border-leaf bg-leaf-light/40 py-2 text-sm font-bold text-leaf-dark active:scale-[0.99]"
-          >
-            + 차수 추가
-          </button>
-        </div>
+      <Field label="최근 접종일 (비우면 미접종)">
+        <input
+          type="date"
+          className={inputCls}
+          value={lastDone}
+          onChange={(e) => setLastDone(e.target.value)}
+        />
       </Field>
-
-      <div className="flex gap-2">
-        <div className="min-w-0 flex-1">
-          <Field label="다음 예정일 (선택)">
-            <input
-              type="date"
-              className={inputCls}
-              value={nextDue}
-              onChange={(e) => setNextDue(e.target.value)}
-            />
-          </Field>
-        </div>
-        <div className="min-w-0 flex-1">
-          <Field label="주기 (개월)">
-            <input
-              type="text"
-              className={inputCls}
-              inputMode="numeric"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="12"
-            />
-          </Field>
-        </div>
-      </div>
 
       <Field label="메모 (선택)">
         <input

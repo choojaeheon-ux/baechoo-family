@@ -318,21 +318,13 @@ export interface BaechooWalk {
 
 /* ───────────── 배추 예방접종 ───────────── */
 
-// 차수별 접종 기록
-export interface VaccineDose {
-  n: number;      // 차수 (1, 2, ... 비연속 가능)
-  date: string;   // 접종일 (YYYY-MM-DD)
-}
-
-// 예방접종 — 백신별 차수 기록. 최근 접종일은 doses에서 파생.
+// 예방접종 — 백신별 최근 접종일 하나. 다음 예정일·체크 여부는 lib/vaccine.ts에서 파생.
 export interface BaechooVaccine {
   id: string;
   name: string;
-  nextDue: string | null;     // 다음 예정일 (YYYY-MM-DD, 없으면 null)
-  intervalMonths: number;     // 추가접종 주기(개월, 기본 12)
-  doses: VaccineDose[];       // 차수별 접종 기록
+  lastDone: string | null;  // 최근 접종일 (YYYY-MM-DD), null = 미접종
   memo: string | null;
-  createdAt: string;          // YYYY-MM-DD
+  createdAt: string;        // YYYY-MM-DD
 }
 
 // 표준 백신 프리셋 ("표준 백신 추가" 버튼) — 배추 정기 백신 5종 (모두 연 1회)

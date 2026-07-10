@@ -2,18 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
-import { todayISO, addMonths, dday, ddayLabel } from "@/lib/format";
+import { todayISO, dday, ddayLabel } from "@/lib/format";
 import { STANDARD_VACCINES, type BaechooVaccine } from "@/lib/types";
 import { Card, Pill, SectionTitle } from "@/components/budget/ui";
 import { VaccineDetailSheet } from "./forms";
-import { latestDose, nextDoseNumber } from "@/lib/vaccine";
+import { vaccineDone, vaccineNextDue } from "@/lib/vaccine";
 
 // 체크 동그라미 (HealthTodos 패턴)
-function Check({ onClick }: { onClick: () => void }) {
+function Check({ checked, onClick }: { checked: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-line text-xs text-transparent transition"
+      aria-label={checked ? "접종 취소" : "오늘 접종 체크"}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs transition ${
+        checked ? "border-leaf bg-leaf text-white" : "border-line text-transparent"
+      }`}
     >
       ✓
     </button>
@@ -26,26 +29,28 @@ export default function VaccineList() {
     open: false,
   });
   const [seeding, setSeeding] = useState(false);
+  const today = todayISO();
 
-  // 다음 예정일 가까운 순. 미접종(nextDue=null)은 뒤로.
-  const sorted = useMemo(
-    () =>
-      [...baechooVaccines].sort((a, b) => {
-        if (!a.nextDue && !b.nextDue) return a.name < b.name ? -1 : 1;
-        if (!a.nextDue) return 1;
-        if (!b.nextDue) return -1;
-        return a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : 0;
-      }),
-    [baechooVaccines]
-  );
+  // 리마인드가 목적이므로 미완료를 위로. 기한 지남 → 미접종 → 접종 완료.
+  const sorted = useMemo(() => {
+    const rank = (v: BaechooVaccine) =>
+      vaccineDone(v.lastDone, today) ? 2 : v.lastDone ? 0 : 1;
+    return [...baechooVaccines].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      if (ra === 1) return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+      const da = vaccineNextDue(a.lastDone)!;
+      const db = vaccineNextDue(b.lastDone)!;
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+  }, [baechooVaccines, today]);
 
-  // 빠른 기록: 다음 차수를 오늘 날짜로 추가 + 다음 예정일 = 오늘+주기
-  async function complete(v: BaechooVaccine) {
-    const today = todayISO();
+  // 체크 = 오늘 접종. 해제 = 미접종으로 되돌림.
+  async function toggle(v: BaechooVaccine) {
     await saveBaechooVaccine({
       ...v,
-      doses: [...v.doses, { n: nextDoseNumber(v.doses), date: today }],
-      nextDue: addMonths(today, v.intervalMonths),
+      lastDone: vaccineDone(v.lastDone, today) ? null : today,
     });
   }
 
@@ -59,11 +64,9 @@ export default function VaccineList() {
         await saveBaechooVaccine({
           id: "",
           name,
-          nextDue: null,
-          intervalMonths: 12,
-          doses: [],
+          lastDone: null,
           memo: null,
-          createdAt: todayISO(),
+          createdAt: today,
         });
       }
     } finally {
@@ -103,11 +106,11 @@ export default function VaccineList() {
         <Card>
           <div className="space-y-2">
             {sorted.map((v) => {
-              const left = v.nextDue ? dday(v.nextDue) : null;
-              const last = latestDose(v.doses);
+              const done = vaccineDone(v.lastDone, today);
+              const due = vaccineNextDue(v.lastDone);
               return (
                 <div key={v.id} className="flex items-center gap-3">
-                  <Check onClick={() => complete(v)} />
+                  <Check checked={done} onClick={() => toggle(v)} />
                   <button
                     onClick={() => setForm({ open: true, initial: v })}
                     className="min-w-0 flex-1 text-left"
@@ -116,15 +119,19 @@ export default function VaccineList() {
                       {v.name}
                     </span>
                     <span className="block text-[11px] text-stone">
-                      {last ? `최근 ${last.n}차 · ${last.date}` : "접종 기록 없음"}
+                      {!v.lastDone
+                        ? "접종 기록 없음"
+                        : done
+                          ? `${v.lastDone} 접종 · 다음 ${due}`
+                          : `${v.lastDone} 접종`}
                     </span>
                   </button>
-                  {left === null ? (
-                    <Pill tone="stone">{last ? "예정 없음" : "미접종"}</Pill>
-                  ) : (
-                    <Pill tone={left < 0 ? "coral" : left <= 30 ? "gold" : "stone"}>
-                      {ddayLabel(v.nextDue!)}
+                  {done && due ? (
+                    <Pill tone={dday(due) <= 30 ? "gold" : "stone"}>
+                      {ddayLabel(due)}
                     </Pill>
+                  ) : (
+                    <Pill tone="coral">접종 필요</Pill>
                   )}
                 </div>
               );
