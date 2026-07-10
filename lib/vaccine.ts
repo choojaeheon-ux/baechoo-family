@@ -1,12 +1,15 @@
-import type { VaccineDose } from "./types";
+import { addMonths } from "./format";
 
-// 접종일이 가장 늦은 차수 (없으면 null) — 최근 접종 표시·정렬용
-export function latestDose(doses: VaccineDose[]): VaccineDose | null {
-  if (doses.length === 0) return null;
-  return doses.reduce((a, b) => (b.date > a.date ? b : a));
+// 배추 정기 백신 5종은 모두 연 1회 부스터다.
+export const VACCINE_INTERVAL_MONTHS = 12;
+
+// 다음 접종 예정일 = 최근 접종일 + 12개월. 미접종이면 null.
+export function vaccineNextDue(lastDone: string | null): string | null {
+  return lastDone ? addMonths(lastDone, VACCINE_INTERVAL_MONTHS) : null;
 }
 
-// 다음 차수 번호 = max(n) + 1 (없으면 1)
-export function nextDoseNumber(doses: VaccineDose[]): number {
-  return doses.reduce((m, d) => Math.max(m, d.n), 0) + 1;
+// 예정일이 아직 오지 않았으면 완료. 예정일 당일은 "오늘 맞아야 함"이므로 미완료다.
+export function vaccineDone(lastDone: string | null, today: string): boolean {
+  const due = vaccineNextDue(lastDone);
+  return due !== null && due > today;
 }

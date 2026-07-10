@@ -29,7 +29,6 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
-  VaccineDose,
   LatLng,
   Stool,
   MealType,
@@ -52,6 +51,24 @@ function normalizeExam(x: BaechooExam): BaechooExam {
     return { ...x, measureName: "체중", value: x.weight, unit: "kg" };
   }
   return x;
+}
+
+// 구버전 localStorage 접종 기록(doses 차수 배열)을 최근 접종일 하나로 승격
+function normalizeVaccine(
+  x: BaechooVaccine & { doses?: { n: number; date: string }[] }
+): BaechooVaccine {
+  const lastDone =
+    x.lastDone ??
+    (Array.isArray(x.doses) && x.doses.length > 0
+      ? x.doses.reduce((a, b) => (b.date > a.date ? b : a)).date
+      : null);
+  return {
+    id: x.id,
+    name: x.name,
+    lastDone,
+    memo: x.memo ?? null,
+    createdAt: x.createdAt,
+  };
 }
 
 /* ───────────── localStorage 어댑터 ───────────── */
@@ -89,7 +106,7 @@ function lsRead(): DataSnapshot {
       baechooHealthTodos: parsed.baechooHealthTodos ?? [],
       baechooWalks: parsed.baechooWalks ?? [],
       ujuChecklists: parsed.ujuChecklists ?? [],
-      baechooVaccines: parsed.baechooVaccines ?? [],
+      baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
     };
   } catch {
@@ -486,22 +503,18 @@ const fromUjuChecklist = (x: UjuChecklist) => ({
   created_at: x.createdAt || null,
 });
 
-// 배추 — 예방접종 (doses는 jsonb 배열 [{n,date}])
+// 배추 — 예방접종 (최근 접종일 하나. 다음 예정일은 파생)
 const toVaccine = (r: Record<string, unknown>): BaechooVaccine => ({
   id: r.id as string,
   name: (r.name as string) ?? "",
-  nextDue: (r.next_due as string) ?? null,
-  intervalMonths: Number(r.interval_months ?? 12),
-  doses: Array.isArray(r.doses) ? (r.doses as VaccineDose[]) : [],
+  lastDone: (r.last_done as string) ?? null,
   memo: (r.memo as string) ?? null,
   createdAt: (r.created_at as string) ?? "",
 });
 const fromVaccine = (x: BaechooVaccine) => ({
   id: x.id,
   name: x.name,
-  next_due: x.nextDue,
-  interval_months: x.intervalMonths,
-  doses: x.doses,
+  last_done: x.lastDone,
   memo: x.memo,
   created_at: x.createdAt || null,
 });
