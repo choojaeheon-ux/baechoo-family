@@ -117,6 +117,13 @@ export default function CalendarView({ ym }: { ym: string }) {
     }
   }
 
+  // 이미 체크된 항목의 결제자만 교체 (체크 상태는 유지)
+  async function togglePayer(d: DueItem) {
+    if (!d.paidTxn) return;
+    const next: Member = d.paidTxn.member === "chuchu" ? "baejji" : "chuchu";
+    await saveTransaction({ ...d.paidTxn, member: next });
+  }
+
   // 날짜별 마커
   const dueByDay = new Map<number, DueItem[]>();
   for (const d of due) {
@@ -423,16 +430,17 @@ export default function CalendarView({ ym }: { ym: string }) {
       {/* 고정지출 투두 */}
       <SectionTitle
         right={
-          <div className="flex gap-1 text-[11px]">
+          <div className="flex items-center gap-1 text-[11px]">
+            <span className="mr-1 font-semibold text-stone">결제자</span>
             {(["chuchu", "baejji"] as Member[]).map((mm) => (
               <button
                 key={mm}
                 onClick={() => setMember(mm)}
-                className={`rounded-full px-2 py-0.5 font-semibold ${
+                className={`flex min-h-11 items-center rounded-full px-3 font-semibold ${
                   member === mm ? "bg-leaf text-white" : "bg-card border border-line text-stone"
                 }`}
               >
-                {mm === "chuchu" ? "추추" : "배찌"}
+                {memberName(mm)}
               </button>
             ))}
           </div>
@@ -454,43 +462,55 @@ export default function CalendarView({ ym }: { ym: string }) {
             const left = dday(d.dueDate);
             const inst = installmentStatus(d.recurring);
             return (
-              <button
+              <div
                 key={d.recurring.id}
-                onClick={() => (paid ? unpay(d) : pay(d))}
-                className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
+                className="flex w-full items-center gap-3 px-1 py-2"
               >
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs ${
-                    paid
-                      ? "border-leaf bg-leaf text-white"
-                      : "border-line text-transparent"
-                  }`}
+                <button
+                  onClick={() => (paid ? unpay(d) : pay(d))}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left active:bg-cream"
                 >
-                  ✓
-                </span>
-                <span className="text-lg">{cat?.icon ?? "💸"}</span>
-                <div className="flex-1">
-                  <p className={`text-sm font-semibold ${paid ? "text-stone line-through" : "text-ink"}`}>
-                    {d.recurring.name}
-                    {inst && (
-                      <span className="ml-1 text-[11px] font-normal text-stone">
-                        ({inst.paid}/{inst.total})
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-stone">
-                    {Number(d.dueDate.slice(8))}일 출금
-                  </p>
-                </div>
-                <div className="text-right">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs ${
+                      paid
+                        ? "border-leaf bg-leaf text-white"
+                        : "border-line text-transparent"
+                    }`}
+                  >
+                    ✓
+                  </span>
+                  <span className="text-lg">{cat?.icon ?? "💸"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-sm font-semibold ${paid ? "text-stone line-through" : "text-ink"}`}>
+                      {d.recurring.name}
+                      {inst && (
+                        <span className="ml-1 text-[11px] font-normal text-stone">
+                          ({inst.paid}/{inst.total})
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-stone">
+                      {Number(d.dueDate.slice(8))}일 출금
+                    </p>
+                  </div>
+                </button>
+                <div className="shrink-0 text-right">
                   <p className="text-sm font-bold tabular text-ink">{won(d.recurring.amount)}</p>
-                  {!paid && (
+                  {paid && d.paidTxn ? (
+                    <button
+                      onClick={() => togglePayer(d)}
+                      aria-label={`결제자 ${memberName(d.paidTxn.member)}, 눌러서 변경`}
+                      className="mt-0.5 rounded-full bg-leaf-light px-2 py-0.5 text-[11px] font-semibold text-leaf-dark active:scale-95"
+                    >
+                      {memberName(d.paidTxn.member)}
+                    </button>
+                  ) : (
                     <Pill tone={left < 0 ? "coral" : left <= 3 ? "gold" : "stone"}>
                       {left < 0 ? "지남" : ddayLabel(d.dueDate)}
                     </Pill>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })
         )}
