@@ -174,11 +174,15 @@ create policy family_all on plan_items for all using (true) with check (true);
 create index idx_plan_items_sort on plan_items (sort_order);
 ```
 
-같은 마이그레이션에서 §2의 **27개 항목을 시드 INSERT**한다. 앱을 열면 종이 계획이 그대로 들어가 있고, 이후엔 앱에서 편집한다.
+### 시드 — 마이그레이션 INSERT가 아니라 `loadAll` 부트스트랩
 
-> ⚠️ 한글 INSERT 인코딩 함정: Management API로 적용 시 PowerShell `Invoke-RestMethod`는 한글을 깨뜨린다. **node https + Buffer utf8**로 POST한다(프로젝트 기존 방식). 검증은 count 쿼리로.
->
-> ⚠️ DDL을 먼저 적용하면 배포 전까지 프로덕션 구버전 코드가 없는 테이블을 읽는다. `loadAll`이 새 테이블을 select하므로 **DDL → 배포를 붙여서** 진행한다. (반대로 테이블만 먼저 만들어 두는 건 안전 — 구버전 코드는 이 테이블을 모른다.)
+§2의 **27개 항목**을 `lib/seed.ts`의 `SEED_PLAN_ITEMS` 상수로 두고, `repo.loadAll()`이 **테이블이 비어 있으면 삽입**한다. `categories`·`payment_methods`·`baechoo_categories`가 이미 쓰는 패턴이다.
+
+마이그레이션 INSERT 대신 이 방식을 쓰는 이유:
+- **한글 인코딩 함정 회피** — Management API로 한글 INSERT를 하면 PowerShell 경유 시 깨진다(과거 사고). supabase-js는 UTF-8을 정상 처리하므로 앱이 삽입하면 문제가 없다. 마이그레이션은 순수 ASCII DDL만 남는다.
+- **localStorage 모드도 대칭으로 시드된다** — 마이그레이션은 클라우드에만 적용되므로, 로컬 모드에선 계획이 텅 비어 있게 된다.
+
+> ⚠️ DDL을 먼저 적용하면 배포 전까지 프로덕션 구버전 코드가 없는 테이블을 읽는다 — 는 걱정은 여기선 없다. 구버전 코드는 `plan_items`를 모르므로 테이블만 먼저 만들어 두는 것은 안전하다. 순서: **DDL 적용 → 배포**.
 
 ## 5. 계산 (`lib/plan.ts`, 순수함수)
 
