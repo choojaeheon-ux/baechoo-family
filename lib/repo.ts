@@ -4,6 +4,7 @@ import {
   SEED_CATEGORIES,
   SEED_PAYMENT_METHODS,
   SEED_BAECHOO_CATEGORIES,
+  SEED_PLAN_ITEMS,
 } from "./seed";
 import type {
   AssetSnapshot,
@@ -14,6 +15,8 @@ import type {
   Goal,
   LocalCurrency,
   PaymentMethod,
+  PlanGroup,
+  PlanItem,
   RecurringExpense,
   RecurringKind,
   RewardRule,
@@ -83,6 +86,7 @@ function lsRead(): DataSnapshot {
         categories: SEED_CATEGORIES,
         paymentMethods: SEED_PAYMENT_METHODS,
         baechooCategories: SEED_BAECHOO_CATEGORIES,
+        planItems: SEED_PLAN_ITEMS,
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -108,6 +112,7 @@ function lsRead(): DataSnapshot {
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
+      planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
     };
   } catch {
     return emptySnapshot();
@@ -140,6 +145,7 @@ function emptySnapshot(): DataSnapshot {
     ujuChecklists: [],
     baechooVaccines: [],
     assetSnapshots: [],
+    planItems: [],
   };
 }
 
@@ -519,6 +525,32 @@ const fromVaccine = (x: BaechooVaccine) => ({
   created_at: x.createdAt || null,
 });
 
+// 예산 계획 항목
+const toPlanItem = (r: Record<string, unknown>): PlanItem => ({
+  id: r.id as string,
+  group: (r.group as PlanGroup) ?? "spending",
+  name: (r.name as string) ?? "",
+  amount: Number(r.amount ?? 0),
+  pnlClass: (r.pnl_class as PlanItem["pnlClass"]) ?? "variable",
+  conditional: Boolean(r.conditional),
+  endYearMonth: (r.end_year_month as string) ?? null,
+  targetTotal: r.target_total == null ? null : Number(r.target_total),
+  note: (r.note as string) ?? null,
+  sortOrder: Number(r.sort_order ?? 0),
+});
+const fromPlanItem = (x: PlanItem) => ({
+  id: x.id,
+  group: x.group,
+  name: x.name,
+  amount: x.amount,
+  pnl_class: x.pnlClass,
+  conditional: x.conditional,
+  end_year_month: x.endYearMonth,
+  target_total: x.targetTotal,
+  note: x.note,
+  sort_order: x.sortOrder,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -544,6 +576,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecks,
     vaccines,
     assetSnaps,
+    plans,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -564,6 +597,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
+    sb.from("plan_items").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -581,6 +615,11 @@ export async function loadAll(): Promise<DataSnapshot> {
       .from("baechoo_categories")
       .insert(SEED_BAECHOO_CATEGORIES.map(fromBCat));
     baechooCategories = SEED_BAECHOO_CATEGORIES;
+  }
+  let planItems = (plans.data ?? []).map(toPlanItem);
+  if (planItems.length === 0) {
+    await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
+    planItems = SEED_PLAN_ITEMS;
   }
   return {
     categories,
@@ -602,6 +641,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
+    planItems,
   };
 }
 
@@ -683,6 +723,17 @@ export async function saveAssetSnapshot(x: AssetSnapshot): Promise<AssetSnapshot
 export async function deleteAssetSnapshot(id: string) {
   if (hasSupabase) await sbDelete("asset_snapshots", id);
   else lsDelete("assetSnapshots", id);
+}
+
+export async function savePlanItem(x: PlanItem): Promise<PlanItem> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("plan_items", fromPlanItem(row));
+  else lsUpsert("planItems", row);
+  return row;
+}
+export async function deletePlanItem(id: string) {
+  if (hasSupabase) await sbDelete("plan_items", id);
+  else lsDelete("planItems", id);
 }
 
 export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency> {

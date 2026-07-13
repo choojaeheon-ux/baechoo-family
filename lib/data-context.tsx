@@ -30,6 +30,7 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
+  PlanItem,
 } from "./types";
 
 interface DataContextValue {
@@ -54,6 +55,7 @@ interface DataContextValue {
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
+  planItems: PlanItem[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -96,6 +98,8 @@ interface DataContextValue {
   removeBaechooVaccine: (id: string) => Promise<void>;
   saveAssetSnapshot: (a: AssetSnapshot) => Promise<void>;
   removeAssetSnapshot: (id: string) => Promise<void>;
+  savePlanItem: (p: PlanItem) => Promise<void>;
+  removePlanItem: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -123,6 +127,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [ujuChecklists, setUjuChecklists] = useState<UjuChecklist[]>([]);
   const [baechooVaccines, setBaechooVaccines] = useState<BaechooVaccine[]>([]);
   const [assetSnapshots, setAssetSnapshots] = useState<AssetSnapshot[]>([]);
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -145,6 +150,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setUjuChecklists(snap.ujuChecklists);
     setBaechooVaccines(snap.baechooVaccines);
     setAssetSnapshots(snap.assetSnapshots);
+    setPlanItems(snap.planItems);
   }, []);
 
   useEffect(() => {
@@ -207,6 +213,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ujuChecklists,
       baechooVaccines,
       assetSnapshots,
+      planItems,
       categoryById,
       paymentMethodById,
       refresh,
@@ -373,6 +380,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteAssetSnapshot(id);
         setAssetSnapshots((p) => p.filter((x) => x.id !== id));
       },
+      savePlanItem: async (p) => {
+        const saved = await repo.savePlanItem(p);
+        upsertLocal(setPlanItems, saved);
+      },
+      removePlanItem: async (id) => {
+        await repo.deletePlanItem(id);
+        setPlanItems((p) => p.filter((x) => x.id !== id));
+      },
     }),
     [
       loading,
@@ -395,6 +410,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ujuChecklists,
       baechooVaccines,
       assetSnapshots,
+      planItems,
       categoryById,
       paymentMethodById,
       refresh,
