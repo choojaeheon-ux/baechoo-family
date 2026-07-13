@@ -7,11 +7,11 @@ create table if not exists plan_items (
   id text primary key,
   "group" text not null check ("group" in ('income','spending','saving')),
   name text not null,
-  amount integer not null,
+  amount numeric not null,
   pnl_class text not null check (pnl_class in ('revenue','fixed','saving','variable')),
   conditional boolean not null default false,
   end_year_month text,
-  target_total integer,
+  target_total numeric,
   note text,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()

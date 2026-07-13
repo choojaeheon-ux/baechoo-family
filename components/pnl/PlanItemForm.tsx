@@ -19,6 +19,11 @@ import {
 // 숫자만 남긴다. type="number"는 iOS에서 글씨가 안 보여 쓰지 않는다.
 const digits = (s: string) => s.replace(/[^0-9]/g, "");
 
+// 신규 항목의 손익분류 기본값 — 구획에서 파생한다.
+// (수입 구획에 만든 항목이 변동비로 잡혀 부호가 뒤집히는 사고를 막는다)
+const defaultPnlClass = (g: PlanGroup): PlanItem["pnlClass"] =>
+  g === "income" ? "revenue" : g === "saving" ? "saving" : "variable";
+
 export default function PlanItemForm({
   open,
   initial,
@@ -38,7 +43,7 @@ export default function PlanItemForm({
   const [amount, setAmount] = useState(String(initial?.amount ?? ""));
   const [group, setGroup] = useState<PlanGroup>(initial?.group ?? draftGroup);
   const [pnlClass, setPnlClass] = useState<PlanItem["pnlClass"]>(
-    initial?.pnlClass ?? "variable"
+    initial?.pnlClass ?? defaultPnlClass(draftGroup)
   );
   const [conditional, setConditional] = useState(
     initial?.conditional ?? draftConditional
