@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
-import { computePlanPnl } from "@/lib/plan";
+import { activeItems, computePlanPnl } from "@/lib/plan";
 import { buildWaterfall } from "@/lib/pnl";
 import { currentYearMonth } from "@/lib/format";
 import { Card, SectionTitle, MonthSwitcher } from "@/components/budget/ui";
@@ -24,9 +24,15 @@ export default function Plan() {
   const [draftGroup, setDraftGroup] = useState<PlanGroup>("spending");
   const [draftConditional, setDraftConditional] = useState(false);
 
-  const summary = useMemo(
-    () => computePlanPnl(planItems, month),
+  // 계획 탭은 언제나 "선택한 달 기준의 계획"을 보여준다 — 종료된 항목은
+  // 이 달의 계획에서 제외하고, 히어로·리스트·대조표가 같은 목록을 공유한다.
+  const active = useMemo(
+    () => activeItems(planItems, month),
     [planItems, month]
+  );
+  const summary = useMemo(
+    () => computePlanPnl(active, month),
+    [active, month]
   );
   const segments = useMemo(() => buildWaterfall(summary), [summary]);
 
@@ -45,7 +51,7 @@ export default function Plan() {
     <div className="space-y-4">
       <MonthSwitcher ym={month} onChange={setMonth} />
 
-      <PlanSummary items={planItems} />
+      <PlanSummary items={active} />
 
       <SectionTitle>계획 손익</SectionTitle>
       <Card>
@@ -56,7 +62,7 @@ export default function Plan() {
       <PlanVsActual month={month} />
 
       <PlanItemList
-        items={planItems}
+        items={active}
         month={month}
         onEdit={openEdit}
         onAdd={openAdd}
