@@ -3,11 +3,19 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import Dashboard from "@/components/pnl/Dashboard";
+import Plan from "@/components/pnl/Plan";
 import Manual from "@/components/pnl/Manual";
+
+type Sub = "dashboard" | "plan" | "manual";
+const SUB_LABEL: Record<Sub, string> = {
+  dashboard: "대시보드",
+  plan: "계획",
+  manual: "설명서",
+};
 
 export default function PnlPage() {
   const { mode } = useData();
-  const [sub, setSub] = useState<"dashboard" | "manual">("dashboard");
+  const [sub, setSub] = useState<Sub>("dashboard");
 
   return (
     <div>
@@ -25,7 +33,7 @@ export default function PnlPage() {
           </div>
         </div>
         <div className="flex gap-1 rounded-xl bg-card p-1">
-          {(["dashboard", "manual"] as const).map((k) => (
+          {(Object.keys(SUB_LABEL) as Sub[]).map((k) => (
             <button
               key={k}
               onClick={() => setSub(k)}
@@ -33,14 +41,16 @@ export default function PnlPage() {
                 sub === k ? "bg-leaf text-white" : "text-stone"
               }`}
             >
-              {k === "dashboard" ? "대시보드" : "설명서"}
+              {SUB_LABEL[k]}
             </button>
           ))}
         </div>
       </header>
 
       <div className="px-4 pt-4">
-        {sub === "dashboard" ? <Dashboard /> : <Manual />}
+        {sub === "dashboard" && <Dashboard />}
+        {sub === "plan" && <Plan />}
+        {sub === "manual" && <Manual />}
       </div>
     </div>
   );
