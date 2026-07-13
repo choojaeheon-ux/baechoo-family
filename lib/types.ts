@@ -376,6 +376,7 @@ export interface DataSnapshot {
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
+  planItems: PlanItem[];
 }
 
 export type PnlClass =
@@ -408,3 +409,46 @@ export interface WaterfallSegment {
   value: number;
   kind: "revenue" | "deduct" | "profit";
 }
+
+/* ───────────── 가족 P&L — 예산 계획 ───────────── */
+
+// 계획 항목의 구획 (손글씨 노트의 좌/우 블록)
+export type PlanGroup = "income" | "spending" | "saving";
+
+export const PLAN_GROUP_LABEL: Record<PlanGroup, string> = {
+  income: "수입",
+  spending: "월 지출",
+  saving: "저축·상환",
+};
+
+// 손익분류 라벨 (계획 항목 편집 시트에서 선택지로 노출)
+export const PNL_CLASS_LABEL: Record<Exclude<PnlClass, "excluded">, string> = {
+  revenue: "매출",
+  fixed: "고정비",
+  saving: "선저축",
+  variable: "변동비",
+};
+
+// 월 예산 계획 1항목.
+// group은 화면 구획, pnlClass는 손익 집계 버킷 — 둘은 독립이다.
+// (예: 학자금 상환은 group=saving이지만 pnlClass=fixed)
+export interface PlanItem {
+  id: string;
+  group: PlanGroup;
+  name: string;
+  amount: number; // 월 금액
+  pnlClass: Exclude<PnlClass, "excluded">;
+  conditional: boolean; // ⊖ — 여유 있을 때 집행
+  endYearMonth: string | null; // "YYYY-MM", null = 무기한. 이 달까지 집행.
+  targetTotal: number | null; // 부채 잔액·적립 목표액 (표시용)
+  note: string | null;
+  sortOrder: number;
+}
+
+// 예산 규칙 (손글씨 포스트잇)
+export const BUDGET_RULES: string[] = [
+  "금액은 넉넉하게 올려 잡는다",
+  "현금·배찌 주식은 계획에서 잊는다",
+  "첫만남 이용권·안양시 200만원 등 일회성 금액은 잊는다",
+  "엄마 1,000,000은 첫만남 이용권으로 충당 — 예산에서 제외",
+];
