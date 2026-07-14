@@ -3,12 +3,32 @@
 // 같은 PnlSummary 타입을 반환한다. 그래야 폭포 차트와 대조표를 공유할 수 있다.
 import type { PlanItem, PlanGroup, PnlSummary } from "./types";
 
-// 기준월에 살아 있는 항목만. endYearMonth가 그 달이면 아직 포함한다(그 달까지 납부).
+// 기준월에 살아 있는 항목만 — 시작월 <= 기준월 <= 종료월.
+// null은 무한대로 취급한다(시작월 null = 언제부터든, 종료월 null = 무기한).
 // "YYYY-MM" 문자열은 사전순 비교 = 시간순 비교라 그대로 비교한다.
 export function activeItems(items: PlanItem[], yearMonth: string): PlanItem[] {
   return items.filter(
-    (i) => i.endYearMonth == null || i.endYearMonth >= yearMonth
+    (i) =>
+      (i.startYearMonth == null || i.startYearMonth <= yearMonth) &&
+      (i.endYearMonth == null || i.endYearMonth >= yearMonth)
   );
+}
+
+// 1회성 = 시작월과 종료월이 같은 달로 못박힌 항목.
+// 별도 플래그를 두지 않고 파생한다 — 판정 규칙을 한 줄로 유지하기 위해서다.
+export function isOneTime(i: PlanItem): boolean {
+  return i.startYearMonth != null && i.startYearMonth === i.endYearMonth;
+}
+
+// 기준월 "이후"의 1회성 항목 — 「다가오는 1회성 지출」 카드용. 월 오름차순.
+// 당월 1회성은 이미 그 달 계획에 들어 있으므로 "다가오는"이 아니다.
+export function upcomingOneTime(
+  items: PlanItem[],
+  yearMonth: string
+): PlanItem[] {
+  return items
+    .filter((i) => isOneTime(i) && i.startYearMonth! > yearMonth)
+    .sort((a, b) => a.startYearMonth!.localeCompare(b.startYearMonth!));
 }
 
 export function computePlanPnl(items: PlanItem[], yearMonth: string): PnlSummary {

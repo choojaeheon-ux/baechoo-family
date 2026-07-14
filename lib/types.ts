@@ -432,6 +432,7 @@ export const PNL_CLASS_LABEL: Record<Exclude<PnlClass, "excluded">, string> = {
 // 월 예산 계획 1항목.
 // group은 화면 구획, pnlClass는 손익 집계 버킷 — 둘은 독립이다.
 // (예: 학자금 상환은 group=saving이지만 pnlClass=fixed)
+// 집행 여부: 시작월 <= 기준월 <= 종료월 (null은 무한대). 1회성은 시작월 === 종료월.
 export interface PlanItem {
   id: string;
   group: PlanGroup;
@@ -439,6 +440,7 @@ export interface PlanItem {
   amount: number; // 월 금액
   pnlClass: Exclude<PnlClass, "excluded">;
   conditional: boolean; // ⊖ — 여유 있을 때 집행
+  startYearMonth: string | null; // "YYYY-MM", null = 시작 제한 없음. 이 달부터 집행.
   endYearMonth: string | null; // "YYYY-MM", null = 무기한. 이 달까지 집행.
   targetTotal: number | null; // 부채 잔액·적립 목표액 (표시용)
   note: string | null;
@@ -450,5 +452,4 @@ export const BUDGET_RULES: string[] = [
   "금액은 넉넉하게 올려 잡는다",
   "현금·배찌 주식은 계획에서 잊는다",
   "첫만남 이용권·안양시 200만원 등 일회성 금액은 잊는다",
-  "엄마 1,000,000은 첫만남 이용권으로 충당 — 예산에서 제외",
 ];
