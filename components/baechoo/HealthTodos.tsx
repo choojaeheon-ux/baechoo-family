@@ -40,6 +40,14 @@ export default function HealthTodos() {
         .sort((a, b) => (a.dueDate ?? "") < (b.dueDate ?? "") ? -1 : 1),
     [baechooHealthTodos]
   );
+  // 완료(once) — 완료일 최신순
+  const doneOnce = useMemo(
+    () =>
+      baechooHealthTodos
+        .filter((t) => t.kind === "once" && t.done)
+        .sort((a, b) => ((a.completedAt ?? "") > (b.completedAt ?? "") ? -1 : 1)),
+    [baechooHealthTodos]
+  );
 
   async function toggleDaily(t: BaechooHealthTodo) {
     const has = t.doneDates.includes(today);
@@ -55,7 +63,11 @@ export default function HealthTodos() {
     await saveBaechooHealthTodo({ ...t, done: true, completedAt: today });
   }
 
-  const hasAny = daily.length > 0 || upcoming.length > 0;
+  async function uncheckOnce(t: BaechooHealthTodo) {
+    await saveBaechooHealthTodo({ ...t, done: false, completedAt: null });
+  }
+
+  const hasAny = daily.length > 0 || upcoming.length > 0 || doneOnce.length > 0;
 
   return (
     <div>
@@ -130,6 +142,27 @@ export default function HealthTodos() {
                     </div>
                   );
                 })}
+              </div>
+            </Card>
+          )}
+
+          {/* 완료 (약·접종) */}
+          {doneOnce.length > 0 && (
+            <Card>
+              <p className="mb-2 text-xs font-bold text-stone">완료 {doneOnce.length}</p>
+              <div className="space-y-2">
+                {doneOnce.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3">
+                    <Check on={true} onClick={() => uncheckOnce(t)} />
+                    <button
+                      onClick={() => setForm({ open: true, initial: t })}
+                      className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-stone line-through"
+                    >
+                      {t.title}
+                    </button>
+                    <Pill tone="leaf">완료</Pill>
+                  </div>
+                ))}
               </div>
             </Card>
           )}
