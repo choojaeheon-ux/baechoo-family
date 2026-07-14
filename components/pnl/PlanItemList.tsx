@@ -1,7 +1,7 @@
 "use client";
 
 import { won } from "@/lib/format";
-import { groupTotal, remainingMonths } from "@/lib/plan";
+import { groupTotal, remainingMonths, isOneTime } from "@/lib/plan";
 import { Card, SectionTitle, Pill } from "@/components/budget/ui";
 import type { PlanGroup, PlanItem } from "@/lib/types";
 
@@ -31,8 +31,12 @@ function ItemRow({
         <div className="truncate text-sm text-ink">{item.name}</div>
         {sub && <div className="truncate text-[11px] text-stone">{sub}</div>}
       </div>
-      {left != null && (
-        <Pill tone={left <= 12 ? "gold" : "stone"}>{left}회 남음</Pill>
+      {isOneTime(item) ? (
+        <Pill tone="sky">1회성</Pill>
+      ) : (
+        left != null && (
+          <Pill tone={left <= 12 ? "gold" : "stone"}>{left}회 남음</Pill>
+        )
       )}
       <div className="w-24 shrink-0 text-right text-sm tabular-nums text-ink">
         {won(item.amount)}

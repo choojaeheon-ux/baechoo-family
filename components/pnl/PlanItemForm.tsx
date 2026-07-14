@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { newId } from "@/lib/repo";
+import { isOneTime } from "@/lib/plan";
 import {
   Sheet,
   Field,
@@ -29,12 +30,14 @@ export default function PlanItemForm({
   initial,
   draftGroup,
   draftConditional,
+  draftOneTimeMonth,
   onClose,
 }: {
   open: boolean;
   initial: PlanItem | null;
   draftGroup: PlanGroup;
   draftConditional: boolean;
+  draftOneTimeMonth: string | null; // 신규를 [이 달만]으로 열 때의 기본 달
   onClose: () => void;
 }) {
   const { savePlanItem, removePlanItem, planItems } = useData();
@@ -49,13 +52,32 @@ export default function PlanItemForm({
     initial?.conditional ?? draftConditional
   );
   const [endYearMonth, setEndYearMonth] = useState(initial?.endYearMonth ?? "");
+  // 적용 방식 — [매달] / [이 달만]. 편집이면 기존 항목에서 판정한다.
+  const [applyMode, setApplyMode] = useState<"monthly" | "once">(
+    initial
+      ? isOneTime(initial)
+        ? "once"
+        : "monthly"
+      : draftOneTimeMonth
+        ? "once"
+        : "monthly"
+  );
+  // [이 달만]일 때의 대상 달 (시작월 = 종료월로 저장된다)
+  const [onceMonth, setOnceMonth] = useState(
+    initial && isOneTime(initial)
+      ? (initial.startYearMonth ?? "")
+      : (draftOneTimeMonth ?? "")
+  );
   const [targetTotal, setTargetTotal] = useState(
     initial?.targetTotal == null ? "" : String(initial.targetTotal)
   );
   const [note, setNote] = useState(initial?.note ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const canSave = name.trim().length > 0 && Number(amount) > 0;
+  const canSave =
+    name.trim().length > 0 &&
+    Number(amount) > 0 &&
+    (applyMode === "monthly" || onceMonth !== "");
 
   const submit = async () => {
     if (!canSave) return;
@@ -67,7 +89,8 @@ export default function PlanItemForm({
       amount: Number(amount),
       pnlClass,
       conditional,
-      endYearMonth: endYearMonth || null,
+      startYearMonth: applyMode === "once" ? onceMonth : null,
+      endYearMonth: applyMode === "once" ? onceMonth : endYearMonth || null,
       targetTotal: targetTotal ? Number(targetTotal) : null,
       note: note.trim() || null,
       sortOrder: initial?.sortOrder ?? maxSort + 10,
@@ -151,14 +174,47 @@ export default function PlanItemForm({
         </span>
       </label>
 
-      <Field label="언제까지 (비우면 무기한)">
-        <input
-          className={inputCls}
-          type="month"
-          value={endYearMonth}
-          onChange={(e) => setEndYearMonth(e.target.value)}
-        />
+      <Field label="적용">
+        <div className="flex gap-1 rounded-xl bg-cream p-1">
+          {(
+            [
+              ["monthly", "매달"],
+              ["once", "이 달만"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setApplyMode(k)}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+                applyMode === k ? "bg-leaf text-white" : "text-stone"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </Field>
+
+      {applyMode === "monthly" ? (
+        <Field label="언제까지 (비우면 무기한)">
+          <input
+            className={inputCls}
+            type="month"
+            value={endYearMonth}
+            onChange={(e) => setEndYearMonth(e.target.value)}
+          />
+        </Field>
+      ) : (
+        <Field label="어느 달">
+          <input
+            className={inputCls}
+            type="month"
+            value={onceMonth}
+            onChange={(e) => setOnceMonth(e.target.value)}
+          />
+        </Field>
+      )}
 
       <Field label="잔액·목표액 (선택)">
         <input
