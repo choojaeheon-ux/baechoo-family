@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-const CORRECT_PIN = "1106";
+// 회사 캘린더 API 라우트 호출 시 헤더로도 전송 (서버 FAMILY_PIN env와 대조)
+export const FAMILY_PIN = "1106";
+const CORRECT_PIN = FAMILY_PIN;
 const UNLOCKED_KEY = "baechoo-unlocked";
 const PIN_LEN = 4;
 

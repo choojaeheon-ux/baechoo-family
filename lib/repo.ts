@@ -32,6 +32,7 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
+  FamilyEvent,
   LatLng,
   Stool,
   MealType,
@@ -112,6 +113,7 @@ function lsRead(): DataSnapshot {
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
+      familyEvents: parsed.familyEvents ?? [],
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
     };
   } catch {
@@ -145,6 +147,7 @@ function emptySnapshot(): DataSnapshot {
     ujuChecklists: [],
     baechooVaccines: [],
     assetSnapshots: [],
+    familyEvents: [],
     planItems: [],
   };
 }
@@ -553,6 +556,36 @@ const fromPlanItem = (x: PlanItem) => ({
   sort_order: x.sortOrder,
 });
 
+// 가족 캘린더 일정
+const toFamilyEvent = (r: Record<string, unknown>): FamilyEvent => ({
+  id: r.id as string,
+  title: (r.title as string) ?? "",
+  startDate: (r.start_date as string) ?? "",
+  endDate: (r.end_date as string) ?? null,
+  time: (r.time as string) ?? null,
+  assignee: (r.assignee as FamilyEvent["assignee"]) ?? "together",
+  memo: (r.memo as string) ?? null,
+  recurrence: (r.recurrence as FamilyEvent["recurrence"]) ?? "none",
+  repeatInterval: Number(r.repeat_interval ?? 1),
+  repeatUntil: (r.repeat_until as string) ?? null,
+  exceptions: Array.isArray(r.exceptions) ? (r.exceptions as string[]) : [],
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromFamilyEvent = (x: FamilyEvent) => ({
+  id: x.id,
+  title: x.title,
+  start_date: x.startDate,
+  end_date: x.endDate,
+  time: x.time,
+  assignee: x.assignee,
+  memo: x.memo,
+  recurrence: x.recurrence,
+  repeat_interval: x.repeatInterval,
+  repeat_until: x.repeatUntil,
+  exceptions: x.exceptions,
+  created_at: x.createdAt || null,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -578,6 +611,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecks,
     vaccines,
     assetSnaps,
+    fevents,
     plans,
   ] = await Promise.all([
     sb.from("categories").select("*"),
@@ -599,6 +633,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
+    sb.from("family_events").select("*").is("deleted_at", null),
     sb.from("plan_items").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
@@ -643,6 +678,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
+    familyEvents: (fevents.data ?? []).map(toFamilyEvent),
     planItems,
   };
 }
@@ -852,6 +888,17 @@ export async function deleteBaechooHealthTodo(id: string) {
   else lsDelete("baechooHealthTodos", id);
 }
 
+export async function saveFamilyEvent(x: FamilyEvent): Promise<FamilyEvent> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("family_events", fromFamilyEvent(row));
+  else lsUpsert("familyEvents", row);
+  return row;
+}
+export async function deleteFamilyEvent(id: string) {
+  if (hasSupabase) await sbSoftDelete("family_events", id);
+  else lsDelete("familyEvents", id);
+}
+
 export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {
   const row = { ...x, id: x.id || newId() };
   if (hasSupabase) await sbUpsert("baechoo_walks", fromWalk(row));
@@ -895,7 +942,8 @@ export type TrashKind =
   | "healthTodo"
   | "walk"
   | "ujuChecklist"
-  | "vaccine";
+  | "vaccine"
+  | "familyEvent";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -917,7 +965,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines] =
+  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines, fevents] =
     await Promise.all([
       del("baechoo_meals"),
       del("baechoo_health"),
@@ -926,6 +974,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       del("baechoo_walks"),
       del("uju_checklists"),
       del("baechoo_vaccines"),
+      del("family_events"),
     ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
@@ -1000,6 +1049,16 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `예방접종 · ${v.name || "-"}`,
     });
   }
+  for (const r of fevents.data ?? []) {
+    const e = toFamilyEvent(r);
+    items.push({
+      kind: "familyEvent",
+      table: "family_events",
+      id: e.id,
+      deletedAt: r.deleted_at,
+      label: `일정 · ${md(e.startDate)} · ${e.title || "-"}`,
+    });
+  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -1029,6 +1088,7 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_walks",
       "uju_checklists",
       "baechoo_vaccines",
+      "family_events",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }

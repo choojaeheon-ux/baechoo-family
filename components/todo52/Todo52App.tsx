@@ -18,7 +18,8 @@ import { WeekTodoForm, TodoActionSheet } from "./forms";
 
 type View = "weeks" | "unscheduled";
 
-export default function Todo52App() {
+// embedded: 캘린더 탭 서브탭으로 렌더될 때 — 타이틀 행 숨김·sticky 해제(부모 헤더와 충돌 방지)
+export default function Todo52App({ embedded = false }: { embedded?: boolean }) {
   const { loading, mode, weekTodos } = useData();
   const thisYear = new Date().getFullYear();
   // 선택 가능한 연도: 작년 ~ 내후년 (회고 1년 + 계획 2년)
@@ -60,17 +61,27 @@ export default function Todo52App() {
   return (
     <div>
       {/* 헤더 */}
-      <header className="sticky top-0 z-30 bg-cream/90 px-4 pt-4 pb-3 backdrop-blur">
+      <header
+        className={
+          embedded
+            ? "px-4 pt-3 pb-3"
+            : "sticky top-0 z-30 bg-cream/90 px-4 pt-4 pb-3 backdrop-blur"
+        }
+      >
         <div className="mb-3 flex items-center gap-2">
-          <span className="text-2xl">🗓️</span>
-          <div>
-            <h1 className="text-lg font-extrabold leading-none text-ink">
-              52주 투두
-            </h1>
-            <p className="mt-0.5 text-[11px] text-stone">
-              {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
-            </p>
-          </div>
+          {!embedded && (
+            <>
+              <span className="text-2xl">🗓️</span>
+              <div>
+                <h1 className="text-lg font-extrabold leading-none text-ink">
+                  52주 투두
+                </h1>
+                <p className="mt-0.5 text-[11px] text-stone">
+                  {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
+                </p>
+              </div>
+            </>
+          )}
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}

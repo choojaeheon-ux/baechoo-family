@@ -153,6 +153,31 @@ export interface WeekTodo {
   completedAt: string | null;
 }
 
+/* ───────────── 가족 캘린더 ───────────── */
+
+// 반복 규칙 — 시리즈 단일 레코드 + 예외(제외 회차) 목록 모델
+export type EventRecurrence = "none" | "weekly" | "monthly";
+export const EVENT_RECURRENCE_LABEL: Record<EventRecurrence, string> = {
+  none: "없음",
+  weekly: "매주",
+  monthly: "매월",
+};
+
+export interface FamilyEvent {
+  id: string;
+  title: string;
+  startDate: string; // YYYY-MM-DD (반복이면 첫 회차 시작일)
+  endDate: string | null; // 연박 종료일, null = 당일
+  time: string | null; // "HH:MM", null = 종일
+  assignee: TodoAssignee; // 추추·배찌·함께 재사용
+  memo: string | null;
+  recurrence: EventRecurrence;
+  repeatInterval: number; // 1=매주/매월, 2=격주/격월…
+  repeatUntil: string | null; // 반복 종료일, null = 무기한
+  exceptions: string[]; // "이 회차만 삭제"된 회차 시작일들
+  createdAt: string; // YYYY-MM-DD
+}
+
 /* ───────────── 배추 생활기록부 ───────────── */
 
 // 식사/간식 기록
@@ -376,6 +401,7 @@ export interface DataSnapshot {
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
+  familyEvents: FamilyEvent[];
   planItems: PlanItem[];
 }
 

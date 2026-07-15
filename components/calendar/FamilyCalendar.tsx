@@ -1,0 +1,310 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useData } from "@/lib/data-context";
+import {
+  currentYearMonth,
+  daysInMonth,
+  todayISO,
+  weekNumOf,
+  weekLabel,
+  ddayLabel,
+} from "@/lib/format";
+import { occurrencesByDate, type EventOccurrence } from "@/lib/calendar";
+import type { FamilyEvent, WeekTodo, TodoAssignee } from "@/lib/types";
+import { TODO_ASSIGNEES, todoAssigneeName } from "@/lib/types";
+import { Card, MonthSwitcher, Pill } from "@/components/budget/ui";
+import { WeekTodoForm, TodoActionSheet } from "@/components/todo52/forms";
+import EventForm from "./EventForm";
+
+const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 담당자별 마커 색 (추추 sky · 배찌 coral · 함께 leaf)
+const ASSIGNEE_DOT: Record<TodoAssignee, string> = {
+  chuchu: "bg-[var(--color-sky)]",
+  baejji: "bg-[var(--color-coral)]",
+  together: "bg-[var(--color-leaf)]",
+};
+const ASSIGNEE_EMOJI: Record<TodoAssignee, string> = Object.fromEntries(
+  TODO_ASSIGNEES.map((a) => [a.id, a.emoji])
+) as Record<TodoAssignee, string>;
+
+function Check({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs transition ${
+        on ? "border-leaf bg-leaf text-white" : "border-line text-transparent"
+      }`}
+    >
+      ✓
+    </button>
+  );
+}
+
+export default function FamilyCalendar() {
+  const { loading, familyEvents, weekTodos } = useData();
+  const [ym, setYm] = useState(currentYearMonth());
+  const [selected, setSelected] = useState<string | null>(todayISO());
+  const [eventForm, setEventForm] = useState<{
+    open: boolean;
+    initial?: FamilyEvent;
+    defaultDate?: string;
+    occurrenceDate?: string;
+  }>({ open: false });
+  const [todoForm, setTodoForm] = useState<WeekTodo | null>(null);
+  const [actionTodo, setActionTodo] = useState<WeekTodo | null>(null);
+
+  const today = todayISO();
+  const from = `${ym}-01`;
+  const to = `${ym}-${String(daysInMonth(ym)).padStart(2, "0")}`;
+
+  // 일정 전개 (반복 포함) → 날짜별
+  const occMap = useMemo(
+    () => occurrencesByDate(familyEvents, from, to),
+    [familyEvents, from, to]
+  );
+
+  // 기한 있는 미완료 투두 → 날짜별 (gold 마커)
+  const todoDue = useMemo(() => {
+    const m = new Map<string, WeekTodo[]>();
+    for (const t of weekTodos) {
+      if (t.status !== "pending" || !t.dueDate) continue;
+      if (t.dueDate < from || t.dueDate > to) continue;
+      m.set(t.dueDate, [...(m.get(t.dueDate) ?? []), t]);
+    }
+    return m;
+  }, [weekTodos, from, to]);
+
+  // 선택한 날짜가 속한 주의 투두 (미완료)
+  const selectedWeekTodos = useMemo(() => {
+    if (!selected) return [];
+    const y = Number(selected.slice(0, 4));
+    const w = weekNumOf(selected);
+    return weekTodos
+      .filter((t) => t.year === y && t.weekNum === w && t.status === "pending")
+      .sort((a, b) => ((a.dueDate ?? "9999") < (b.dueDate ?? "9999") ? -1 : 1));
+  }, [weekTodos, selected]);
+
+  const selectedOccs = useMemo(() => {
+    if (!selected) return [];
+    const occs = occMap.get(selected) ?? [];
+    // 종일 먼저, 그다음 시간순
+    return [...occs].sort((a, b) => {
+      const ta = a.event.time ?? "";
+      const tb = b.event.time ?? "";
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    });
+  }, [occMap, selected]);
+
+  // 월 그리드 셀
+  const [y, m] = ym.split("-").map(Number);
+  const firstDow = new Date(y, m - 1, 1).getDay();
+  const cells: (number | null)[] = [
+    ...Array(firstDow).fill(null),
+    ...Array.from({ length: daysInMonth(ym) }, (_, i) => i + 1),
+  ];
+
+  if (loading) {
+    return <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={() =>
+          setEventForm({ open: true, defaultDate: selected ?? today })
+        }
+        className="w-full rounded-2xl bg-leaf py-3 text-sm font-bold text-white shadow-sm transition active:scale-[0.99]"
+      >
+        + 일정
+      </button>
+
+      <Card>
+        <div className="mb-3">
+          <MonthSwitcher
+            ym={ym}
+            onChange={(next) => {
+              setYm(next);
+              setSelected(null);
+            }}
+          />
+        </div>
+        <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-semibold text-stone">
+          {WEEK.map((w, i) => (
+            <span key={w} className={i === 0 ? "text-coral" : i === 6 ? "text-sky" : ""}>
+              {w}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-y-1">
+          {cells.map((day, idx) => {
+            if (day === null) return <span key={`e${idx}`} />;
+            const iso = `${ym}-${String(day).padStart(2, "0")}`;
+            const occs = occMap.get(iso) ?? [];
+            const hasTodo = todoDue.has(iso);
+            return (
+              <button
+                key={day}
+                onClick={() => setSelected((p) => (p === iso ? null : iso))}
+                className="flex flex-col items-center"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+                    iso === today ? "bg-leaf font-bold text-white" : "text-ink"
+                  } ${selected === iso ? "ring-2 ring-leaf ring-offset-1" : ""}`}
+                >
+                  {day}
+                </span>
+                <span className="mt-0.5 flex h-1.5 gap-0.5">
+                  {occs.slice(0, 3).map((o, i) => (
+                    <span
+                      key={i}
+                      className={`h-1.5 w-1.5 rounded-full ${ASSIGNEE_DOT[o.event.assignee]}`}
+                    />
+                  ))}
+                  {hasTodo && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {/* 범례 */}
+        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone">
+          {TODO_ASSIGNEES.map((a) => (
+            <span key={a.id} className="flex items-center gap-1">
+              <span className={`h-1.5 w-1.5 rounded-full ${ASSIGNEE_DOT[a.id]}`} />
+              {a.name}
+            </span>
+          ))}
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+            투두 기한
+          </span>
+        </div>
+      </Card>
+
+      {selected && (
+        <Card>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-bold text-ink">
+              {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일 (
+              {WEEK[new Date(selected).getDay()]})
+            </p>
+            <button
+              onClick={() => setEventForm({ open: true, defaultDate: selected })}
+              className="text-xs font-bold text-leaf-dark"
+            >
+              + 이 날 일정
+            </button>
+          </div>
+
+          {selectedOccs.length === 0 ? (
+            <p className="py-2 text-center text-xs text-stone">일정이 없어요</p>
+          ) : (
+            <div className="space-y-2">
+              {selectedOccs.map((o: EventOccurrence, i) => (
+                <button
+                  key={`${o.event.id}-${i}`}
+                  onClick={() =>
+                    setEventForm({
+                      open: true,
+                      initial: o.event,
+                      occurrenceDate: o.date,
+                    })
+                  }
+                  className="flex w-full items-center gap-2 text-left"
+                >
+                  <span
+                    className={`h-8 w-1 shrink-0 rounded-full ${ASSIGNEE_DOT[o.event.assignee]}`}
+                  />
+                  <span className="w-11 shrink-0 text-xs font-semibold text-stone">
+                    {o.event.time ?? "종일"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+                    {o.event.title}
+                    {o.dates.length > 1 && (
+                      <span className="ml-1 text-[11px] font-normal text-stone">
+                        ({o.dates.length}일)
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-sm">{ASSIGNEE_EMOJI[o.event.assignee]}</span>
+                  {o.event.recurrence !== "none" && <Pill tone="stone">반복</Pill>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 이번 주 52주 투두 */}
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="mb-2 text-xs font-bold text-stone">
+              {weekLabel(Number(selected.slice(0, 4)), weekNumOf(selected))} 투두
+            </p>
+            {selectedWeekTodos.length === 0 ? (
+              <p className="py-1 text-center text-xs text-stone">
+                이 주의 미완료 투두가 없어요
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {selectedWeekTodos.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3">
+                    <Check on={false} onClick={() => setActionTodo(t)} />
+                    <button
+                      onClick={() => setTodoForm(t)}
+                      className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-ink"
+                    >
+                      {t.title}
+                      <span className="ml-1 text-[11px] font-normal text-stone">
+                        {todoAssigneeName(t.assignee)}
+                      </span>
+                    </button>
+                    {t.dueDate && (
+                      <Pill tone={t.dueDate < today ? "coral" : "gold"}>
+                        {ddayLabel(t.dueDate)}
+                      </Pill>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {eventForm.open && (
+        <EventForm
+          key={eventForm.initial?.id ?? `new-${eventForm.defaultDate}`}
+          open={eventForm.open}
+          onClose={() => setEventForm({ open: false })}
+          initial={eventForm.initial}
+          defaultDate={eventForm.defaultDate}
+          occurrenceDate={eventForm.occurrenceDate}
+        />
+      )}
+
+      {todoForm && (
+        <WeekTodoForm
+          key={todoForm.id}
+          open={!!todoForm}
+          onClose={() => setTodoForm(null)}
+          year={todoForm.year}
+          defaultWeek={todoForm.weekNum}
+          initial={todoForm}
+        />
+      )}
+
+      {actionTodo && (
+        <TodoActionSheet
+          key={actionTodo.id}
+          open={!!actionTodo}
+          onClose={() => setActionTodo(null)}
+          todo={actionTodo}
+          year={actionTodo.year}
+        />
+      )}
+    </div>
+  );
+}
