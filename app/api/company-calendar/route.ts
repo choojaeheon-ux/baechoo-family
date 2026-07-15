@@ -17,11 +17,86 @@ interface CompanyEvent {
   endDate: string; // inclusive
   time: string | null;
   endTime: string | null;
+  kind: "event" | "task"; // task = Google Tasks 할 일
+  done?: boolean; // task 전용
 }
 
 // 모듈 레벨 캐시 (서버리스 인스턴스 생존 동안)
 const cache = new Map<string, { ts: number; events: CompanyEvent[] }>();
 let tokenCache: { token: string; exp: number } | null = null;
+let oauthTokenCache: { token: string; exp: number } | null = null;
+
+// Google Tasks용 OAuth 액세스 토큰 (refresh token 교환)
+async function getTasksAccessToken(): Promise<string | null> {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_TASKS_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) return null; // 미설정 시 할 일 생략
+
+  const now = Math.floor(Date.now() / 1000);
+  if (oauthTokenCache && oauthTokenCache.exp > now + 60) return oauthTokenCache.token;
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&client_secret=${encodeURIComponent(clientSecret)}` +
+      `&refresh_token=${encodeURIComponent(refreshToken)}` +
+      `&grant_type=refresh_token`,
+  });
+  const data = (await res.json()) as { access_token?: string };
+  if (!data.access_token) return null;
+  oauthTokenCache = { token: data.access_token, exp: now + 3500 };
+  return data.access_token;
+}
+
+interface GoogleTask {
+  id?: string;
+  title?: string;
+  status?: string;
+  due?: string; // RFC3339, 날짜 정밀도만 신뢰 (시간은 API가 제공 안 함)
+}
+
+// 기한 있는 할 일 조회 (모든 목록, 완료 포함). due는 UTC 자정 고정이라
+// slice(0,10)이 곧 그 날짜 — 타임존 변환하면 하루 밀리므로 금지.
+async function fetchTasks(timeMinISO: string, timeMaxISO: string): Promise<CompanyEvent[]> {
+  const token = await getTasksAccessToken();
+  if (!token) return [];
+  const auth = { Authorization: `Bearer ${token}` };
+  const listsRes = await fetch("https://tasks.googleapis.com/tasks/v1/users/@me/lists", {
+    headers: auth,
+  });
+  if (!listsRes.ok) return [];
+  const lists = (await listsRes.json()) as { items?: { id: string }[] };
+
+  const out: CompanyEvent[] = [];
+  for (const l of lists.items ?? []) {
+    const url =
+      `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(l.id)}/tasks` +
+      `?showCompleted=true&showHidden=true&maxResults=100` +
+      `&dueMin=${encodeURIComponent(`${timeMinISO}T00:00:00Z`)}` +
+      `&dueMax=${encodeURIComponent(`${timeMaxISO}T23:59:59Z`)}`;
+    const res = await fetch(url, { headers: auth });
+    if (!res.ok) continue;
+    const data = (await res.json()) as { items?: GoogleTask[] };
+    for (const t of data.items ?? []) {
+      if (!t.due || !t.title) continue;
+      const date = t.due.slice(0, 10);
+      out.push({
+        id: t.id ?? `task-${date}-${t.title}`,
+        title: t.title,
+        date,
+        endDate: date,
+        time: null,
+        endTime: null,
+        kind: "task",
+        done: t.status === "completed",
+      });
+    }
+  }
+  return out;
+}
 
 const b64url = (buf: Buffer | string) =>
   Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -89,6 +164,7 @@ function normalize(item: GoogleEvent): CompanyEvent | null {
     endDate: endDate >= date ? endDate : date,
     time: allDay ? null : start.dateTime?.slice(11, 16) ?? null,
     endTime: allDay ? null : end.dateTime?.slice(11, 16) ?? null,
+    kind: "event",
   };
 }
 
@@ -127,13 +203,20 @@ export async function GET(req: NextRequest) {
       `?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}` +
       `&singleEvents=true&orderBy=startTime&maxResults=250&timeZone=Asia/Seoul` +
       `&fields=items(id,summary,status,start,end)`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    // 일정(SA)과 할 일(OAuth) 병렬 조회 — 할 일은 실패해도 일정은 내보냄
+    const taskMin = addDaysISO(`${ym}-01`, -7);
+    const taskMax = addDaysISO(`${ym}-${String(lastDay).padStart(2, "0")}`, 7);
+    const [res, tasks] = await Promise.all([
+      fetch(url, { headers: { Authorization: `Bearer ${token}` } }),
+      fetchTasks(taskMin, taskMax).catch(() => [] as CompanyEvent[]),
+    ]);
     if (!res.ok) throw new Error(`calendar ${res.status}`);
     const data = (await res.json()) as { items?: GoogleEvent[] };
 
     const events = (data.items ?? [])
       .map(normalize)
-      .filter((e): e is CompanyEvent => e !== null);
+      .filter((e): e is CompanyEvent => e !== null)
+      .concat(tasks);
 
     cache.set(ym, { ts: Date.now(), events });
     return NextResponse.json({ events });

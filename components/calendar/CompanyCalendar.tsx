@@ -8,7 +8,7 @@ import { Card, MonthSwitcher } from "@/components/budget/ui";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
-// 서버(/api/company-calendar)가 정규화해 주는 회사 일정
+// 서버(/api/company-calendar)가 정규화해 주는 회사 일정 + 할 일(Google Tasks)
 interface CompanyEvent {
   id: string;
   title: string;
@@ -16,6 +16,8 @@ interface CompanyEvent {
   endDate: string; // 종료일 (inclusive)
   time: string | null; // null = 종일
   endTime: string | null;
+  kind?: "event" | "task"; // task = 할 일 (구버전 응답 호환 위해 optional)
+  done?: boolean;
 }
 
 // ym별 조회 결과 — 로딩은 "현재 ym의 결과가 아직 없음"으로 파생
@@ -117,7 +119,6 @@ export default function CompanyCalendar() {
               {cells.map((day, idx) => {
                 if (day === null) return <span key={`e${idx}`} />;
                 const iso = `${ym}-${String(day).padStart(2, "0")}`;
-                const count = byDate.get(iso)?.length ?? 0;
                 return (
                   <button
                     key={day}
@@ -132,12 +133,19 @@ export default function CompanyCalendar() {
                       {day}
                     </span>
                     <span className="mt-0.5 flex h-1.5 gap-0.5">
-                      {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
-                        <span
-                          key={i}
-                          className="h-1.5 w-1.5 rounded-full bg-[var(--color-sky)]"
-                        />
-                      ))}
+                      {(byDate.get(iso) ?? [])
+                        .filter((e) => e.kind !== "task" || !e.done)
+                        .slice(0, 3)
+                        .map((e, i) => (
+                          <span
+                            key={i}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              e.kind === "task"
+                                ? "bg-[var(--color-coral)]"
+                                : "bg-[var(--color-sky)]"
+                            }`}
+                          />
+                        ))}
                     </span>
                   </button>
                 );
@@ -156,28 +164,60 @@ export default function CompanyCalendar() {
             {Number(selected.slice(5, 7))}월 {Number(selected.slice(8, 10))}일 (
             {WEEK[new Date(selected).getDay()]}) 추추 회사 일정
           </p>
-          {(byDate.get(selected) ?? []).length === 0 ? (
-            <p className="py-2 text-center text-xs text-stone">일정이 없어요</p>
-          ) : (
-            <div className="space-y-2">
-              {(byDate.get(selected) ?? []).map((e) => (
-                <div key={e.id} className="flex items-center gap-2">
-                  <span className="h-8 w-1 shrink-0 rounded-full bg-[var(--color-sky)]" />
-                  <span className="w-11 shrink-0 text-xs font-semibold text-stone">
-                    {e.time ?? "종일"}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
-                    {e.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const all = byDate.get(selected) ?? [];
+            const evs = all.filter((e) => e.kind !== "task");
+            const tasks = all.filter((e) => e.kind === "task");
+            if (all.length === 0)
+              return <p className="py-2 text-center text-xs text-stone">일정이 없어요</p>;
+            return (
+              <div className="space-y-2">
+                {evs.map((e) => (
+                  <div key={e.id} className="flex items-center gap-2">
+                    <span className="h-8 w-1 shrink-0 rounded-full bg-[var(--color-sky)]" />
+                    <span className="w-11 shrink-0 text-xs font-semibold text-stone">
+                      {e.time ?? "종일"}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+                      {e.title}
+                    </span>
+                  </div>
+                ))}
+                {tasks.length > 0 && (
+                  <div className={evs.length > 0 ? "border-t border-line pt-2" : ""}>
+                    <p className="mb-1.5 text-[11px] font-bold text-stone">할 일</p>
+                    <div className="space-y-1.5">
+                      {tasks.map((t) => (
+                        <div key={t.id} className="flex items-center gap-2">
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] ${
+                              t.done
+                                ? "border-leaf bg-leaf text-white"
+                                : "border-[var(--color-coral)] text-transparent"
+                            }`}
+                          >
+                            ✓
+                          </span>
+                          <span
+                            className={`min-w-0 flex-1 truncate text-sm font-semibold ${
+                              t.done ? "text-stone line-through" : "text-ink"
+                            }`}
+                          >
+                            {t.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </Card>
       )}
 
       <p className="px-1 text-center text-[11px] text-stone">
-        추추 회사 구글 캘린더 · 읽기 전용
+        추추 회사 구글 캘린더 · 할 일 포함 · 읽기 전용
       </p>
     </div>
   );
