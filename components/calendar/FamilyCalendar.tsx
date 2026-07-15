@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
   currentYearMonth,
@@ -50,10 +50,114 @@ export default function FamilyCalendar() {
     open: boolean;
     initial?: FamilyEvent;
     defaultDate?: string;
+    defaultEndDate?: string;
     occurrenceDate?: string;
   }>({ open: false });
   const [todoForm, setTodoForm] = useState<WeekTodo | null>(null);
   const [actionTodo, setActionTodo] = useState<WeekTodo | null>(null);
+
+  /* ── 그리드 드래그로 일정 추가 ──
+     마우스: 누른 채 다른 날짜로 끌면 바로 범위 선택.
+     터치: 0.4초 길게 누르면 드래그 모드(그 전에 움직이면 일반 스크롤).
+     손을 떼면 시작~끝이 채워진 일정 폼이 열린다. */
+  const [drag, setDrag] = useState<{ start: string; end: string } | null>(null);
+  const dragRef = useRef<{ start: string; end: string } | null>(null);
+  useEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
+  const pendingRef = useRef<{
+    iso: string;
+    x: number;
+    y: number;
+    touch: boolean;
+  } | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressClickRef = useRef(false);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  const isoAtPoint = (x: number, y: number): string | null =>
+    (document.elementFromPoint(x, y)?.closest("[data-iso]") as HTMLElement | null)
+      ?.dataset.iso ?? null;
+
+  function clearPending() {
+    pendingRef.current = null;
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+
+  function onGridPointerDown(e: React.PointerEvent) {
+    const iso = (e.target as HTMLElement).closest("[data-iso]")
+      ? ((e.target as HTMLElement).closest("[data-iso]") as HTMLElement).dataset.iso
+      : null;
+    if (!iso) return;
+    const touch = e.pointerType !== "mouse";
+    pendingRef.current = { iso, x: e.clientX, y: e.clientY, touch };
+    if (touch) {
+      longPressRef.current = setTimeout(() => {
+        if (pendingRef.current?.iso === iso) setDrag({ start: iso, end: iso });
+      }, 400);
+    }
+  }
+
+  function onGridPointerMove(e: React.PointerEvent) {
+    if (drag) {
+      const iso = isoAtPoint(e.clientX, e.clientY);
+      if (iso && iso !== drag.end) setDrag({ ...drag, end: iso });
+      return;
+    }
+    const p = pendingRef.current;
+    if (!p) return;
+    const moved = Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y);
+    if (p.touch) {
+      // 길게 누르기 전에 움직이면 스크롤 의도 — 드래그 취소
+      if (moved > 12) clearPending();
+    } else if (moved > 4) {
+      // 마우스는 움직이는 즉시 드래그 시작
+      const iso = isoAtPoint(e.clientX, e.clientY) ?? p.iso;
+      setDrag({ start: p.iso, end: iso });
+      clearPending();
+    }
+  }
+
+  function finishDrag() {
+    clearPending();
+    const d = dragRef.current;
+    if (!d) return;
+    setDrag(null);
+    suppressClickRef.current = true;
+    const [s, e2] = d.start <= d.end ? [d.start, d.end] : [d.end, d.start];
+    setEventForm({
+      open: true,
+      defaultDate: s,
+      defaultEndDate: e2 !== s ? e2 : undefined,
+    });
+  }
+
+  function cancelDrag() {
+    clearPending();
+    setDrag(null);
+  }
+
+  // 드래그 중 화면 스크롤 차단 (React 터치 리스너는 passive라 네이티브로 부착)
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const block = (e: TouchEvent) => {
+      if (dragRef.current) e.preventDefault();
+    };
+    el.addEventListener("touchmove", block, { passive: false });
+    return () => el.removeEventListener("touchmove", block);
+  }, []);
+
+  // 드래그 범위 [시작, 끝] (정렬)
+  const dragRange = useMemo(() => {
+    if (!drag) return null;
+    return drag.start <= drag.end
+      ? ([drag.start, drag.end] as const)
+      : ([drag.end, drag.start] as const);
+  }, [drag]);
 
   const today = todayISO();
   const from = `${ym}-01`;
@@ -137,17 +241,39 @@ export default function FamilyCalendar() {
             </span>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-y-1">
+        <div
+          ref={gridRef}
+          className="grid select-none grid-cols-7 gap-y-1"
+          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+          onPointerDown={onGridPointerDown}
+          onPointerMove={onGridPointerMove}
+          onPointerUp={finishDrag}
+          onPointerCancel={cancelDrag}
+          onPointerLeave={() => {
+            if (!drag) clearPending();
+          }}
+          onClickCapture={(e) => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+        >
           {cells.map((day, idx) => {
             if (day === null) return <span key={`e${idx}`} />;
             const iso = `${ym}-${String(day).padStart(2, "0")}`;
             const occs = occMap.get(iso) ?? [];
             const hasTodo = todoDue.has(iso);
+            const inDrag = dragRange && iso >= dragRange[0] && iso <= dragRange[1];
             return (
               <button
                 key={day}
+                data-iso={iso}
                 onClick={() => setSelected((p) => (p === iso ? null : iso))}
-                className="flex flex-col items-center"
+                className={`flex flex-col items-center rounded-lg transition-colors ${
+                  inDrag ? "bg-leaf-light" : ""
+                }`}
               >
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
@@ -171,6 +297,14 @@ export default function FamilyCalendar() {
             );
           })}
         </div>
+        {drag && (
+          <p className="mt-2 text-center text-[11px] font-semibold text-leaf-dark">
+            {Number(dragRange![0].slice(5, 7))}/{Number(dragRange![0].slice(8, 10))}
+            {dragRange![0] !== dragRange![1] &&
+              ` ~ ${Number(dragRange![1].slice(5, 7))}/${Number(dragRange![1].slice(8, 10))}`}{" "}
+            일정 추가 — 손을 떼면 입력창이 열려요
+          </p>
+        )}
         {/* 범례 */}
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone">
           {TODO_ASSIGNEES.map((a) => (
@@ -276,11 +410,12 @@ export default function FamilyCalendar() {
 
       {eventForm.open && (
         <EventForm
-          key={eventForm.initial?.id ?? `new-${eventForm.defaultDate}`}
+          key={eventForm.initial?.id ?? `new-${eventForm.defaultDate}-${eventForm.defaultEndDate ?? ""}`}
           open={eventForm.open}
           onClose={() => setEventForm({ open: false })}
           initial={eventForm.initial}
           defaultDate={eventForm.defaultDate}
+          defaultEndDate={eventForm.defaultEndDate}
           occurrenceDate={eventForm.occurrenceDate}
         />
       )}

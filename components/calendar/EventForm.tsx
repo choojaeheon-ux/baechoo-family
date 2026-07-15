@@ -60,12 +60,14 @@ export default function EventForm({
   onClose,
   initial,
   defaultDate,
+  defaultEndDate,
   occurrenceDate,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: FamilyEvent;
   defaultDate?: string; // 신규: 시작일 기본값 (날짜 패널에서 열면 그 날)
+  defaultEndDate?: string; // 신규: 종료일 기본값 (그리드 드래그로 열면 범위 끝)
   occurrenceDate?: string; // 반복 일정을 특정 회차에서 연 경우, 그 회차 시작일
 }) {
   const { saveFamilyEvent, removeFamilyEvent } = useData();
@@ -73,7 +75,7 @@ export default function EventForm({
   const [startDate, setStartDate] = useState(
     initial?.startDate ?? defaultDate ?? todayISO()
   );
-  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
+  const [endDate, setEndDate] = useState(initial?.endDate ?? defaultEndDate ?? "");
   const [allDay, setAllDay] = useState(initial ? initial.time === null : true);
   const [time, setTime] = useState(initial?.time ?? nowHHMM());
   const [assignee, setAssignee] = useState(initial?.assignee ?? "together");
