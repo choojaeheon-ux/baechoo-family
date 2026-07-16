@@ -1,4 +1,4 @@
-import type { Category, PaymentMethod, BaechooCategory, PlanItem } from "./types";
+import type { Category, PaymentMethod, BaechooCategory, PlanItem, EventCategory } from "./types";
 
 // 기본 카테고리 시드 (앱 최초 실행 시 자동 주입, 이후 관리 화면에서 수정)
 export const SEED_CATEGORIES: Category[] = [
@@ -73,4 +73,11 @@ export const SEED_PLAN_ITEMS: PlanItem[] = [
   { id: "plan-cond-car-ins", group: "saving", name: "자동차보험", amount: 100000, pnlClass: "saving", conditional: true, startYearMonth: null, endYearMonth: "2027-02", targetTotal: 700000, note: "연 700,000 적립 (2월 납부)", sortOrder: 420 },
   { id: "plan-cond-baejji-wedding", group: "saving", name: "배찌 결혼 축의금", amount: 40000, pnlClass: "saving", conditional: true, startYearMonth: null, endYearMonth: "2026-12", targetTotal: 200000, note: null, sortOrder: 430 },
   { id: "plan-cond-gyeongjosa", group: "saving", name: "경조사 저축", amount: 20000, pnlClass: "saving", conditional: true, startYearMonth: null, endYearMonth: null, targetTotal: null, note: null, sortOrder: 440 },
+];
+
+// 캘린더 기본 카테고리 (고정 ID → 기존 일정 백필 category_id와 정합)
+export const SEED_EVENT_CATEGORIES: EventCategory[] = [
+  { id: "cat-chuchu", name: "추추", color: "#5c93a8", emoji: "🧑", sortOrder: 10, createdAt: "2026-07-16" },
+  { id: "cat-baejji", name: "배찌", color: "#e07a5f", emoji: "👩", sortOrder: 20, createdAt: "2026-07-16" },
+  { id: "cat-together", name: "함께", color: "#5b8c3e", emoji: "👫", sortOrder: 30, createdAt: "2026-07-16" },
 ];

@@ -8,7 +8,7 @@ const base: FamilyEvent = {
   startDate: "2026-07-15",
   endDate: null,
   time: null,
-  assignee: "together",
+  categoryId: "cat-together",
   memo: null,
   recurrence: "none",
   repeatInterval: 1,

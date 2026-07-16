@@ -11,23 +11,13 @@ import {
   ddayLabel,
 } from "@/lib/format";
 import { occurrencesByDate, type EventOccurrence } from "@/lib/calendar";
-import type { FamilyEvent, WeekTodo, TodoAssignee } from "@/lib/types";
-import { TODO_ASSIGNEES, todoAssigneeName } from "@/lib/types";
+import type { FamilyEvent, WeekTodo } from "@/lib/types";
+import { todoAssigneeName } from "@/lib/types";
 import { Card, MonthSwitcher, Pill } from "@/components/budget/ui";
 import { WeekTodoForm, TodoActionSheet } from "@/components/todo52/forms";
 import EventForm from "./EventForm";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
-
-// 담당자별 마커 색 (추추 sky · 배찌 coral · 함께 leaf)
-const ASSIGNEE_DOT: Record<TodoAssignee, string> = {
-  chuchu: "bg-[var(--color-sky)]",
-  baejji: "bg-[var(--color-coral)]",
-  together: "bg-[var(--color-leaf)]",
-};
-const ASSIGNEE_EMOJI: Record<TodoAssignee, string> = Object.fromEntries(
-  TODO_ASSIGNEES.map((a) => [a.id, a.emoji])
-) as Record<TodoAssignee, string>;
 
 function Check({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -43,7 +33,12 @@ function Check({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 export default function FamilyCalendar() {
-  const { loading, familyEvents, weekTodos } = useData();
+  const { loading, familyEvents, weekTodos, eventCategories } = useData();
+  const catById = useMemo(
+    () => new Map(eventCategories.map((c) => [c.id, c])),
+    [eventCategories]
+  );
+  const catColor = (id: string) => catById.get(id)?.color ?? "#7c766a";
   const [ym, setYm] = useState(currentYearMonth());
   const [selected, setSelected] = useState<string | null>(todayISO());
   const [eventForm, setEventForm] = useState<{
@@ -286,7 +281,8 @@ export default function FamilyCalendar() {
                   {occs.slice(0, 3).map((o, i) => (
                     <span
                       key={i}
-                      className={`h-1.5 w-1.5 rounded-full ${ASSIGNEE_DOT[o.event.assignee]}`}
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ backgroundColor: catColor(o.event.categoryId) }}
                     />
                   ))}
                   {hasTodo && (
@@ -307,10 +303,10 @@ export default function FamilyCalendar() {
         )}
         {/* 범례 */}
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone">
-          {TODO_ASSIGNEES.map((a) => (
-            <span key={a.id} className="flex items-center gap-1">
-              <span className={`h-1.5 w-1.5 rounded-full ${ASSIGNEE_DOT[a.id]}`} />
-              {a.name}
+          {eventCategories.map((c) => (
+            <span key={c.id} className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+              {c.name}
             </span>
           ))}
           <span className="flex items-center gap-1">
@@ -352,7 +348,8 @@ export default function FamilyCalendar() {
                   className="flex w-full items-center gap-2 text-left"
                 >
                   <span
-                    className={`h-8 w-1 shrink-0 rounded-full ${ASSIGNEE_DOT[o.event.assignee]}`}
+                    className="h-8 w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: catColor(o.event.categoryId) }}
                   />
                   <span className="w-11 shrink-0 text-xs font-semibold text-stone">
                     {o.event.time ?? "종일"}
@@ -365,7 +362,7 @@ export default function FamilyCalendar() {
                       </span>
                     )}
                   </span>
-                  <span className="text-sm">{ASSIGNEE_EMOJI[o.event.assignee]}</span>
+                  <span className="text-sm">{catById.get(o.event.categoryId)?.emoji ?? ""}</span>
                   {o.event.recurrence !== "none" && <Pill tone="stone">반복</Pill>}
                 </button>
               ))}

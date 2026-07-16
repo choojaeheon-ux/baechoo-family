@@ -5,6 +5,7 @@ import {
   SEED_PAYMENT_METHODS,
   SEED_BAECHOO_CATEGORIES,
   SEED_PLAN_ITEMS,
+  SEED_EVENT_CATEGORIES,
 } from "./seed";
 import type {
   AssetSnapshot,
@@ -33,6 +34,7 @@ import type {
   UjuChecklist,
   BaechooVaccine,
   FamilyEvent,
+  EventCategory,
   LatLng,
   Stool,
   MealType,
@@ -75,6 +77,15 @@ function normalizeVaccine(
   };
 }
 
+// 구버전 localStorage 일정(assignee만 있음)을 categoryId로 승격
+function normalizeFamilyEvent(x: FamilyEvent): FamilyEvent {
+  const legacy = x as FamilyEvent & { assignee?: string };
+  if (!x.categoryId && legacy.assignee) {
+    return { ...x, categoryId: "cat-" + legacy.assignee };
+  }
+  return x;
+}
+
 /* ───────────── localStorage 어댑터 ───────────── */
 
 function lsRead(): DataSnapshot {
@@ -88,6 +99,7 @@ function lsRead(): DataSnapshot {
         paymentMethods: SEED_PAYMENT_METHODS,
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
+        eventCategories: SEED_EVENT_CATEGORIES,
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -113,7 +125,8 @@ function lsRead(): DataSnapshot {
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
-      familyEvents: parsed.familyEvents ?? [],
+      familyEvents: (parsed.familyEvents ?? []).map(normalizeFamilyEvent),
+      eventCategories: parsed.eventCategories ?? SEED_EVENT_CATEGORIES,
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
     };
   } catch {
@@ -148,6 +161,7 @@ function emptySnapshot(): DataSnapshot {
     baechooVaccines: [],
     assetSnapshots: [],
     familyEvents: [],
+    eventCategories: [],
     planItems: [],
   };
 }
@@ -563,7 +577,7 @@ const toFamilyEvent = (r: Record<string, unknown>): FamilyEvent => ({
   startDate: (r.start_date as string) ?? "",
   endDate: (r.end_date as string) ?? null,
   time: (r.time as string) ?? null,
-  assignee: (r.assignee as FamilyEvent["assignee"]) ?? "together",
+  categoryId: (r.category_id as string) ?? "cat-together",
   memo: (r.memo as string) ?? null,
   recurrence: (r.recurrence as FamilyEvent["recurrence"]) ?? "none",
   repeatInterval: Number(r.repeat_interval ?? 1),
@@ -577,12 +591,30 @@ const fromFamilyEvent = (x: FamilyEvent) => ({
   start_date: x.startDate,
   end_date: x.endDate,
   time: x.time,
-  assignee: x.assignee,
+  category_id: x.categoryId,
   memo: x.memo,
   recurrence: x.recurrence,
   repeat_interval: x.repeatInterval,
   repeat_until: x.repeatUntil,
   exceptions: x.exceptions,
+  created_at: x.createdAt || null,
+});
+
+// 캘린더 카테고리
+const toEventCategory = (r: Record<string, unknown>): EventCategory => ({
+  id: r.id as string,
+  name: (r.name as string) ?? "",
+  color: (r.color as string) ?? "#7c766a",
+  emoji: (r.emoji as string) ?? null,
+  sortOrder: Number(r.sort_order ?? 0),
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromEventCategory = (x: EventCategory) => ({
+  id: x.id,
+  name: x.name,
+  color: x.color,
+  emoji: x.emoji,
+  sort_order: x.sortOrder,
   created_at: x.createdAt || null,
 });
 
@@ -611,6 +643,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecks,
     vaccines,
     assetSnaps,
+    ecats,
     fevents,
     plans,
   ] = await Promise.all([
@@ -633,6 +666,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
+    sb.from("event_categories").select("*"),
     sb.from("family_events").select("*").is("deleted_at", null),
     sb.from("plan_items").select("*"),
   ]);
@@ -658,6 +692,11 @@ export async function loadAll(): Promise<DataSnapshot> {
     await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
     planItems = SEED_PLAN_ITEMS;
   }
+  let eventCategories = (ecats.data ?? []).map(toEventCategory);
+  if (eventCategories.length === 0) {
+    await sb.from("event_categories").insert(SEED_EVENT_CATEGORIES.map(fromEventCategory));
+    eventCategories = SEED_EVENT_CATEGORIES;
+  }
   return {
     categories,
     paymentMethods,
@@ -678,7 +717,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
-    familyEvents: (fevents.data ?? []).map(toFamilyEvent),
+    eventCategories,
+    familyEvents: (fevents.data ?? []).map(toFamilyEvent).map(normalizeFamilyEvent),
     planItems,
   };
 }
@@ -897,6 +937,17 @@ export async function saveFamilyEvent(x: FamilyEvent): Promise<FamilyEvent> {
 export async function deleteFamilyEvent(id: string) {
   if (hasSupabase) await sbSoftDelete("family_events", id);
   else lsDelete("familyEvents", id);
+}
+
+export async function saveEventCategory(c: EventCategory): Promise<EventCategory> {
+  const row = { ...c, id: c.id || newId() };
+  if (hasSupabase) await sbUpsert("event_categories", fromEventCategory(row));
+  else lsUpsert("eventCategories", row);
+  return row;
+}
+export async function deleteEventCategory(id: string) {
+  if (hasSupabase) await sbDelete("event_categories", id);
+  else lsDelete("eventCategories", id);
 }
 
 export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {

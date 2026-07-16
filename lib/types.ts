@@ -155,6 +155,16 @@ export interface WeekTodo {
 
 /* ───────────── 가족 캘린더 ───────────── */
 
+// 캘린더 카테고리 — 사용자 관리(이름 + 색). assignee 축을 대체.
+export interface EventCategory {
+  id: string;
+  name: string;
+  color: string; // hex
+  emoji: string | null;
+  sortOrder: number;
+  createdAt: string; // YYYY-MM-DD
+}
+
 // 반복 규칙 — 시리즈 단일 레코드 + 예외(제외 회차) 목록 모델
 export type EventRecurrence = "none" | "weekly" | "monthly";
 export const EVENT_RECURRENCE_LABEL: Record<EventRecurrence, string> = {
@@ -169,7 +179,7 @@ export interface FamilyEvent {
   startDate: string; // YYYY-MM-DD (반복이면 첫 회차 시작일)
   endDate: string | null; // 연박 종료일, null = 당일
   time: string | null; // "HH:MM", null = 종일
-  assignee: TodoAssignee; // 추추·배찌·함께 재사용
+  categoryId: string; // event_categories.id
   memo: string | null;
   recurrence: EventRecurrence;
   repeatInterval: number; // 1=매주/매월, 2=격주/격월…
@@ -402,6 +412,7 @@ export interface DataSnapshot {
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
   familyEvents: FamilyEvent[];
+  eventCategories: EventCategory[];
   planItems: PlanItem[];
 }
 

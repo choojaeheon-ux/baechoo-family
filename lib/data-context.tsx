@@ -31,6 +31,7 @@ import type {
   UjuChecklist,
   BaechooVaccine,
   FamilyEvent,
+  EventCategory,
   PlanItem,
 } from "./types";
 
@@ -57,6 +58,7 @@ interface DataContextValue {
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
   familyEvents: FamilyEvent[];
+  eventCategories: EventCategory[];
   planItems: PlanItem[];
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
@@ -102,6 +104,8 @@ interface DataContextValue {
   removeAssetSnapshot: (id: string) => Promise<void>;
   saveFamilyEvent: (e: FamilyEvent) => Promise<void>;
   removeFamilyEvent: (id: string) => Promise<void>;
+  saveEventCategory: (c: EventCategory) => Promise<void>;
+  removeEventCategory: (id: string) => Promise<void>;
   savePlanItem: (p: PlanItem) => Promise<void>;
   removePlanItem: (id: string) => Promise<void>;
 }
@@ -132,6 +136,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [baechooVaccines, setBaechooVaccines] = useState<BaechooVaccine[]>([]);
   const [assetSnapshots, setAssetSnapshots] = useState<AssetSnapshot[]>([]);
   const [familyEvents, setFamilyEvents] = useState<FamilyEvent[]>([]);
+  const [eventCategories, setEventCategories] = useState<EventCategory[]>([]);
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
 
   const refresh = useCallback(async () => {
@@ -156,6 +161,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooVaccines(snap.baechooVaccines);
     setAssetSnapshots(snap.assetSnapshots);
     setFamilyEvents(snap.familyEvents);
+    setEventCategories(snap.eventCategories);
     setPlanItems(snap.planItems);
   }, []);
 
@@ -220,6 +226,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooVaccines,
       assetSnapshots,
       familyEvents,
+      eventCategories,
       planItems,
       categoryById,
       paymentMethodById,
@@ -395,6 +402,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteFamilyEvent(id);
         setFamilyEvents((p) => p.filter((x) => x.id !== id));
       },
+      saveEventCategory: async (c) => {
+        const saved = await repo.saveEventCategory(c);
+        upsertLocal(setEventCategories, saved);
+      },
+      removeEventCategory: async (id) => {
+        await repo.deleteEventCategory(id);
+        setEventCategories((p) => p.filter((x) => x.id !== id));
+      },
       savePlanItem: async (p) => {
         const saved = await repo.savePlanItem(p);
         upsertLocal(setPlanItems, saved);
@@ -426,6 +441,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooVaccines,
       assetSnapshots,
       familyEvents,
+      eventCategories,
       planItems,
       categoryById,
       paymentMethodById,

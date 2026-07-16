@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { todayISO, nowHHMM } from "@/lib/format";
 import type { FamilyEvent, EventRecurrence } from "@/lib/types";
-import { TODO_ASSIGNEES, EVENT_RECURRENCE_LABEL } from "@/lib/types";
+import { EVENT_RECURRENCE_LABEL } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 
 // 삭제 버튼 (2단계 확인) — 배추/우주 폼과 동일 패턴
@@ -70,7 +70,7 @@ export default function EventForm({
   defaultEndDate?: string; // 신규: 종료일 기본값 (그리드 드래그로 열면 범위 끝)
   occurrenceDate?: string; // 반복 일정을 특정 회차에서 연 경우, 그 회차 시작일
 }) {
-  const { saveFamilyEvent, removeFamilyEvent } = useData();
+  const { saveFamilyEvent, removeFamilyEvent, eventCategories } = useData();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [startDate, setStartDate] = useState(
     initial?.startDate ?? defaultDate ?? todayISO()
@@ -78,7 +78,9 @@ export default function EventForm({
   const [endDate, setEndDate] = useState(initial?.endDate ?? defaultEndDate ?? "");
   const [allDay, setAllDay] = useState(initial ? initial.time === null : true);
   const [time, setTime] = useState(initial?.time ?? nowHHMM());
-  const [assignee, setAssignee] = useState(initial?.assignee ?? "together");
+  const [categoryId, setCategoryId] = useState(
+    initial?.categoryId ?? eventCategories[0]?.id ?? "cat-together"
+  );
   const [recurrence, setRecurrence] = useState<EventRecurrence>(
     initial?.recurrence ?? "none"
   );
@@ -102,7 +104,7 @@ export default function EventForm({
       startDate,
       endDate: endDate || null,
       time: allDay ? null : time || null,
-      assignee,
+      categoryId,
       memo: memo.trim() || null,
       recurrence,
       repeatInterval: recurrence === "none" ? 1 : repeatInterval,
@@ -191,18 +193,19 @@ export default function EventForm({
         </div>
       </Field>
 
-      <Field label="담당">
-        <div className="flex gap-1 rounded-xl bg-cream p-1">
-          {TODO_ASSIGNEES.map((a) => (
+      <Field label="카테고리">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {eventCategories.map((c) => (
             <button
-              key={a.id}
+              key={c.id}
               type="button"
-              onClick={() => setAssignee(a.id)}
-              className={`min-h-11 flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${
-                assignee === a.id ? "bg-leaf text-white" : "text-stone"
+              onClick={() => setCategoryId(c.id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                categoryId === c.id ? "border-leaf bg-leaf-light text-ink" : "border-line text-stone"
               }`}
             >
-              {a.emoji} {a.name}
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: c.color }} />
+              {c.emoji ? `${c.emoji} ` : ""}{c.name}
             </button>
           ))}
         </div>
