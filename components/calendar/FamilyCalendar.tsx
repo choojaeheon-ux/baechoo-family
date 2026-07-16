@@ -17,6 +17,7 @@ import { readableText } from "@/lib/eventCategoryPalette";
 import { Card, MonthSwitcher, Pill } from "@/components/budget/ui";
 import { WeekTodoForm, TodoActionSheet } from "@/components/todo52/forms";
 import EventForm from "./EventForm";
+import CategoryManager from "./CategoryManager";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -51,6 +52,7 @@ export default function FamilyCalendar() {
   }>({ open: false });
   const [todoForm, setTodoForm] = useState<WeekTodo | null>(null);
   const [actionTodo, setActionTodo] = useState<WeekTodo | null>(null);
+  const [manageCat, setManageCat] = useState(false);
 
   /* ── 그리드 드래그로 일정 추가 ──
      마우스: 누른 채 다른 날짜로 끌면 바로 범위 선택.
@@ -336,6 +338,13 @@ export default function FamilyCalendar() {
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
           투두 기한
         </span>
+          <button
+            type="button"
+            onClick={() => setManageCat(true)}
+            className="ml-auto text-[11px] font-semibold text-leaf-dark"
+          >
+            카테고리 관리
+          </button>
       </div>
 
       {selected && (
@@ -458,6 +467,10 @@ export default function FamilyCalendar() {
           todo={actionTodo}
           year={actionTodo.year}
         />
+      )}
+
+      {manageCat && (
+        <CategoryManager open={manageCat} onClose={() => setManageCat(false)} />
       )}
     </div>
   );

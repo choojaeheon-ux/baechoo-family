@@ -6,6 +6,7 @@ import { todayISO, nowHHMM } from "@/lib/format";
 import type { FamilyEvent, EventRecurrence } from "@/lib/types";
 import { EVENT_RECURRENCE_LABEL } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
+import CategoryManager from "./CategoryManager";
 
 // 삭제 버튼 (2단계 확인) — 배추/우주 폼과 동일 패턴
 function DeleteButton({ onDelete }: { onDelete: () => void }) {
@@ -89,6 +90,7 @@ export default function EventForm({
   );
   const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  const [manage, setManage] = useState(false);
 
   const valid =
     title.trim().length > 0 &&
@@ -129,6 +131,7 @@ export default function EventForm({
     initial && initial.recurrence !== "none" && !!occurrenceDate;
 
   return (
+    <>
     <Sheet open={open} onClose={onClose} title={initial ? "일정 수정" : "일정 추가"}>
       <Field label="제목">
         <input
@@ -208,6 +211,13 @@ export default function EventForm({
               {c.emoji ? `${c.emoji} ` : ""}{c.name}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setManage(true)}
+            className="shrink-0 rounded-full border border-dashed border-line px-3 py-1.5 text-sm font-semibold text-stone"
+          >
+            + 관리
+          </button>
         </div>
       </Field>
 
@@ -291,5 +301,7 @@ export default function EventForm({
         />
       )}
     </Sheet>
+    {manage && <CategoryManager open={manage} onClose={() => setManage(false)} />}
+    </>
   );
 }
