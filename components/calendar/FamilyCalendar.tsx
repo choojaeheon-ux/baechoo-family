@@ -13,6 +13,7 @@ import {
 import { occurrencesByDate, type EventOccurrence } from "@/lib/calendar";
 import type { FamilyEvent, WeekTodo } from "@/lib/types";
 import { todoAssigneeName } from "@/lib/types";
+import { readableText } from "@/lib/eventCategoryPalette";
 import { Card, MonthSwitcher, Pill } from "@/components/budget/ui";
 import { WeekTodoForm, TodoActionSheet } from "@/components/todo52/forms";
 import EventForm from "./EventForm";
@@ -219,17 +220,17 @@ export default function FamilyCalendar() {
         + 일정
       </button>
 
-      <Card>
-        <div className="mb-3">
-          <MonthSwitcher
-            ym={ym}
-            onChange={(next) => {
-              setYm(next);
-              setSelected(null);
-            }}
-          />
-        </div>
-        <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-semibold text-stone">
+      <div className="mb-3 px-1">
+        <MonthSwitcher
+          ym={ym}
+          onChange={(next) => {
+            setYm(next);
+            setSelected(null);
+          }}
+        />
+      </div>
+      <div className="-mx-4">
+        <div className="mb-1 grid grid-cols-7 px-4 text-center text-[11px] font-semibold text-stone">
           {WEEK.map((w, i) => (
             <span key={w} className={i === 0 ? "text-coral" : i === 6 ? "text-sky" : ""}>
               {w}
@@ -238,7 +239,7 @@ export default function FamilyCalendar() {
         </div>
         <div
           ref={gridRef}
-          className="grid select-none grid-cols-7 gap-y-1"
+          className="grid select-none grid-cols-7 px-4"
           style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
           onPointerDown={onGridPointerDown}
           onPointerMove={onGridPointerMove}
@@ -256,65 +257,86 @@ export default function FamilyCalendar() {
           }}
         >
           {cells.map((day, idx) => {
-            if (day === null) return <span key={`e${idx}`} />;
+            if (day === null) return <span key={`e${idx}`} className="border-t border-line" />;
             const iso = `${ym}-${String(day).padStart(2, "0")}`;
             const occs = occMap.get(iso) ?? [];
-            const hasTodo = todoDue.has(iso);
             const inDrag = dragRange && iso >= dragRange[0] && iso <= dragRange[1];
             return (
               <button
                 key={day}
                 data-iso={iso}
                 onClick={() => setSelected((p) => (p === iso ? null : iso))}
-                className={`flex flex-col items-center rounded-lg transition-colors ${
+                className={`flex min-h-[76px] flex-col items-center rounded-lg border-t border-line pt-1 transition-colors ${
                   inDrag ? "bg-leaf-light" : ""
                 }`}
               >
                 <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
                     iso === today ? "bg-leaf font-bold text-white" : "text-ink"
                   } ${selected === iso ? "ring-2 ring-leaf ring-offset-1" : ""}`}
                 >
                   {day}
                 </span>
-                <span className="mt-0.5 flex h-1.5 gap-0.5">
-                  {occs.slice(0, 3).map((o, i) => (
-                    <span
-                      key={i}
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: catColor(o.event.categoryId) }}
-                    />
-                  ))}
-                  {hasTodo && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-                  )}
-                </span>
+                <div className="mt-0.5 w-full space-y-0.5 px-0.5">
+                  {(() => {
+                    const items: { color: string; label: string }[] = [
+                      ...occs.map((o) => ({
+                        color: catColor(o.event.categoryId),
+                        label: o.event.title,
+                      })),
+                      ...(todoDue.get(iso) ?? []).map((t) => ({
+                        color: "#d9a441",
+                        label: t.title,
+                      })),
+                    ];
+                    const shown = items.slice(0, 3);
+                    const extra = items.length - shown.length;
+                    return (
+                      <>
+                        {shown.map((it, i) => (
+                          <span
+                            key={i}
+                            className="block truncate rounded px-1 text-left text-[9px] leading-tight"
+                            style={{ backgroundColor: it.color, color: readableText(it.color) }}
+                          >
+                            {it.label}
+                          </span>
+                        ))}
+                        {extra > 0 && (
+                          <span className="block px-1 text-left text-[9px] leading-tight text-stone">
+                            +{extra}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </button>
             );
           })}
         </div>
-        {drag && (
-          <p className="mt-2 text-center text-[11px] font-semibold text-leaf-dark">
-            {Number(dragRange![0].slice(5, 7))}/{Number(dragRange![0].slice(8, 10))}
-            {dragRange![0] !== dragRange![1] &&
-              ` ~ ${Number(dragRange![1].slice(5, 7))}/${Number(dragRange![1].slice(8, 10))}`}{" "}
-            일정 추가 — 손을 떼면 입력창이 열려요
-          </p>
-        )}
-        {/* 범례 */}
-        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone">
-          {eventCategories.map((c) => (
-            <span key={c.id} className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
-              {c.name}
-            </span>
-          ))}
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-            투두 기한
+      </div>
+      {drag && (
+        <p className="mt-2 text-center text-[11px] font-semibold text-leaf-dark">
+          {Number(dragRange![0].slice(5, 7))}/{Number(dragRange![0].slice(8, 10))}
+          {dragRange![0] !== dragRange![1] &&
+            ` ~ ${Number(dragRange![1].slice(5, 7))}/${Number(dragRange![1].slice(8, 10))}`}{" "}
+          일정 추가 — 손을 떼면 입력창이 열려요
+        </p>
+      )}
+      {/* 범례 */}
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone">
+        {eventCategories.map((c) => (
+          <span key={c.id} className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+            {c.name}
           </span>
-        </div>
-      </Card>
+        ))}
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+          투두 기한
+        </span>
+      </div>
 
       {selected && (
         <Card>
