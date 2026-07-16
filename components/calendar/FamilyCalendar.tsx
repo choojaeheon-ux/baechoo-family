@@ -230,7 +230,7 @@ export default function FamilyCalendar() {
         />
       </div>
       <div className="-mx-4">
-        <div className="mb-1 grid grid-cols-7 px-4 text-center text-[11px] font-semibold text-stone">
+        <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-semibold text-stone">
           {WEEK.map((w, i) => (
             <span key={w} className={i === 0 ? "text-coral" : i === 6 ? "text-sky" : ""}>
               {w}
@@ -239,7 +239,7 @@ export default function FamilyCalendar() {
         </div>
         <div
           ref={gridRef}
-          className="grid select-none grid-cols-7 px-4"
+          className="grid select-none grid-cols-7"
           style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
           onPointerDown={onGridPointerDown}
           onPointerMove={onGridPointerMove}
