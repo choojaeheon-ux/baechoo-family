@@ -62,7 +62,13 @@ export default function Transactions({ ym }: { ym: string }) {
       typeTxns
         .filter((t) => effCat === null || t.categoryId === effCat)
         .filter((t) => effPm === null || t.paymentMethodId === effPm)
-        .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
+        // 날짜 내림차순 → 같은 날짜 안에서는 나중에 입력한 것이 위로(createdAt 내림차순)
+        .sort(
+          (a, b) =>
+            b.date.localeCompare(a.date) ||
+            b.createdAt.localeCompare(a.createdAt) ||
+            b.id.localeCompare(a.id)
+        ),
     [typeTxns, effCat, effPm]
   );
 

@@ -68,6 +68,7 @@ export function TransactionForm({
       recurringId: initial?.recurringId ?? null,
       localCurrencyId: initial?.localCurrencyId ?? null,
       isPaid: true,
+      createdAt: initial?.createdAt ?? "",
     });
     onClose();
   }

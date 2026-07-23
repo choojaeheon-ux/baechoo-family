@@ -51,6 +51,11 @@ export function newId(): string {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+// 구버전 localStorage 거래(createdAt 없음)를 거래일 자정으로 승격 — 정렬에서 undefined 방지
+function normalizeTxn(x: Transaction): Transaction {
+  return x.createdAt ? x : { ...x, createdAt: `${x.date}T00:00:00.000Z` };
+}
+
 // 구버전 localStorage 측정 기록(weight만 있음)을 measureName/value/unit로 승격
 function normalizeExam(x: BaechooExam): BaechooExam {
   if (x.examType === "measure" && x.measureName == null && x.weight != null) {
@@ -109,7 +114,7 @@ function lsRead(): DataSnapshot {
       categories: parsed.categories ?? [],
       paymentMethods: parsed.paymentMethods ?? SEED_PAYMENT_METHODS,
       recurring: parsed.recurring ?? [],
-      transactions: parsed.transactions ?? [],
+      transactions: (parsed.transactions ?? []).map(normalizeTxn),
       budgets: parsed.budgets ?? [],
       goals: parsed.goals ?? [],
       localCurrencies: parsed.localCurrencies ?? [],
@@ -255,6 +260,7 @@ const toTxn = (r: Record<string, unknown>): Transaction => ({
   recurringId: (r.recurring_id as string) ?? null,
   localCurrencyId: (r.local_currency_id as string) ?? null,
   isPaid: Boolean(r.is_paid),
+  createdAt: (r.created_at as string) ?? "",
 });
 const fromTxn = (x: Transaction) => ({
   id: x.id,
@@ -271,6 +277,7 @@ const fromTxn = (x: Transaction) => ({
   recurring_id: x.recurringId,
   local_currency_id: x.localCurrencyId,
   is_paid: x.isPaid,
+  created_at: x.createdAt || null,
 });
 
 const toBudget = (r: Record<string, unknown>): Budget => ({
@@ -771,7 +778,12 @@ export async function deleteRecurring(id: string) {
 }
 
 export async function saveTransaction(x: Transaction): Promise<Transaction> {
-  const row = { ...x, id: x.id || newId() };
+  // 신규 저장에만 입력 시각을 찍는다(수정 시엔 원래 순서 유지)
+  const row = {
+    ...x,
+    id: x.id || newId(),
+    createdAt: x.createdAt || new Date().toISOString(),
+  };
   if (hasSupabase) await sbUpsert("transactions", fromTxn(row));
   else lsUpsert("transactions", row);
   return row;

@@ -97,6 +97,7 @@ export default function CalendarView({ ym }: { ym: string }) {
       recurringId: d.recurring.id,
       localCurrencyId: null,
       isPaid: true,
+      createdAt: "",
     });
     if (d.recurring.kind === "installment") {
       await saveRecurring({

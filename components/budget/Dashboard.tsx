@@ -358,6 +358,7 @@ export default function Dashboard({
             recurringId: null,
             localCurrencyId: chargeLc.id,
             isPaid: true,
+            createdAt: "",
           });
         }}
       />

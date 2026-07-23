@@ -76,6 +76,7 @@ export interface Transaction {
   recurringId: string | null;
   localCurrencyId: string | null; // 지역화폐 충전으로 생성된 거래면 해당 지역화폐 id
   isPaid: boolean;
+  createdAt: string; // ISO timestamp. 같은 날짜 안의 입력 순서용(신규 저장 시 repo가 채움)
 }
 
 export interface Budget {

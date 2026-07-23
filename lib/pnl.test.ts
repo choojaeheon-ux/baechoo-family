@@ -8,6 +8,7 @@ function tx(over: Partial<Transaction>): Transaction {
     categoryId: "cat-food", memo: null, member: "chuchu",
     paymentMethodId: null, isSpecial: false, habitTag: null,
     source: "manual", recurringId: null, localCurrencyId: null, isPaid: true,
+    createdAt: "2026-06-01T00:00:00.000Z",
     ...over,
   };
 }
