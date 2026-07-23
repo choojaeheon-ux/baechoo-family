@@ -57,6 +57,100 @@ export function expandEventsInRange(
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
+/* ── 월 그리드 연속 막대 배치 ──
+   여러 날에 걸친 일정을 날짜마다 따로 그리지 않고, 한 주 안에서 하나의 막대로 잇는다.
+   주 경계에서 잘리면 continuesLeft/Right로 이어짐을 표시한다. */
+
+export interface BarItem {
+  key: string;
+  color: string;
+  label: string;
+  start: string; // 항목 실제 시작일
+  end: string; // 항목 실제 종료일 (하루짜리면 start와 같음)
+}
+
+export interface WeekBar extends BarItem {
+  lane: number; // 0-based 세로 줄
+  startCol: number; // 0~6
+  span: number; // 차지하는 칸 수
+  continuesLeft: boolean;
+  continuesRight: boolean;
+}
+
+export interface WeekLayout {
+  bars: WeekBar[];
+  overflowByDate: Map<string, number>; // 레인이 모자라 숨긴 개수
+  laneCount: number; // 실제 사용한 레인 수
+}
+
+function dayIndex(from: string, to: string): number {
+  const [y1, m1, d1] = from.split("-").map(Number);
+  const [y2, m2, d2] = to.split("-").map(Number);
+  const a = Date.UTC(y1, m1 - 1, d1);
+  const b = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((b - a) / 86400000);
+}
+
+// cols: 그 주 7일의 ISO, inMonth: 그 칸이 현재 달인지(달 밖 칸엔 막대를 그리지 않음)
+export function layoutWeek(
+  items: BarItem[],
+  cols: string[],
+  inMonth: boolean[],
+  maxLanes = 3
+): WeekLayout {
+  const valid = inMonth.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  const overflowByDate = new Map<string, number>();
+  if (valid.length === 0) return { bars: [], overflowByDate, laneCount: 0 };
+  const lo = valid[0];
+  const hi = valid[valid.length - 1];
+
+  // 긴 막대를 위 레인으로 → 주가 바뀌어도 위치가 크게 튀지 않는다
+  const sorted = [...items]
+    .map((it) => {
+      const s = Math.max(lo, Math.min(hi, dayIndex(cols[0], it.start)));
+      const e = Math.max(lo, Math.min(hi, dayIndex(cols[0], it.end)));
+      return { it, s, e };
+    })
+    .filter(({ it }) => dayIndex(cols[0], it.end) >= lo && dayIndex(cols[0], it.start) <= hi)
+    .sort(
+      (a, b) =>
+        b.e - b.s - (a.e - a.s) ||
+        a.s - b.s ||
+        (a.it.label < b.it.label ? -1 : a.it.label > b.it.label ? 1 : 0)
+    );
+
+  const lanes: boolean[][] = []; // lane → 칸 점유 여부
+  const bars: WeekBar[] = [];
+  let used = 0;
+  for (const { it, s, e } of sorted) {
+    let lane = lanes.findIndex((occ) => {
+      for (let c = s; c <= e; c++) if (occ[c]) return false;
+      return true;
+    });
+    if (lane === -1) {
+      lane = lanes.length;
+      lanes.push(Array(7).fill(false));
+    }
+    for (let c = s; c <= e; c++) lanes[lane][c] = true;
+    if (lane >= maxLanes) {
+      for (let c = s; c <= e; c++) {
+        overflowByDate.set(cols[c], (overflowByDate.get(cols[c]) ?? 0) + 1);
+      }
+      continue;
+    }
+    used = Math.max(used, lane + 1);
+    bars.push({
+      ...it,
+      lane,
+      startCol: s,
+      span: e - s + 1,
+      continuesLeft: dayIndex(cols[0], it.start) < s,
+      continuesRight: dayIndex(cols[0], it.end) > e,
+    });
+  }
+  return { bars, overflowByDate, laneCount: used };
+}
+
 // 마커·날짜 패널용: 덮는 날짜 → 그 날의 회차들 (범위 밖 날짜는 키 생성 안 함)
 export function occurrencesByDate(
   events: FamilyEvent[],

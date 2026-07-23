@@ -10,7 +10,14 @@ import {
   weekLabel,
   ddayLabel,
 } from "@/lib/format";
-import { occurrencesByDate, type EventOccurrence } from "@/lib/calendar";
+import {
+  addDays,
+  expandEventsInRange,
+  layoutWeek,
+  occurrencesByDate,
+  type BarItem,
+  type EventOccurrence,
+} from "@/lib/calendar";
 import type { FamilyEvent, WeekTodo } from "@/lib/types";
 import { todoAssigneeName } from "@/lib/types";
 import { readableText } from "@/lib/eventCategoryPalette";
@@ -20,6 +27,12 @@ import EventForm from "./EventForm";
 import CategoryManager from "./CategoryManager";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 그리드 막대 치수(px) — 셀 높이 계산과 레이어 오프셋이 같은 값을 써야 어긋나지 않는다
+const MAX_LANES = 3; // 셀당 최대 막대 줄 수(초과분은 +N)
+const BAR_H = 14;
+const BAR_GAP = 2;
+const BAR_TOP = 38; // pt-1(4) + 날짜 원(32) + 여백(2)
 
 function Check({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -199,13 +212,47 @@ export default function FamilyCalendar() {
     });
   }, [occMap, selected]);
 
-  // 월 그리드 셀
+  // 월 그리드: 주 단위(7칸)로 쪼갠다 — 연속 막대를 주별로 배치하기 위해
   const [y, m] = ym.split("-").map(Number);
-  const firstDow = new Date(y, m - 1, 1).getDay();
-  const cells: (number | null)[] = [
-    ...Array(firstDow).fill(null),
-    ...Array.from({ length: daysInMonth(ym) }, (_, i) => i + 1),
-  ];
+  const weeks = useMemo(() => {
+    const firstDow = new Date(y, m - 1, 1).getDay();
+    const gridStart = addDays(`${ym}-01`, -firstDow);
+    const total = Math.ceil((firstDow + daysInMonth(ym)) / 7) * 7;
+    const all = Array.from({ length: total }, (_, i) => addDays(gridStart, i));
+    return Array.from({ length: total / 7 }, (_, w) => all.slice(w * 7, w * 7 + 7));
+  }, [ym, y, m]);
+
+  // 그리드에 그릴 막대 재료 (여러 날 일정 = 하나의 항목)
+  const barItems = useMemo<BarItem[]>(() => {
+    const occs = expandEventsInRange(familyEvents, from, to);
+    const items: BarItem[] = occs.map((o) => ({
+      key: `${o.event.id}-${o.date}`,
+      color: catColor(o.event.categoryId),
+      label: o.event.title,
+      start: o.dates[0],
+      end: o.dates[o.dates.length - 1],
+    }));
+    for (const [date, todos] of todoDue) {
+      for (const t of todos) {
+        items.push({ key: `todo-${t.id}`, color: "#d9a441", label: t.title, start: date, end: date });
+      }
+    }
+    return items;
+    // catColor는 eventCategories 파생
+  }, [familyEvents, from, to, todoDue, eventCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const weekLayouts = useMemo(
+    () =>
+      weeks.map((cols) =>
+        layoutWeek(
+          barItems,
+          cols,
+          cols.map((iso) => iso.slice(0, 7) === ym),
+          MAX_LANES
+        )
+      ),
+    [weeks, barItems, ym]
+  );
 
   if (loading) {
     return <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>;
@@ -241,7 +288,7 @@ export default function FamilyCalendar() {
         </div>
         <div
           ref={gridRef}
-          className="grid select-none grid-cols-7"
+          className="select-none"
           style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
           onPointerDown={onGridPointerDown}
           onPointerMove={onGridPointerMove}
@@ -258,62 +305,84 @@ export default function FamilyCalendar() {
             }
           }}
         >
-          {cells.map((day, idx) => {
-            if (day === null) return <span key={`e${idx}`} className="border-t border-line" />;
-            const iso = `${ym}-${String(day).padStart(2, "0")}`;
-            const occs = occMap.get(iso) ?? [];
-            const inDrag = dragRange && iso >= dragRange[0] && iso <= dragRange[1];
+          {weeks.map((cols, w) => {
+            const layout = weekLayouts[w];
+            const rows =
+              layout.overflowByDate.size > 0 ? MAX_LANES + 1 : layout.laneCount;
+            const cellH = Math.max(76, BAR_TOP + rows * (BAR_H + BAR_GAP) + 2);
             return (
-              <button
-                key={day}
-                data-iso={iso}
-                onClick={() => setSelected((p) => (p === iso ? null : iso))}
-                className={`flex min-h-[76px] flex-col items-center rounded-lg border-t border-line pt-1 transition-colors ${
-                  inDrag ? "bg-leaf-light" : ""
-                }`}
-              >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
-                    iso === today ? "bg-leaf font-bold text-white" : "text-ink"
-                  } ${selected === iso ? "ring-2 ring-leaf ring-offset-1" : ""}`}
-                >
-                  {day}
-                </span>
-                <div className="mt-0.5 w-full space-y-0.5 px-0.5">
-                  {(() => {
-                    const items: { color: string; label: string }[] = [
-                      ...occs.map((o) => ({
-                        color: catColor(o.event.categoryId),
-                        label: o.event.title,
-                      })),
-                      ...(todoDue.get(iso) ?? []).map((t) => ({
-                        color: "#d9a441",
-                        label: t.title,
-                      })),
-                    ];
-                    const shown = items.slice(0, 3);
-                    const extra = items.length - shown.length;
+              <div key={cols[0]} className="relative grid grid-cols-7">
+                {cols.map((iso) => {
+                  if (iso.slice(0, 7) !== ym) {
                     return (
-                      <>
-                        {shown.map((it, i) => (
-                          <span
-                            key={i}
-                            className="block truncate rounded px-1 text-left text-[9px] leading-tight"
-                            style={{ backgroundColor: it.color, color: readableText(it.color) }}
-                          >
-                            {it.label}
-                          </span>
-                        ))}
-                        {extra > 0 && (
-                          <span className="block px-1 text-left text-[9px] leading-tight text-stone">
-                            +{extra}
-                          </span>
-                        )}
-                      </>
+                      <span key={iso} className="border-t border-line" style={{ minHeight: cellH }} />
                     );
-                  })()}
+                  }
+                  const inDrag = dragRange && iso >= dragRange[0] && iso <= dragRange[1];
+                  return (
+                    <button
+                      key={iso}
+                      data-iso={iso}
+                      onClick={() => setSelected((p) => (p === iso ? null : iso))}
+                      style={{ minHeight: cellH }}
+                      className={`flex flex-col items-center rounded-lg border-t border-line pt-1 transition-colors ${
+                        inDrag ? "bg-leaf-light" : ""
+                      }`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${
+                          iso === today ? "bg-leaf font-bold text-white" : "text-ink"
+                        } ${selected === iso ? "ring-2 ring-leaf ring-offset-1" : ""}`}
+                      >
+                        {Number(iso.slice(8, 10))}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* 막대 레이어 — 여러 날 일정은 하나의 막대로 이어진다.
+                    pointer-events-none이라 아래 셀의 탭·드래그를 가리지 않는다. */}
+                <div
+                  className="pointer-events-none absolute inset-0 grid grid-cols-7 gap-x-px px-px"
+                  style={{
+                    paddingTop: BAR_TOP,
+                    gridAutoRows: `${BAR_H}px`,
+                    rowGap: BAR_GAP,
+                  }}
+                >
+                  {layout.bars.map((b) => (
+                    <span
+                      key={b.key}
+                      className={`flex items-center overflow-hidden whitespace-nowrap px-1 text-[9px] leading-none ${
+                        b.continuesLeft ? "rounded-l-none" : "rounded-l"
+                      } ${b.continuesRight ? "rounded-r-none" : "rounded-r"}`}
+                      style={{
+                        gridColumn: `${b.startCol + 1} / span ${b.span}`,
+                        gridRow: b.lane + 1,
+                        backgroundColor: b.color,
+                        color: readableText(b.color),
+                      }}
+                    >
+                      <span className="truncate">
+                        {b.continuesLeft ? "‹ " : ""}
+                        {b.label}
+                      </span>
+                    </span>
+                  ))}
+                  {[...layout.overflowByDate].map(([iso, n]) => (
+                    <span
+                      key={`more-${iso}`}
+                      className="px-1 text-left text-[9px] leading-none text-stone"
+                      style={{
+                        gridColumn: cols.indexOf(iso) + 1,
+                        gridRow: MAX_LANES + 1,
+                      }}
+                    >
+                      +{n}
+                    </span>
+                  ))}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

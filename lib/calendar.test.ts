@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, expandEventsInRange, occurrencesByDate } from "./calendar";
+import { addDays, expandEventsInRange, layoutWeek, occurrencesByDate, type BarItem } from "./calendar";
 import type { FamilyEvent } from "./types";
 
 const base: FamilyEvent = {
@@ -108,5 +108,89 @@ describe("occurrencesByDate", () => {
     const e2 = { ...base, id: "e2", title: "둘째" };
     const map = occurrencesByDate([base, e2], "2026-07-01", "2026-07-31");
     expect(map.get("2026-07-15")).toHaveLength(2);
+  });
+});
+
+describe("layoutWeek — 연속 막대", () => {
+  // 2026-07-05(일) ~ 07-11(토) 한 주
+  const cols = [
+    "2026-07-05", "2026-07-06", "2026-07-07", "2026-07-08",
+    "2026-07-09", "2026-07-10", "2026-07-11",
+  ];
+  const all = cols.map(() => true);
+  const item = (key: string, start: string, end: string): BarItem => ({
+    key, start, end, color: "#000", label: key,
+  });
+
+  it("여러 날 일정은 한 막대로 이어진다", () => {
+    const { bars } = layoutWeek([item("여행", "2026-07-07", "2026-07-09")], cols, all);
+    expect(bars).toHaveLength(1);
+    expect(bars[0].startCol).toBe(2);
+    expect(bars[0].span).toBe(3);
+    expect(bars[0].continuesLeft).toBe(false);
+    expect(bars[0].continuesRight).toBe(false);
+  });
+
+  it("주 경계에서 잘리면 이어짐을 표시한다", () => {
+    const { bars } = layoutWeek([item("장기", "2026-07-02", "2026-07-20")], cols, all);
+    expect(bars[0].startCol).toBe(0);
+    expect(bars[0].span).toBe(7);
+    expect(bars[0].continuesLeft).toBe(true);
+    expect(bars[0].continuesRight).toBe(true);
+  });
+
+  it("달 밖 칸에는 그리지 않는다 (첫 주 앞부분)", () => {
+    // 07-01(수)이 첫날인 달의 첫 주: 앞 3칸(6/28~30)은 달 밖
+    const inMonth = [false, false, false, true, true, true, true];
+    const c = [
+      "2026-06-28", "2026-06-29", "2026-06-30",
+      "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04",
+    ];
+    const { bars } = layoutWeek([item("걸침", "2026-06-29", "2026-07-02")], c, inMonth);
+    expect(bars[0].startCol).toBe(3);
+    expect(bars[0].span).toBe(2);
+    expect(bars[0].continuesLeft).toBe(true);
+    expect(bars[0].continuesRight).toBe(false);
+  });
+
+  it("겹치면 다른 레인으로 내려가고, 안 겹치면 같은 레인을 재사용한다", () => {
+    const { bars, laneCount } = layoutWeek(
+      [
+        item("A", "2026-07-05", "2026-07-07"),
+        item("B", "2026-07-06", "2026-07-08"),
+        item("C", "2026-07-09", "2026-07-09"),
+      ],
+      cols,
+      all
+    );
+    const lane = (k: string) => bars.find((b) => b.key === k)!.lane;
+    expect(lane("A")).toBe(0);
+    expect(lane("B")).toBe(1);
+    expect(lane("C")).toBe(0); // A와 겹치지 않으므로 같은 레인
+    expect(laneCount).toBe(2);
+  });
+
+  it("긴 막대가 위 레인을 차지한다", () => {
+    const { bars } = layoutWeek(
+      [item("짧은", "2026-07-06", "2026-07-06"), item("긴", "2026-07-05", "2026-07-09")],
+      cols,
+      all
+    );
+    expect(bars.find((b) => b.key === "긴")!.lane).toBe(0);
+    expect(bars.find((b) => b.key === "짧은")!.lane).toBe(1);
+  });
+
+  it("레인이 넘치면 해당 날짜에 +N으로 센다", () => {
+    const items = ["1", "2", "3", "4", "5"].map((k) =>
+      item(k, "2026-07-07", "2026-07-07")
+    );
+    const { bars, overflowByDate } = layoutWeek(items, cols, all, 3);
+    expect(bars).toHaveLength(3);
+    expect(overflowByDate.get("2026-07-07")).toBe(2);
+  });
+
+  it("주 밖 항목은 제외된다", () => {
+    const { bars } = layoutWeek([item("다음주", "2026-07-13", "2026-07-14")], cols, all);
+    expect(bars).toHaveLength(0);
   });
 });
