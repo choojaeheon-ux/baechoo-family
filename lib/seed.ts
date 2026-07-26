@@ -1,22 +1,23 @@
 import type { Category, PaymentMethod, BaechooCategory, PlanItem, EventCategory } from "./types";
 
 // 기본 계정 과목 시드 (앱 최초 실행 시 자동 주입, 이후 관리 화면에서 수정)
+// groupName = 상위 카테고리. color/icon은 더 이상 화면에서 쓰지 않지만 컬럼 호환을 위해 남긴다.
 export const SEED_CATEGORIES: Category[] = [
   // 지출
-  { id: "cat-food", name: "식비", type: "expense", color: "#e07a5f", icon: "🍚", costType: "variable" },
-  { id: "cat-living", name: "생활용품", type: "expense", color: "#8ab560", icon: "🧺", costType: "variable" },
-  { id: "cat-uju", name: "육아", type: "expense", color: "#e8a0bf", icon: "🍼", costType: "variable" },
-  { id: "cat-medical", name: "병원", type: "expense", color: "#c96f6f", icon: "💊", costType: "variable" },
-  { id: "cat-hobby", name: "취미", type: "expense", color: "#7a8cd0", icon: "🎮", costType: "variable" },
-  { id: "cat-card", name: "카드값", type: "expense", color: "#5c93a8", icon: "💳", costType: "variable" },
-  { id: "cat-saving", name: "적금", type: "expense", color: "#5b8c3e", icon: "🐖", costType: "fixed" },
-  { id: "cat-housing", name: "청약", type: "expense", color: "#d9a441", icon: "🏠", costType: "fixed" },
-  { id: "cat-installment", name: "할부", type: "expense", color: "#b06fb0", icon: "🧾", costType: "fixed" },
-  { id: "cat-baechoo", name: "배추(반려)", type: "expense", color: "#6fae8e", icon: "🐶", costType: "variable" },
-  { id: "cat-etc", name: "기타", type: "expense", color: "#9a948a", icon: "📦", costType: "variable" },
+  { id: "cat-food", name: "식비", type: "expense", groupName: "생활비", costType: "variable", color: "#e07a5f" },
+  { id: "cat-living", name: "생활용품", type: "expense", groupName: "생활비", costType: "variable", color: "#8ab560" },
+  { id: "cat-uju", name: "육아", type: "expense", groupName: "가족", costType: "variable", color: "#e8a0bf" },
+  { id: "cat-baechoo", name: "배추(반려)", type: "expense", groupName: "가족", costType: "variable", color: "#6fae8e" },
+  { id: "cat-medical", name: "병원", type: "expense", groupName: "의료", costType: "variable", color: "#c96f6f" },
+  { id: "cat-hobby", name: "취미", type: "expense", groupName: "문화·여가", costType: "variable", color: "#7a8cd0" },
+  { id: "cat-card", name: "카드값", type: "expense", groupName: "금융", costType: "variable", color: "#5c93a8" },
+  { id: "cat-saving", name: "적금", type: "expense", groupName: "저축·상환", costType: "fixed", color: "#5b8c3e" },
+  { id: "cat-housing", name: "청약", type: "expense", groupName: "저축·상환", costType: "fixed", color: "#d9a441" },
+  { id: "cat-installment", name: "할부", type: "expense", groupName: "저축·상환", costType: "fixed", color: "#b06fb0" },
+  { id: "cat-etc", name: "기타", type: "expense", groupName: null, costType: "variable", color: "#9a948a" },
   // 수입
-  { id: "cat-salary", name: "급여", type: "income", color: "#3f6b2a", icon: "💼", costType: null },
-  { id: "cat-income-etc", name: "기타수입", type: "income", color: "#4f8a6f", icon: "💰", costType: null },
+  { id: "cat-salary", name: "급여", type: "income", groupName: "근로소득", costType: null, color: "#3f6b2a" },
+  { id: "cat-income-etc", name: "기타수입", type: "income", groupName: null, costType: null, color: "#4f8a6f" },
 ];
 
 // 기본 결제수단 (현금·계좌, 카드는 직접 추가)

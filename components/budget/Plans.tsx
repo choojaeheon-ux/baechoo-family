@@ -11,7 +11,14 @@ import {
 import { won, ymLabel } from "@/lib/format";
 import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
 import { BudgetForm, GoalForm, CategoryForm } from "./forms";
-import { COST_TYPE_LABEL, type Budget, type Category, type Goal } from "@/lib/types";
+import {
+  COST_TYPE_LABEL,
+  TX_TYPE_COLOR,
+  UNGROUPED,
+  type Budget,
+  type Category,
+  type Goal,
+} from "@/lib/types";
 
 export default function Plans({ ym }: { ym: string }) {
   const { budgets, goals, categories, transactions, categoryById, removeBudget } =
@@ -86,7 +93,10 @@ export default function Plans({ ym }: { ym: string }) {
                 <div className="mb-1 flex items-center justify-between">
                   <span className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink">
                     <span className="truncate">
-                      {cat?.icon} {cat?.name}
+                      {cat?.groupName && (
+                        <span className="text-stone">{cat.groupName} · </span>
+                      )}
+                      {cat?.name}
                     </span>
                     {cat?.costType && (
                       <Pill tone={cat.costType === "fixed" ? "sky" : "stone"}>
@@ -136,12 +146,11 @@ export default function Plans({ ym }: { ym: string }) {
                 ov.categoryId === null
                   ? "전체 월예산"
                   : categoryById(ov.categoryId)?.name ?? "계정 과목";
-              const icon = ov.categoryId === null ? "" : categoryById(ov.categoryId)?.icon ?? "";
               const base = baseBudgets.find((b) => b.categoryId === ov.categoryId);
               return (
                 <div key={ov.id} className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-ink">
-                    {icon} {label}
+                    {label}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm tabular text-ink">{won(ov.amount)}</span>
@@ -244,47 +253,63 @@ export default function Plans({ ym }: { ym: string }) {
       >
         계정 과목 관리
       </SectionTitle>
-      <Card className="space-y-4">
+      <Card className="space-y-5">
         {(["expense", "income"] as const).map((t) => {
           const rows = categories.filter((c) => c.type === t);
+          // 카테고리(상위 분류)로 묶는다. 미분류는 맨 뒤.
+          const byGroup = new Map<string, typeof rows>();
+          for (const c of rows) {
+            const key = c.groupName || UNGROUPED;
+            byGroup.set(key, [...(byGroup.get(key) ?? []), c]);
+          }
+          const groups = [...byGroup.entries()].sort(([a], [b]) =>
+            a === UNGROUPED ? 1 : b === UNGROUPED ? -1 : a.localeCompare(b)
+          );
           return (
             <div key={t}>
-              <p className="mb-2 text-[11px] font-semibold text-stone">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-stone">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: TX_TYPE_COLOR[t] }}
+                />
                 {t === "expense" ? "지출 계정 과목" : "수입 계정 과목"} ({rows.length})
               </p>
               {rows.length === 0 ? (
                 <p className="py-2 text-xs text-stone">아직 없어요.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {rows.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        setEditCat(c);
-                        setCatOpen(true);
-                      }}
-                      className="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm text-ink active:bg-cream"
-                    >
-                      <span>{c.icon}</span>
-                      {c.name}
-                      {t === "expense" && (
-                        <span
-                          className={`text-[10px] font-semibold ${
-                            c.costType === "fixed"
-                              ? "text-sky"
-                              : c.costType === "variable"
-                                ? "text-stone"
-                                : "text-coral"
-                          }`}
-                        >
-                          {c.costType ? COST_TYPE_LABEL[c.costType] : "성격 미지정"}
-                        </span>
-                      )}
-                      <span
-                        className="ml-0.5 h-2 w-2 rounded-full"
-                        style={{ background: c.color }}
-                      />
-                    </button>
+                <div className="space-y-2">
+                  {groups.map(([gName, gRows]) => (
+                    <div key={gName}>
+                      <p className="mb-1 text-[11px] text-stone">{gName}</p>
+                      <div className="flex flex-wrap gap-2 pl-2">
+                        {gRows.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setEditCat(c);
+                              setCatOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm text-ink active:bg-cream"
+                            style={{ borderColor: TX_TYPE_COLOR[t] }}
+                          >
+                            {c.name}
+                            {t === "expense" && (
+                              <span
+                                className={`text-[10px] font-semibold ${
+                                  c.costType === "fixed"
+                                    ? "text-sky"
+                                    : c.costType === "variable"
+                                      ? "text-stone"
+                                      : "text-coral"
+                                }`}
+                              >
+                                {c.costType ? COST_TYPE_LABEL[c.costType] : "성격 미지정"}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

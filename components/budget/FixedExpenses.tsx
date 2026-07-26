@@ -20,7 +20,6 @@ export default function FixedExpenses() {
   const {
     recurring,
     paymentMethods,
-    categoryById,
     paymentMethodById,
   } = useData();
   const [recOpen, setRecOpen] = useState(false);
@@ -55,12 +54,10 @@ export default function FixedExpenses() {
           <Empty>통신비·관리비·적금 등 매달 같은 지출을 등록하세요.</Empty>
         ) : (
           byKind("fixed").map((r) => {
-            const cat = categoryById(r.categoryId);
             const pm = r.paymentMethodId ? paymentMethodById(r.paymentMethodId) : null;
             return (
               <ItemRow
                 key={r.id}
-                icon={cat?.icon ?? "💸"}
                 title={r.name}
                 sub={`매달 ${r.dayOfMonth}일${pm ? ` · ${pm.name}` : ""}`}
                 amount={won(r.amount)}
@@ -200,7 +197,7 @@ function ItemRow({
   amount,
   onClick,
 }: {
-  icon: string;
+  icon?: string;
   title: string;
   sub: string;
   amount: string;
@@ -211,7 +208,14 @@ function ItemRow({
       onClick={onClick}
       className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
     >
-      <span className="text-xl">{icon}</span>
+      {icon ? (
+        <span className="text-xl">{icon}</span>
+      ) : (
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: "var(--color-coral)" }}
+        />
+      )}
       <div className="flex-1">
         <p className="text-sm font-semibold text-ink">{title}</p>
         <p className="text-xs text-stone">{sub}</p>

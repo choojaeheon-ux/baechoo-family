@@ -22,6 +22,7 @@ import {
   budgetForCategory,
 } from "@/lib/compute";
 import { won, wonShort, ymLabel } from "@/lib/format";
+import { chartColor } from "@/lib/types";
 import { Card, SectionTitle, Empty, ProgressBar } from "./ui";
 
 ChartJS.register(
@@ -64,11 +65,13 @@ export default function Analysis({ ym }: { ym: string }) {
             <div className="mx-auto h-52 w-52">
               <Doughnut
                 data={{
-                  labels: catRows.map((r) => r.cat!.name),
+                  labels: catRows.map((r) =>
+                    r.cat!.groupName ? `${r.cat!.groupName} · ${r.cat!.name}` : r.cat!.name
+                  ),
                   datasets: [
                     {
                       data: catRows.map((r) => r.amt),
-                      backgroundColor: catRows.map((r) => r.cat!.color),
+                      backgroundColor: catRows.map((_, i) => chartColor(i)),
                       borderWidth: 2,
                       borderColor: "#fff",
                     },
@@ -88,14 +91,17 @@ export default function Analysis({ ym }: { ym: string }) {
               />
             </div>
             <div className="mt-3 space-y-2">
-              {catRows.map((r) => (
+              {catRows.map((r, i) => (
                 <div key={r.cat!.id} className="flex items-center gap-2">
                   <span
                     className="h-3 w-3 rounded-full"
-                    style={{ background: r.cat!.color }}
+                    style={{ background: chartColor(i) }}
                   />
-                  <span className="flex-1 text-sm text-ink">
-                    {r.cat!.icon} {r.cat!.name}
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                    {r.cat!.groupName && (
+                      <span className="text-stone">{r.cat!.groupName} · </span>
+                    )}
+                    {r.cat!.name}
                   </span>
                   <span className="text-xs text-stone">
                     {Math.round((r.amt / expense) * 100)}%
@@ -203,7 +209,7 @@ export default function Analysis({ ym }: { ym: string }) {
             <div key={r.c.id}>
               <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-ink">
-                  {r.c.icon} {r.c.name}
+                  {r.c.name}
                 </span>
                 <span className="text-xs text-stone">
                   {won(r.spend)} / {won(r.budget!)}

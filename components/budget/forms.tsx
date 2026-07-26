@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
-  COST_TYPE_LABEL,
   PAYMENT_KIND_LABEL,
   RECURRING_KIND_LABEL,
   type Budget,
@@ -112,9 +111,8 @@ export function TransactionForm({
           <option value="">선택하세요</option>
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon ? `${c.icon} ` : ""}
+              {c.groupName ? `${c.groupName} · ` : ""}
               {c.name}
-              {c.costType ? ` · ${COST_TYPE_LABEL[c.costType]}` : ""}
             </option>
           ))}
         </select>
@@ -315,7 +313,8 @@ export function RecurringForm({
         >
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
+              {c.groupName ? `${c.groupName} · ` : ""}
+              {c.name}
             </option>
           ))}
         </select>
@@ -432,9 +431,8 @@ export function BudgetForm({
           {legacyOverall && <option value="__all__">전체 월예산 (구버전)</option>}
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon ? `${c.icon} ` : ""}
+              {c.groupName ? `${c.groupName} · ` : ""}
               {c.name}
-              {c.costType ? ` · ${COST_TYPE_LABEL[c.costType]}` : ""}
             </option>
           ))}
         </select>
@@ -564,11 +562,6 @@ export function GoalForm({
 }
 
 /* ───────── 계정 과목 관리 ───────── */
-const EMOJI_CHOICES = [
-  "🍚", "🧺", "🍼", "💊", "🎮", "💳", "🐖", "🏠", "🧾", "🐶",
-  "📦", "💼", "💰", "🍔", "☕", "🚕", "🛍️", "🎬", "✈️", "🎁",
-];
-
 export function CategoryForm({
   open,
   onClose,
@@ -578,14 +571,23 @@ export function CategoryForm({
   onClose: () => void;
   initial?: Category;
 }) {
-  const { saveCategory, removeCategory } = useData();
+  const { categories, saveCategory, removeCategory } = useData();
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<TxType>(initial?.type ?? "expense");
-  const [icon, setIcon] = useState(initial?.icon ?? "📦");
-  const [color, setColor] = useState(initial?.color ?? "#8ab560");
   const [costType, setCostType] = useState<CostType>(
     initial?.costType ?? "variable"
   );
+  // 그룹(상위 카테고리): 이미 쓰는 이름은 골라 쓰고, 없으면 새로 적는다
+  const [groupName, setGroupName] = useState(initial?.groupName ?? "");
+  const [newGroup, setNewGroup] = useState(false);
+
+  const knownGroups = [
+    ...new Set(
+      categories
+        .filter((c) => c.type === type && c.groupName)
+        .map((c) => c.groupName!)
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 
   // 지출 계정과목은 고정비/변동비를 반드시 갖는다. 수입은 해당 없음(null).
   const valid = name.trim().length > 0;
@@ -596,9 +598,11 @@ export function CategoryForm({
       id: initial?.id ?? "",
       name: name.trim(),
       type,
-      icon,
-      color,
+      groupName: groupName.trim() || null,
       costType: type === "expense" ? costType : null,
+      // 색·아이콘은 더 이상 지정하지 않는다. 기존 값은 그대로 두고, 신규는 유형 색만 쓴다.
+      color: initial?.color ?? (type === "expense" ? "#e07a5f" : "#5c93a8"),
+      icon: initial?.icon,
     });
     onClose();
   }
@@ -616,15 +620,48 @@ export function CategoryForm({
             { v: "income", label: "수입" },
           ]}
           value={type}
-          onChange={(v) => setType(v as TxType)}
+          onChange={(v) => {
+            setType(v as TxType);
+            setGroupName("");
+            setNewGroup(false);
+          }}
         />
+      </Field>
+      <Field label="카테고리 (상위 분류)">
+        {newGroup || knownGroups.length === 0 ? (
+          <input
+            className={inputCls}
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            placeholder="예: 수도광열비, 제세공과금"
+          />
+        ) : (
+          <select
+            className={inputCls}
+            value={groupName}
+            onChange={(e) => {
+              if (e.target.value === "__new__") {
+                setGroupName("");
+                setNewGroup(true);
+              } else setGroupName(e.target.value);
+            }}
+          >
+            <option value="">미분류</option>
+            {knownGroups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+            <option value="__new__">+ 새 카테고리 입력…</option>
+          </select>
+        )}
       </Field>
       <Field label="이름">
         <input
           className={inputCls}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="예: 생활용품"
+          placeholder="예: 전기, 가스, 수도"
         />
       </Field>
       {type === "expense" && (
@@ -639,29 +676,6 @@ export function CategoryForm({
           />
         </Field>
       )}
-      <Field label="아이콘">
-        <div className="flex flex-wrap gap-1.5">
-          {EMOJI_CHOICES.map((e) => (
-            <button
-              key={e}
-              onClick={() => setIcon(e)}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg ${
-                icon === e ? "border-leaf bg-leaf-light" : "border-line"
-              }`}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="색상">
-        <input
-          type="color"
-          className="h-10 w-full rounded-xl border border-line bg-cream"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-      </Field>
       <div className="mt-2">
         <PrimaryButton onClick={submit} disabled={!valid}>
           저장

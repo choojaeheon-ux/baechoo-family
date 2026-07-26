@@ -17,6 +17,7 @@ import { Card, SectionTitle, Pill, Empty, ProgressBar } from "./ui";
 import {
   memberName,
   type Member,
+  TX_TYPE_COLOR,
   type RewardRule,
   type Transaction,
 } from "@/lib/types";
@@ -271,7 +272,10 @@ export default function CalendarView({ ym }: { ym: string }) {
                   onClick={() => setEditTxn(t)}
                   className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
                 >
-                  <span className="text-xl">{cat?.icon ?? "•"}</span>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: TX_TYPE_COLOR[t.type] }}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink">
                       {t.merchant || t.memo || cat?.name || "내역"}
@@ -448,7 +452,6 @@ export default function CalendarView({ ym }: { ym: string }) {
           </Empty>
         ) : (
           due.map((d) => {
-            const cat = categoryById(d.recurring.categoryId);
             const paid = !!d.paidTxn;
             const left = dday(d.dueDate);
             const inst = installmentStatus(d.recurring);
@@ -470,7 +473,10 @@ export default function CalendarView({ ym }: { ym: string }) {
                   >
                     ✓
                   </span>
-                  <span className="text-lg">{cat?.icon ?? "💸"}</span>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: "var(--color-coral)" }}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className={`truncate text-sm font-semibold ${paid ? "text-stone line-through" : "text-ink"}`}>
                       {d.recurring.name}

@@ -5,6 +5,7 @@ import {
   monthTransactions,
   sumBy,
   budgetBurndown,
+  groupBurnRows,
   monthTimeProgress,
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
@@ -26,6 +27,7 @@ export default function Dashboard({
   const balance = income - expense;
 
   const burn = budgetBurndown(budgets, categories, transactions, ym);
+  const groups = groupBurnRows(burn.rows);
   const timePct = monthTimeProgress(ym);
 
   return (
@@ -90,7 +92,7 @@ export default function Dashboard({
       >
         계정과목별 예산 소진률
       </SectionTitle>
-      <Card className="space-y-3">
+      <Card className="space-y-4">
         {burn.rows.length === 0 ? (
           <Empty>
             예산·목표 탭에서 계정 과목별
@@ -98,25 +100,35 @@ export default function Dashboard({
             기본 예산을 설정해 보세요.
           </Empty>
         ) : (
-          burn.rows.map((r) => (
-            <div key={r.category.id}>
-              <div className="mb-1 flex items-baseline justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
-                  {r.category.icon} {r.category.name}
-                </span>
-                <span
-                  className={`shrink-0 text-sm font-bold tabular ${
-                    r.pct > 100 ? "text-coral" : "text-ink"
-                  }`}
-                >
-                  {r.pct.toFixed(1)}%
-                  {r.pct > 100 && <span className="ml-1 text-[11px]">초과</span>}
-                </span>
-              </div>
-              <BurnBar pct={r.pct} marker={timePct} height="h-2.5" />
-              <p className="mt-1 text-right text-[11px] text-stone tabular">
-                {won(r.spend)} / {won(r.budget)}
+          groups.map((g) => (
+            <div key={g.name}>
+              {/* 카테고리 머리글 — 카테고리에는 예산을 책정하지 않으므로 이름만 */}
+              <p className="mb-2 rounded-lg bg-cream px-2 py-1 text-[11px] font-bold text-stone">
+                {g.name}
               </p>
+              <div className="space-y-3 pl-2">
+                {g.rows.map((r) => (
+                  <div key={r.category.id}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+                        {r.category.name}
+                      </span>
+                      <span
+                        className={`shrink-0 text-sm font-bold tabular ${
+                          r.pct > 100 ? "text-coral" : "text-ink"
+                        }`}
+                      >
+                        {r.pct.toFixed(1)}%
+                        {r.pct > 100 && <span className="ml-1 text-[11px]">초과</span>}
+                      </span>
+                    </div>
+                    <BurnBar pct={r.pct} marker={timePct} height="h-2.5" />
+                    <p className="mt-1 text-right text-[11px] text-stone tabular">
+                      {won(r.spend)} / {won(r.budget)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           ))
         )}
@@ -133,7 +145,10 @@ export default function Dashboard({
                   className="flex items-center justify-between gap-2"
                 >
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {u.category.icon} {u.category.name}
+                    {u.category.groupName && (
+                      <span className="text-stone">{u.category.groupName} · </span>
+                    )}
+                    {u.category.name}
                   </span>
                   <span className="shrink-0 text-sm font-semibold tabular text-stone">
                     {won(u.spend)}

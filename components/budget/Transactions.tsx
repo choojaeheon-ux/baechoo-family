@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
 import { monthTransactions, sumBy } from "@/lib/compute";
 import { won, weekdayKo } from "@/lib/format";
-import { type Transaction, type TxType } from "@/lib/types";
+import { TX_TYPE_COLOR, type Transaction, type TxType } from "@/lib/types";
 import { Card, Empty, Pill } from "./ui";
 import { TransactionForm } from "./forms";
 
@@ -133,7 +133,7 @@ export default function Transactions({ ym }: { ym: string }) {
           <option value="">계정 과목 전체</option>
           {chipCats.map(({ cat }) => (
             <option key={cat.id} value={cat.id}>
-              {cat.icon ? `${cat.icon} ` : ""}
+              {cat.groupName ? `${cat.groupName} · ` : ""}
               {cat.name}
             </option>
           ))}
@@ -182,7 +182,10 @@ export default function Transactions({ ym }: { ym: string }) {
                   onClick={() => setEdit(t)}
                   className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
                 >
-                  <span className="text-xl">{cat?.icon ?? "•"}</span>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: TX_TYPE_COLOR[t.type] }}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink">
                       {t.merchant || t.memo || cat?.name || "내역"}

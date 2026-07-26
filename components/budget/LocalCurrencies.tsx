@@ -124,7 +124,10 @@ export default function LocalCurrencies({ ym }: { ym: string }) {
                           onClick={() => setEditTxn(t)}
                           className="flex w-full items-center gap-2 rounded-xl px-1 py-1.5 text-left active:bg-cream"
                         >
-                          <span className="text-base">{cat?.icon ?? "•"}</span>
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: "var(--color-coral)" }}
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-ink">
                               {t.merchant || t.memo || cat?.name || "내역"}

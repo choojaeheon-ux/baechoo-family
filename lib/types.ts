@@ -20,14 +20,36 @@ export const COST_TYPE_LABEL: Record<CostType, string> = {
   variable: "변동비",
 };
 
-// 계정 과목 (구 "카테고리") — 수입/지출로 나뉘고, 지출은 고정비/변동비를 가진다.
+// 그룹(상위 카테고리)이 없는 계정 과목을 담는 이름
+export const UNGROUPED = "미분류";
+
+// 계정 과목 — 수입/지출로 나뉘고, 지출은 고정비/변동비를 가진다.
+// groupName은 상위 카테고리(예: 수도광열비 → 전기·가스·수도).
+// 카테고리에는 예산을 책정하지 않는다 — 대시보드에서 묶어 보여주기 위한 이름이다.
 export interface Category {
   id: string;
   name: string;
   type: TxType;
-  color: string; // hex
-  icon?: string; // emoji
+  groupName: string | null; // 상위 카테고리. null = 미분류
   costType: CostType | null; // 지출만. null = 미지정(수입 계정과목 포함)
+  color: string; // (deprecated) 사용자 지정 색 — 입력 UI 제거, 기존 값 보존용
+  icon?: string; // (deprecated) 사용자 지정 아이콘 — 입력 UI 제거, 기존 값 보존용
+}
+
+// 계정 과목은 지출/수입만 색으로 구분한다(개별 색 지정 없음)
+export const TX_TYPE_COLOR: Record<TxType, string> = {
+  expense: "var(--color-coral)",
+  income: "var(--color-sky)",
+};
+
+// 차트용 색 — 개별 색 지정을 없앴으므로 순서대로 팔레트에서 꺼내 쓴다(같은 목록이면 항상 같은 색)
+const CHART_PALETTE = [
+  "#e07a5f", "#5b8c3e", "#5c93a8", "#d9a441", "#b06fb0",
+  "#6fae8e", "#c96f6f", "#7a8cd0", "#8ab560", "#e8a0bf",
+  "#9a948a", "#3f6b2a", "#4f8a6f", "#a8763f", "#7c766a",
+];
+export function chartColor(index: number): string {
+  return CHART_PALETTE[index % CHART_PALETTE.length];
 }
 
 // 결제수단 (카드·현금·계좌이체 등) — 직접 관리

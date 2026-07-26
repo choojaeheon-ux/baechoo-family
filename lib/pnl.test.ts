@@ -13,7 +13,7 @@ function tx(over: Partial<Transaction>): Transaction {
   };
 }
 const cat = (id: string, type: Category["type"]): Category =>
-  ({ id, name: id, type, color: "#000", costType: null });
+  ({ id, name: id, type, groupName: null, costType: null, color: "#000" });
 
 describe("classifyTx", () => {
   it("수입은 revenue", () => {

@@ -60,9 +60,9 @@ function normalizeTxn(x: Transaction): Transaction {
   };
 }
 
-// 구버전 localStorage 계정과목 승격 — costType 없으면 미지정(null)
+// 구버전 localStorage 계정과목 승격 — costType·groupName 없으면 미지정(null)
 function normalizeCategory(x: Category): Category {
-  return { ...x, costType: x.costType ?? null };
+  return { ...x, costType: x.costType ?? null, groupName: x.groupName ?? null };
 }
 
 // 구버전 localStorage 측정 기록(weight만 있음)을 measureName/value/unit로 승격
@@ -203,17 +203,19 @@ const toCat = (r: Record<string, unknown>): Category => ({
   id: r.id as string,
   name: r.name as string,
   type: r.type as Category["type"],
+  groupName: (r.group_name as string) ?? null,
+  costType: (r.cost_type as Category["costType"]) ?? null,
   color: r.color as string,
   icon: (r.icon as string) ?? undefined,
-  costType: (r.cost_type as Category["costType"]) ?? null,
 });
 const fromCat = (c: Category) => ({
   id: c.id,
   name: c.name,
   type: c.type,
+  group_name: c.groupName ?? null,
+  cost_type: c.costType ?? null,
   color: c.color,
   icon: c.icon ?? null,
-  cost_type: c.costType ?? null,
 });
 
 const toPm = (r: Record<string, unknown>): PaymentMethod => ({
