@@ -37,6 +37,18 @@ export default function BudgetApp() {
   const [tab, setTab] = useState<Tab>("home");
   const [ym, setYm] = useState(currentYearMonth());
   const [addOpen, setAddOpen] = useState(false);
+  // 대시보드에서 계정 과목을 눌러 넘어올 때 거래내역에 걸어줄 필터
+  const [listCategoryId, setListCategoryId] = useState<string | null>(null);
+
+  // 탭을 직접 고르면 넘겨받은 필터는 지운다(거래내역을 그냥 열면 전체가 보이도록)
+  const goto = (t: Tab) => {
+    setListCategoryId(null);
+    setTab(t);
+  };
+  const gotoCategory = (categoryId: string) => {
+    setListCategoryId(categoryId);
+    setTab("list");
+  };
 
   return (
     <div>
@@ -62,7 +74,7 @@ export default function BudgetApp() {
           {SUBTABS.map((s) => (
             <button
               key={s.id}
-              onClick={() => setTab(s.id)}
+              onClick={() => goto(s.id)}
               className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
                 tab === s.id
                   ? "bg-leaf text-white"
@@ -80,9 +92,19 @@ export default function BudgetApp() {
           <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>
         ) : (
           <>
-            {tab === "home" && <Dashboard ym={ym} onGoto={setTab} />}
+            {tab === "home" && (
+              <Dashboard ym={ym} onGoto={goto} onGotoCategory={gotoCategory} />
+            )}
             {tab === "calendar" && <CalendarView ym={ym} />}
-            {tab === "list" && <Transactions ym={ym} />}
+            {tab === "list" && (
+              // key로 다시 마운트시켜야 넘겨준 필터가 반영된다.
+              // (이미 거래내역에 있을 때는 탭이 안 바뀌어 초기값을 다시 읽지 않는다)
+              <Transactions
+                key={listCategoryId ?? "all"}
+                ym={ym}
+                initialCategoryId={listCategoryId}
+              />
+            )}
             {tab === "plans" && <Plans ym={ym} />}
             {tab === "analysis" && <Analysis ym={ym} />}
             {tab === "fixed" && <FixedExpenses />}

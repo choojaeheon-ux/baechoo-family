@@ -22,9 +22,11 @@ function pctLabel(r: BurnRow): string {
 export default function Dashboard({
   ym,
   onGoto,
+  onGotoCategory,
 }: {
   ym: string;
   onGoto: (t: Tab) => void;
+  onGotoCategory: (categoryId: string) => void;
 }) {
   const { transactions, budgets, categories } = useData();
 
@@ -117,7 +119,12 @@ export default function Dashboard({
                 {g.rows.map((r) => {
                   const over = r.pct > 100;
                   return (
-                    <div key={r.category.id}>
+                    <button
+                      key={r.category.id}
+                      onClick={() => onGotoCategory(r.category.id)}
+                      aria-label={`${r.category.name} 거래내역 보기`}
+                      className="-mx-1 block w-full rounded-md px-1 py-0.5 text-left transition active:bg-cream"
+                    >
                       <div className="mb-1 flex items-baseline gap-2">
                         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
                           {r.category.name}
@@ -135,13 +142,16 @@ export default function Dashboard({
                         </span>
                       </div>
                       <BurnBar pct={r.pct} height="h-2" />
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           ))
         )}
+        <p className="border-t border-line pt-2 text-[11px] text-stone">
+          계정 과목을 누르면 거래내역에서 그 과목만 봅니다.
+        </p>
       </Card>
 
       <div className="h-2" />

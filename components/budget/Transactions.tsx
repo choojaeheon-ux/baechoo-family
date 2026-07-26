@@ -15,11 +15,19 @@ function payKey(t: Transaction): string | null {
   return null;
 }
 
-export default function Transactions({ ym }: { ym: string }) {
+export default function Transactions({
+  ym,
+  initialCategoryId = null,
+}: {
+  ym: string;
+  // 대시보드에서 계정 과목을 눌러 넘어온 경우 처음부터 그 과목만 보여준다.
+  // (탭을 옮기면 이 컴포넌트가 다시 마운트되므로 초기값으로 받으면 충분하다)
+  initialCategoryId?: string | null;
+}) {
   const { transactions, categoryById, paymentMethodById, localCurrencies } =
     useData();
   const [filter, setFilter] = useState<"all" | TxType>("all");
-  const [catFilter, setCatFilter] = useState<string | null>(null);
+  const [catFilter, setCatFilter] = useState<string | null>(initialCategoryId);
   const [pmFilter, setPmFilter] = useState<string | null>(null);
   const [edit, setEdit] = useState<Transaction | null>(null);
 
@@ -32,16 +40,18 @@ export default function Transactions({ ym }: { ym: string }) {
     [transactions, ym, filter]
   );
 
-  // 칩으로 보여줄 카테고리: 현재 타입 필터 안에서 거래가 있는 카테고리만, 금액 큰 순
+  // 목록에 보여줄 계정 과목: 현재 타입 필터 안에서 거래가 있는 과목만, 금액 큰 순.
+  // 단 고른 과목은 이번 달 거래가 없어도 남긴다 — 안 그러면 선택이 풀려 전체가 보인다.
   const chipCats = useMemo(() => {
     const totals = new Map<string, number>();
     for (const t of typeTxns)
       totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
+    if (catFilter && !totals.has(catFilter)) totals.set(catFilter, 0);
     return [...totals.entries()]
       .map(([id, amt]) => ({ cat: categoryById(id), amt }))
       .filter((r): r is { cat: NonNullable<typeof r.cat>; amt: number } => !!r.cat)
       .sort((a, b) => b.amt - a.amt);
-  }, [typeTxns, categoryById]);
+  }, [typeTxns, categoryById, catFilter]);
 
   // 드롭다운으로 보여줄 결제 수단: 결제수단 + 지역화폐를 한 목록으로("pm:<id>" / "lc:<id>")
   const chipPays = useMemo(() => {
