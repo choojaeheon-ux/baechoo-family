@@ -12,10 +12,32 @@ function tx(over: Partial<Transaction>): Transaction {
     ...over,
   };
 }
-const cat = (id: string, type: Category["type"]): Category =>
-  ({ id, name: id, type, groupName: null, costType: null, color: "#000" });
+const cat = (
+  id: string,
+  type: Category["type"],
+  costType: Category["costType"] = null
+): Category => ({ id, name: id, type, groupName: null, costType, color: "#000" });
 
-describe("classifyTx", () => {
+describe("classifyTx — 계정 과목에 지정한 성격을 따른다", () => {
+  it("고정비 지정 → fixed", () => {
+    expect(classifyTx(tx({ categoryId: "acc-rent" }), cat("acc-rent", "expense", "fixed"))).toBe("fixed");
+  });
+  it("저축 지정 → saving", () => {
+    expect(classifyTx(tx({ categoryId: "acc-sav" }), cat("acc-sav", "expense", "saving"))).toBe("saving");
+  });
+  it("손익 제외 지정 → excluded", () => {
+    expect(classifyTx(tx({ categoryId: "acc-card" }), cat("acc-card", "expense", "excluded"))).toBe("excluded");
+  });
+  it("변동비 지정은 고정지출 연결보다 우선한다", () => {
+    // 지정이 있으면 recurringId 폴백 규칙에 끌려가지 않는다
+    expect(classifyTx(tx({ categoryId: "acc-food", recurringId: "r1" }), cat("acc-food", "expense", "variable"))).toBe("variable");
+  });
+  it("수입 계정 과목은 성격과 무관하게 revenue", () => {
+    expect(classifyTx(tx({ type: "income", categoryId: "cat-salary" }), cat("cat-salary", "income"))).toBe("revenue");
+  });
+});
+
+describe("classifyTx — 성격이 없는 구버전 계정 과목 폴백", () => {
   it("수입은 revenue", () => {
     expect(classifyTx(tx({ type: "income", categoryId: "cat-salary" }), cat("cat-salary", "income"))).toBe("revenue");
   });

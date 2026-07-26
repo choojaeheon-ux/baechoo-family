@@ -195,24 +195,34 @@ describe("monthTimeProgress", () => {
 });
 
 describe("costTypeSplit", () => {
-  it("고정비/변동비/미지정으로 이번 달 지출을 나눈다", () => {
-    const cats = [
-      cat("cat-rent", "expense", "fixed"),
-      cat("cat-food", "expense", "variable"),
-      cat("cat-etc"), // 미지정
-      cat("cat-salary", "income"),
-    ];
-    const txns = [
-      tx("t1", "2026-07-01", "cat-rent", 600000),
-      tx("t2", "2026-07-02", "cat-food", 200000),
-      tx("t3", "2026-07-03", "cat-etc", 50000),
-      tx("t4", "2026-07-04", "cat-salary", 3000000, "income"),
-      tx("t5", "2026-06-01", "cat-rent", 600000),
-    ];
-    expect(costTypeSplit(txns, cats, "2026-07")).toEqual({
-      fixed: 600000,
-      variable: 200000,
-      unset: 50000,
-    });
+  const cats = [
+    cat("cat-rent", "expense", "fixed"),
+    cat("cat-food", "expense", "variable"),
+    cat("cat-sav", "expense", "saving"),
+    cat("cat-card", "expense", "excluded"),
+    cat("cat-etc"), // 성격 미지정
+    cat("cat-salary", "income"),
+  ];
+  const txns = [
+    tx("t1", "2026-07-01", "cat-rent", 600000),
+    tx("t2", "2026-07-02", "cat-food", 200000),
+    tx("t3", "2026-07-03", "cat-sav", 300000),
+    tx("t4", "2026-07-04", "cat-card", 900000),
+    tx("t5", "2026-07-05", "cat-etc", 50000),
+    tx("t6", "2026-07-06", "cat-salary", 3000000, "income"), // 수입 제외
+    tx("t7", "2026-06-01", "cat-rent", 600000), // 다른 달 제외
+  ];
+
+  it("성격별로 이번 달 지출을 나눈다", () => {
+    const s = costTypeSplit(txns, cats, "2026-07");
+    expect(s.fixed).toBe(600000);
+    expect(s.variable).toBe(200000);
+    expect(s.saving).toBe(300000);
+    expect(s.excluded).toBe(900000);
+    expect(s.unset).toBe(50000);
+  });
+
+  it("total은 손익 제외를 빼고 계산한다(비율의 분모)", () => {
+    expect(costTypeSplit(txns, cats, "2026-07").total).toBe(1150000);
   });
 });

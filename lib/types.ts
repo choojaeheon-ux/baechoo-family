@@ -13,12 +13,17 @@ export function memberName(id: Member): string {
 
 export type TxType = "income" | "expense";
 
-// 계정과목의 원가 성격 — 지출 계정과목만 사용 (수입은 null)
-export type CostType = "fixed" | "variable";
+// 계정과목의 손익 성격 — 지출 계정과목만 사용 (수입은 null).
+// 손익 탭의 4버킷과 그대로 대응한다: 고정비 / 변동비 / 선저축 / 손익 제외.
+// (저축은 비용이 아니라 원가처럼 선취하는 항목, 제외는 이중계상 방지용)
+export type CostType = "fixed" | "variable" | "saving" | "excluded";
 export const COST_TYPE_LABEL: Record<CostType, string> = {
   fixed: "고정비",
   variable: "변동비",
+  saving: "저축",
+  excluded: "손익 제외",
 };
+export const COST_TYPES: CostType[] = ["fixed", "variable", "saving", "excluded"];
 
 // 그룹(상위 카테고리)이 없는 계정 과목을 담는 이름
 export const UNGROUPED = "미분류";

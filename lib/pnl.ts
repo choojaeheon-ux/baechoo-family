@@ -1,12 +1,17 @@
 import type { Transaction, Category, PnlClass, PnlSummary, WaterfallSegment } from "./types";
 import { EXCLUDED_CAT_IDS, FIXED_CAT_IDS, SAVING_CAT_IDS } from "./types";
 
+// 손익 분류는 계정 과목에 지정한 성격(costType)을 그대로 따른다.
+// 성격이 비어 있는 구버전 계정 과목만 옛 id 규칙으로 넘긴다.
 export function classifyTx(
   tx: Transaction,
   category: Category | undefined,
 ): PnlClass {
-  if (EXCLUDED_CAT_IDS.includes(tx.categoryId)) return "excluded";
   if (category?.type === "income") return "revenue";
+  if (category?.costType) return category.costType;
+
+  // ── 이하 폴백: costType이 없는 구버전 계정 과목
+  if (EXCLUDED_CAT_IDS.includes(tx.categoryId)) return "excluded";
   if (tx.recurringId != null || FIXED_CAT_IDS.includes(tx.categoryId)) return "fixed";
   if (SAVING_CAT_IDS.includes(tx.categoryId)) return "saving";
   return "variable";

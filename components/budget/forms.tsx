@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
+  COST_TYPES,
+  COST_TYPE_LABEL,
   PAYMENT_KIND_LABEL,
   RECURRING_KIND_LABEL,
   type Budget,
@@ -665,15 +667,25 @@ export function CategoryForm({
         />
       </Field>
       {type === "expense" && (
-        <Field label="비용 성격">
-          <Toggle
-            options={[
-              { v: "fixed", label: "고정비" },
-              { v: "variable", label: "변동비" },
-            ]}
+        <Field label="성격 (손익 분류)">
+          <select
+            className={inputCls}
             value={costType}
-            onChange={(v) => setCostType(v as CostType)}
-          />
+            onChange={(e) => setCostType(e.target.value as CostType)}
+          >
+            {COST_TYPES.map((c) => (
+              <option key={c} value={c}>
+                {COST_TYPE_LABEL[c]}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-[11px] text-stone">
+            {costType === "saving"
+              ? "비용이 아니라 먼저 떼어두는 돈으로 잡힙니다(손익의 선저축)."
+              : costType === "excluded"
+                ? "손익 계산에서 빠집니다(카드값처럼 이중으로 잡히는 항목)."
+                : "손익 탭의 고정비·변동비가 이 설정을 그대로 씁니다."}
+          </span>
         </Field>
       )}
       <div className="mt-2">

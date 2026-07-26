@@ -166,20 +166,28 @@ export function monthTimeProgress(ym: string, today = todayISO()): number | null
   return (Number(today.slice(8)) / daysInMonth(ym)) * 100;
 }
 
-// 이번 달 지출을 고정비/변동비/미지정으로 쪼갠 합계
+// 이번 달 지출을 계정 과목의 성격(고정비/변동비/저축/손익 제외)별로 쪼갠 합계.
+// 성격을 지정하지 않은 과목은 unset으로 따로 모은다.
 export function costTypeSplit(
   txns: Transaction[],
   categories: Category[],
   ym: string
-): { fixed: number; variable: number; unset: number } {
-  const out = { fixed: 0, variable: 0, unset: 0 };
+): {
+  fixed: number;
+  variable: number;
+  saving: number;
+  excluded: number;
+  unset: number;
+  total: number; // 손익 제외를 뺀 지출 합 (비율의 분모)
+} {
+  const out = { fixed: 0, variable: 0, saving: 0, excluded: 0, unset: 0, total: 0 };
   for (const t of monthTransactions(txns, ym)) {
     if (t.type !== "expense") continue;
     const ct = categories.find((c) => c.id === t.categoryId)?.costType ?? null;
-    if (ct === "fixed") out.fixed += t.amount;
-    else if (ct === "variable") out.variable += t.amount;
+    if (ct) out[ct] += t.amount;
     else out.unset += t.amount;
   }
+  out.total = out.fixed + out.variable + out.saving + out.unset;
   return out;
 }
 

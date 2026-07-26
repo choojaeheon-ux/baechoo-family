@@ -153,27 +153,40 @@ export default function Analysis({ ym }: { ym: string }) {
         </div>
       </Card>
 
-      {/* 고정비 · 변동비 구성 */}
+      {/* 성격별 구성 — 계정 과목에 지정한 손익 분류 그대로 */}
       <SectionTitle>고정비 · 변동비 구성</SectionTitle>
       <Card className="space-y-2">
         {expense === 0 ? (
           <Empty>이번 달 지출 내역이 없어요.</Empty>
         ) : (
           <>
-            <CostRow label="고정비" value={split.fixed} total={expense} tone="text-sky" />
+            <CostRow label="고정비" value={split.fixed} total={split.total} tone="text-sky" />
             <CostRow
               label="변동비"
               value={split.variable}
-              total={expense}
+              total={split.total}
               tone="text-leaf-dark"
             />
+            {split.saving > 0 && (
+              <CostRow
+                label="저축"
+                value={split.saving}
+                total={split.total}
+                tone="text-gold"
+              />
+            )}
             {split.unset > 0 && (
               <CostRow
                 label="성격 미지정"
                 value={split.unset}
-                total={expense}
+                total={split.total}
                 tone="text-coral"
               />
+            )}
+            {split.excluded > 0 && (
+              <p className="pt-1 text-[11px] text-stone">
+                손익 제외 {won(split.excluded)}는 위 비율에서 뺐습니다.
+              </p>
             )}
             {subs.length > 0 && (
               <div className="flex items-center justify-between border-t border-line pt-2 text-sm">
