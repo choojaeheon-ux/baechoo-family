@@ -60,17 +60,8 @@ export function ProgressBar({
   );
 }
 
-// 예산 소진률 막대 — 막대 가득 = 100% 소진, 초과하면 빨강.
-// color를 주면 채움 색을 바꾼다(카테고리 색). 초과는 색과 무관하게 항상 빨강.
-export function BurnBar({
-  pct,
-  height = "h-3",
-  color,
-}: {
-  pct: number;
-  height?: string;
-  color?: string;
-}) {
+// 예산 소진률 막대 — 막대 가득 = 100% 소진. 100% 이하 초록 / 초과 빨강, 이 두 색만 쓴다.
+export function BurnBar({ pct, height = "h-3" }: { pct: number; height?: string }) {
   const over = pct > 100;
   const width = Math.max(Math.min(pct, 100), 0);
   return (
@@ -82,7 +73,7 @@ export function BurnBar({
         className="h-full rounded-full transition-all"
         style={{
           width: `${width}%`,
-          background: over ? "var(--color-coral)" : color ?? "var(--color-leaf)",
+          background: over ? "var(--color-coral)" : "var(--color-leaf)",
         }}
       />
     </div>

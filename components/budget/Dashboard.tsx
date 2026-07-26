@@ -5,22 +5,17 @@ import {
   monthTransactions,
   sumBy,
   budgetBurndown,
-  groupBurnRows,
   monthTimeProgress,
+  type BurnRow,
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
-import { chartColor } from "@/lib/types";
-import type { BurnRow } from "@/lib/compute";
 import { Card, BurnBar, SectionTitle, Empty } from "./ui";
 import type { Tab } from "./BudgetApp";
 
-// 한 줄에 모으려고 ₩ 없이 숫자만 (예: 321,310 / 700,000)
-const num = (n: number) => n.toLocaleString("ko-KR");
-
-// 예산을 안 잡은 과목은 %를 낼 수 없다 — 쓴 게 있으면 "초과", 없으면 "—"
+// 예산을 안 잡은 과목은 %를 낼 수 없다 — 쓴 게 있으면 "초과"(막대 가득), 없으면 "—"
 function pctLabel(r: BurnRow): string {
   if (r.budget > 0) return `${r.pct.toFixed(1)}%`;
-  return r.spend > 0 ? "초과" : "—";
+  return r.spend > 0 ? "" : "—";
 }
 
 export default function Dashboard({
@@ -38,7 +33,6 @@ export default function Dashboard({
   const balance = income - expense;
 
   const burn = budgetBurndown(budgets, categories, transactions, ym);
-  const groups = groupBurnRows(burn.rows);
   const timePct = monthTimeProgress(ym);
 
   return (
@@ -103,7 +97,7 @@ export default function Dashboard({
       >
         계정과목별 예산 소진률
       </SectionTitle>
-      <Card className="space-y-3">
+      <Card className="space-y-2.5">
         {burn.rows.length === 0 ? (
           <Empty>
             예산·목표 탭에서 계정 과목별
@@ -111,42 +105,29 @@ export default function Dashboard({
             기본 예산을 설정해 보세요.
           </Empty>
         ) : (
-          groups.map((g, gi) => {
-            const color = chartColor(gi);
+          burn.rows.map((r) => {
+            const over = r.pct > 100;
             return (
-              <div key={g.name}>
-                {/* 카테고리 머리글 — 카테고리에는 예산을 책정하지 않으므로 이름과 색만 */}
-                <p
-                  className="mb-1.5 rounded-md px-2 py-1 text-[11px] font-bold text-white"
-                  style={{ background: color }}
-                >
-                  {g.name}
-                </p>
-                <div
-                  className="space-y-1.5 border-l-2 pl-2"
-                  style={{ borderColor: color }}
-                >
-                  {g.rows.map((r) => (
-                    <div key={r.category.id}>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
-                          {r.category.name}
-                        </span>
-                        <span className="shrink-0 text-[11px] tabular text-stone">
-                          {num(r.spend)} / {num(r.budget)}
-                        </span>
-                        <span
-                          className={`w-14 shrink-0 text-right text-[13px] font-bold tabular ${
-                            r.pct > 100 ? "text-coral" : "text-ink"
-                          }`}
-                        >
-                          {pctLabel(r)}
-                        </span>
-                      </div>
-                      <BurnBar pct={r.pct} height="h-1.5" color={color} />
-                    </div>
-                  ))}
+              <div key={r.category.id}>
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
+                    {r.category.groupName
+                      ? `${r.category.groupName}-${r.category.name}`
+                      : r.category.name}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[13px] font-bold tabular ${
+                      over ? "text-coral" : "text-ink"
+                    }`}
+                  >
+                    {pctLabel(r)}
+                    {over && <span className="ml-1 text-[11px]">초과</span>}
+                    <span className="ml-1 text-[11px] font-normal text-stone">
+                      ({won(r.spend)} / {won(r.budget)})
+                    </span>
+                  </span>
                 </div>
+                <BurnBar pct={r.pct} height="h-2" />
               </div>
             );
           })
