@@ -1,4 +1,4 @@
-import { type Budget, type Category, type RecurringExpense, type Transaction } from "./types";
+import { UNGROUPED, type Budget, type Category, type RecurringExpense, type Transaction } from "./types";
 import {
   yearMonthOf,
   shiftMonth,
@@ -127,6 +127,36 @@ export function budgetBurndown(
     spend,
     pct: budget > 0 ? (spend / budget) * 100 : 0,
   };
+}
+
+// 상위 카테고리(그룹) 묶음 — 카테고리 자체에는 예산을 책정하지 않는다.
+// budget/spend는 화면 표시가 아니라 그룹 정렬용 합계다.
+export interface BurnGroup {
+  name: string; // 그룹명 (없으면 "미분류")
+  rows: BurnRow[];
+  budget: number;
+  spend: number;
+}
+
+// 계정과목 행들을 상위 카테고리로 묶는다.
+// 그룹 순서 = 하위 예산 합 큰 순, "미분류"는 항상 맨 뒤. 그룹 안은 소진률 높은 순.
+export function groupBurnRows(rows: BurnRow[]): BurnGroup[] {
+  const map = new Map<string, BurnRow[]>();
+  for (const r of rows) {
+    const key = r.category.groupName || UNGROUPED;
+    map.set(key, [...(map.get(key) ?? []), r]);
+  }
+  const groups: BurnGroup[] = [...map.entries()].map(([name, gRows]) => ({
+    name,
+    rows: [...gRows].sort(byBurn),
+    budget: gRows.reduce((s, r) => s + r.budget, 0),
+    spend: gRows.reduce((s, r) => s + r.spend, 0),
+  }));
+  return groups.sort((a, b) => {
+    if (a.name === UNGROUPED) return 1;
+    if (b.name === UNGROUPED) return -1;
+    return b.budget - a.budget || b.spend - a.spend || a.name.localeCompare(b.name);
+  });
 }
 
 // 그 달의 시간 진행률(%) — 현재 월만 숫자, 과거·미래 월은 null(점선 표시 안 함)

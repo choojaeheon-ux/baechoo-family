@@ -5,6 +5,7 @@ import {
   monthTransactions,
   sumBy,
   budgetBurndown,
+  groupBurnRows,
   monthTimeProgress,
   type BurnRow,
 } from "@/lib/compute";
@@ -33,6 +34,7 @@ export default function Dashboard({
   const balance = income - expense;
 
   const burn = budgetBurndown(budgets, categories, transactions, ym);
+  const groups = groupBurnRows(burn.rows);
   const timePct = monthTimeProgress(ym);
 
   return (
@@ -97,7 +99,7 @@ export default function Dashboard({
       >
         계정과목별 예산 소진률
       </SectionTitle>
-      <Card className="space-y-2.5">
+      <Card className="space-y-4">
         {burn.rows.length === 0 ? (
           <Empty>
             예산·목표 탭에서 계정 과목별
@@ -105,32 +107,40 @@ export default function Dashboard({
             기본 예산을 설정해 보세요.
           </Empty>
         ) : (
-          burn.rows.map((r) => {
-            const over = r.pct > 100;
-            return (
-              <div key={r.category.id}>
-                <div className="mb-1 flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
-                    {r.category.groupName
-                      ? `${r.category.groupName}-${r.category.name}`
-                      : r.category.name}
-                  </span>
-                  <span
-                    className={`shrink-0 text-[13px] font-bold tabular ${
-                      over ? "text-coral" : "text-ink"
-                    }`}
-                  >
-                    {pctLabel(r)}
-                    {over && <span className="ml-1 text-[11px]">초과</span>}
-                    <span className="ml-1 text-[11px] font-normal text-stone">
-                      ({won(r.spend)} / {won(r.budget)})
-                    </span>
-                  </span>
-                </div>
-                <BurnBar pct={r.pct} height="h-2" />
+          groups.map((g) => (
+            <div key={g.name}>
+              {/* 카테고리 머리글 — 카테고리에는 예산을 책정하지 않으므로 이름만 */}
+              <p className="mb-1.5 rounded-md bg-ink px-2 py-1 text-[11px] font-bold text-white">
+                {g.name}
+              </p>
+              <div className="space-y-2 border-l-2 border-line pl-2">
+                {g.rows.map((r) => {
+                  const over = r.pct > 100;
+                  return (
+                    <div key={r.category.id}>
+                      <div className="mb-1 flex items-baseline gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
+                          {r.category.name}
+                        </span>
+                        <span
+                          className={`shrink-0 text-[13px] font-bold tabular ${
+                            over ? "text-coral" : "text-ink"
+                          }`}
+                        >
+                          {pctLabel(r)}
+                          {over && <span className="ml-1 text-[11px]">초과</span>}
+                          <span className="ml-1 text-[11px] font-normal text-stone">
+                            ({won(r.spend)} / {won(r.budget)})
+                          </span>
+                        </span>
+                      </div>
+                      <BurnBar pct={r.pct} height="h-2" />
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </Card>
 

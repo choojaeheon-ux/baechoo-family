@@ -4,6 +4,7 @@ import {
   totalBudget,
   categoryBudgetTotal,
   budgetBurndown,
+  groupBurnRows,
   monthTimeProgress,
   costTypeSplit,
 } from "./compute";
@@ -133,6 +134,54 @@ describe("budgetBurndown", () => {
     const r = budgetBurndown([], cats, txns, "2026-07");
     expect(r.budget).toBe(0);
     expect(r.pct).toBe(0);
+  });
+});
+
+describe("groupBurnRows", () => {
+  // 수도광열비(전기·가스·수도) / 인건비(급여) / 그룹 없는 과목 1개
+  const cats = [
+    cat("elec", "expense", "fixed", "수도광열비"),
+    cat("gas", "expense", "fixed", "수도광열비"),
+    cat("water", "expense", "fixed", "수도광열비"),
+    cat("pay", "expense", "fixed", "인건비"),
+    cat("etc", "expense", "variable", null),
+  ];
+  const budgets = [
+    b(null, "elec", 150000),
+    b(null, "gas", 100000),
+    b(null, "water", 50000),
+    b(null, "pay", 900000),
+    b(null, "etc", 30000),
+  ];
+  const txns = [
+    tx("t1", "2026-07-01", "elec", 157300),
+    tx("t2", "2026-07-02", "gas", 98800),
+    tx("t3", "2026-07-03", "water", 81100),
+    tx("t4", "2026-07-04", "pay", 800000),
+    tx("t5", "2026-07-05", "etc", 3000),
+  ];
+  const groups = () =>
+    groupBurnRows(budgetBurndown(budgets, cats, txns, "2026-07").rows);
+
+  it("그룹 순서는 하위 예산 합 큰 순, 미분류는 맨 뒤", () => {
+    expect(groups().map((g) => g.name)).toEqual(["인건비", "수도광열비", "미분류"]);
+  });
+
+  it("그룹 안은 소진률 높은 순", () => {
+    const g = groups().find((x) => x.name === "수도광열비")!;
+    expect(g.rows.map((r) => r.category.id)).toEqual(["water", "elec", "gas"]);
+  });
+
+  it("그룹 합계는 하위 과목의 합 (예산 책정이 아니라 정렬·참고용)", () => {
+    const g = groups().find((x) => x.name === "수도광열비")!;
+    expect(g.budget).toBe(300000);
+    expect(g.spend).toBe(337200);
+  });
+
+  it("그룹 없는 과목은 '미분류'로 묶인다", () => {
+    const g = groups().at(-1)!;
+    expect(g.name).toBe("미분류");
+    expect(g.rows.map((r) => r.category.id)).toEqual(["etc"]);
   });
 });
 
