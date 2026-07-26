@@ -76,17 +76,22 @@ export function categoryBudgetTotal(
 
 export interface BurnRow {
   category: Category;
-  budget: number; // 그 달에 적용되는 예산
+  budget: number; // 그 달에 적용되는 예산. 안 잡았으면 0
   spend: number;
-  pct: number; // 소진률 %
+  pct: number; // 소진률 %. 예산 0인데 쓴 게 있으면 Infinity(= 막대 가득·초과)
 }
 
 export interface BurnSummary {
-  rows: BurnRow[]; // 예산이 잡힌 계정과목 (소진률 높은 순)
-  unbudgeted: { category: Category; spend: number }[]; // 예산 없이 지출만 있는 계정과목 (금액 큰 순)
+  rows: BurnRow[]; // 지출 계정과목 전체 (소진률 높은 순)
   budget: number; // 예산 총합
-  spend: number; // 예산이 잡힌 과목의 지출 합
+  spend: number; // 지출 총합 (예산 안 잡은 과목까지 포함)
   pct: number; // 전체 소진률 %
+}
+
+// 소진률 내림차순. Infinity끼리 빼면 NaN이라 뺄셈 대신 비교로 정렬한다.
+function byBurn(a: BurnRow, b: BurnRow): number {
+  if (a.pct !== b.pct) return b.pct > a.pct ? 1 : -1;
+  return b.spend - a.spend || b.budget - a.budget;
 }
 
 // 상위 카테고리(그룹) 묶음 — 카테고리 자체에는 예산을 책정하지 않는다.
@@ -108,18 +113,19 @@ export function groupBurnRows(rows: BurnRow[]): BurnGroup[] {
   }
   const groups: BurnGroup[] = [...map.entries()].map(([name, gRows]) => ({
     name,
-    rows: [...gRows].sort((a, b) => b.pct - a.pct || b.budget - a.budget),
+    rows: [...gRows].sort(byBurn),
     budget: gRows.reduce((s, r) => s + r.budget, 0),
     spend: gRows.reduce((s, r) => s + r.spend, 0),
   }));
   return groups.sort((a, b) => {
     if (a.name === UNGROUPED) return 1;
     if (b.name === UNGROUPED) return -1;
-    return b.budget - a.budget || a.name.localeCompare(b.name);
+    return b.budget - a.budget || b.spend - a.spend || a.name.localeCompare(b.name);
   });
 }
 
-// 계정과목별 예산 소진률 + 전체 소진률
+// 계정과목별 예산 소진률 + 전체 소진률.
+// 예산을 안 잡은 과목도 예산 0원으로 함께 집계한다 — 쓴 돈이 어디에도 안 잡히면 안 되므로.
 export function budgetBurndown(
   budgets: Budget[],
   categories: Category[],
@@ -128,32 +134,25 @@ export function budgetBurndown(
 ): BurnSummary {
   const spendMap = spendByCategory(monthTransactions(txns, ym));
   const rows: BurnRow[] = [];
-  const unbudgeted: { category: Category; spend: number }[] = [];
 
   for (const category of categories) {
     if (category.type !== "expense") continue;
-    const budget = budgetForCategory(budgets, ym, category.id);
+    const budget = budgetForCategory(budgets, ym, category.id) ?? 0;
     const spend = spendMap.get(category.id) ?? 0;
-    if (budget !== null) {
-      rows.push({
-        category,
-        budget,
-        spend,
-        pct: budget > 0 ? (spend / budget) * 100 : 0,
-      });
-    } else if (spend > 0) {
-      unbudgeted.push({ category, spend });
-    }
+    rows.push({
+      category,
+      budget,
+      spend,
+      pct: budget > 0 ? (spend / budget) * 100 : spend > 0 ? Infinity : 0,
+    });
   }
 
-  rows.sort((a, b) => b.pct - a.pct || b.budget - a.budget);
-  unbudgeted.sort((a, b) => b.spend - a.spend);
+  rows.sort(byBurn);
 
   const budget = rows.reduce((s, r) => s + r.budget, 0);
   const spend = rows.reduce((s, r) => s + r.spend, 0);
   return {
     rows,
-    unbudgeted,
     budget,
     spend,
     pct: budget > 0 ? (spend / budget) * 100 : 0,

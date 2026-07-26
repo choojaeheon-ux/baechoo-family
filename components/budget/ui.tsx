@@ -61,37 +61,30 @@ export function ProgressBar({
 }
 
 // 예산 소진률 막대 — 막대 가득 = 100% 소진, 초과하면 빨강.
-// marker(시간 진행률 %)를 주면 그 위치에 점선을 그린다(현재 월만).
+// color를 주면 채움 색을 바꾼다(카테고리 색). 초과는 색과 무관하게 항상 빨강.
 export function BurnBar({
   pct,
-  marker = null,
   height = "h-3",
+  color,
 }: {
   pct: number;
-  marker?: number | null;
   height?: string;
+  color?: string;
 }) {
   const over = pct > 100;
   const width = Math.max(Math.min(pct, 100), 0);
   return (
     <div
-      className={`relative ${height} w-full overflow-hidden rounded-full`}
+      className={`${height} w-full overflow-hidden rounded-full`}
       style={{ background: "var(--color-line)" }}
     >
       <div
         className="h-full rounded-full transition-all"
         style={{
           width: `${width}%`,
-          background: over ? "var(--color-coral)" : "var(--color-leaf)",
+          background: over ? "var(--color-coral)" : color ?? "var(--color-leaf)",
         }}
       />
-      {marker !== null && marker > 0 && marker < 100 && (
-        <span
-          className="absolute inset-y-0 border-l-2 border-dashed border-ink/45"
-          style={{ left: `${marker}%` }}
-          aria-hidden
-        />
-      )}
     </div>
   );
 }

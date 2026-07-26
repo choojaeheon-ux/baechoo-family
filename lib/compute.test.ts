@@ -108,30 +108,32 @@ describe("budgetBurndown", () => {
     tx("t5", "2026-07-05", "cat-salary", 3000000, "income"), // 수입 — 제외
   ];
 
-  it("예산 있는 과목은 소진률 높은 순으로 나온다", () => {
+  it("소진률 높은 순 — 예산 없이 쓴 과목(Infinity)이 맨 위", () => {
     const r = budgetBurndown(budgets, cats, txns, "2026-07");
-    expect(r.rows.map((x) => x.category.id)).toEqual(["cat-living", "cat-food"]);
-    expect(r.rows[0].pct).toBe(150);
-    expect(r.rows[1].pct).toBe(60);
+    expect(r.rows.map((x) => x.category.id)).toEqual(["cat-etc", "cat-living", "cat-food"]);
+    expect(r.rows[0].pct).toBe(Infinity);
+    expect(r.rows[1].pct).toBe(150);
+    expect(r.rows[2].pct).toBe(60);
   });
 
-  it("전체 소진률 = 예산 합 대비 지출 합", () => {
+  it("예산 안 잡은 과목도 예산 0으로 집계된다", () => {
+    const r = budgetBurndown(budgets, cats, txns, "2026-07");
+    const etc = r.rows.find((x) => x.category.id === "cat-etc")!;
+    expect(etc.budget).toBe(0);
+    expect(etc.spend).toBe(80000);
+  });
+
+  it("전체 소진률 = 예산 합 대비 지출 합 (예산 없는 지출도 분자에 포함)", () => {
     const r = budgetBurndown(budgets, cats, txns, "2026-07");
     expect(r.budget).toBe(600000);
-    expect(r.spend).toBe(450000);
-    expect(r.pct).toBe(75);
-  });
-
-  it("예산 없이 지출만 있는 과목은 unbudgeted로 분리된다", () => {
-    const r = budgetBurndown(budgets, cats, txns, "2026-07");
-    expect(r.unbudgeted).toEqual([{ category: cats[2], spend: 80000 }]);
+    expect(r.spend).toBe(530000); // 300,000 + 150,000 + 80,000
+    expect(r.pct).toBeCloseTo((530000 / 600000) * 100, 6);
   });
 
   it("예산이 하나도 없으면 전체 소진률 0", () => {
     const r = budgetBurndown([], cats, txns, "2026-07");
     expect(r.budget).toBe(0);
     expect(r.pct).toBe(0);
-    expect(r.rows).toEqual([]);
   });
 });
 
