@@ -110,7 +110,7 @@ export default function Dashboard({
           groups.map((g) => (
             <div key={g.name}>
               {/* 카테고리 머리글 — 카테고리에는 예산을 책정하지 않으므로 이름만 */}
-              <p className="mb-1.5 rounded-md bg-ink px-2 py-1 text-[11px] font-bold text-white">
+              <p className="mb-1.5 rounded-md bg-stone/15 px-2 py-1 text-[11px] font-bold text-stone">
                 {g.name}
               </p>
               <div className="space-y-2 border-l-2 border-line pl-2">
