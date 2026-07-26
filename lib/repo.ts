@@ -51,9 +51,18 @@ export function newId(): string {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-// 구버전 localStorage 거래(createdAt 없음)를 거래일 자정으로 승격 — 정렬에서 undefined 방지
+// 구버전 localStorage 거래 승격 — createdAt 없으면 거래일 자정(정렬에서 undefined 방지), merchant 없으면 null
 function normalizeTxn(x: Transaction): Transaction {
-  return x.createdAt ? x : { ...x, createdAt: `${x.date}T00:00:00.000Z` };
+  return {
+    ...x,
+    createdAt: x.createdAt || `${x.date}T00:00:00.000Z`,
+    merchant: x.merchant ?? null,
+  };
+}
+
+// 구버전 localStorage 계정과목 승격 — costType 없으면 미지정(null)
+function normalizeCategory(x: Category): Category {
+  return { ...x, costType: x.costType ?? null };
 }
 
 // 구버전 localStorage 측정 기록(weight만 있음)을 measureName/value/unit로 승격
@@ -111,7 +120,7 @@ function lsRead(): DataSnapshot {
     }
     const parsed = JSON.parse(raw) as Partial<DataSnapshot>;
     return {
-      categories: parsed.categories ?? [],
+      categories: (parsed.categories ?? []).map(normalizeCategory),
       paymentMethods: parsed.paymentMethods ?? SEED_PAYMENT_METHODS,
       recurring: parsed.recurring ?? [],
       transactions: (parsed.transactions ?? []).map(normalizeTxn),
@@ -196,6 +205,7 @@ const toCat = (r: Record<string, unknown>): Category => ({
   type: r.type as Category["type"],
   color: r.color as string,
   icon: (r.icon as string) ?? undefined,
+  costType: (r.cost_type as Category["costType"]) ?? null,
 });
 const fromCat = (c: Category) => ({
   id: c.id,
@@ -203,6 +213,7 @@ const fromCat = (c: Category) => ({
   type: c.type,
   color: c.color,
   icon: c.icon ?? null,
+  cost_type: c.costType ?? null,
 });
 
 const toPm = (r: Record<string, unknown>): PaymentMethod => ({
@@ -251,6 +262,7 @@ const toTxn = (r: Record<string, unknown>): Transaction => ({
   amount: Number(r.amount),
   type: r.type as Transaction["type"],
   categoryId: r.category_id as string,
+  merchant: (r.merchant as string) ?? null,
   memo: (r.memo as string) ?? null,
   member: r.member as Transaction["member"],
   paymentMethodId: (r.payment_method_id as string) ?? null,
@@ -268,6 +280,7 @@ const fromTxn = (x: Transaction) => ({
   amount: x.amount,
   type: x.type,
   category_id: x.categoryId,
+  merchant: x.merchant,
   memo: x.memo,
   member: x.member,
   payment_method_id: x.paymentMethodId,

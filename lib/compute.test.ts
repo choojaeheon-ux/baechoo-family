@@ -1,9 +1,47 @@
 import { describe, it, expect } from "vitest";
-import { budgetForCategory, totalBudget } from "./compute";
-import type { Budget } from "./types";
+import {
+  budgetForCategory,
+  totalBudget,
+  categoryBudgetTotal,
+  budgetBurndown,
+  monthTimeProgress,
+  costTypeSplit,
+} from "./compute";
+import type { Budget, Category, CostType, Transaction } from "./types";
 
 const b = (yearMonth: string | null, categoryId: string | null, amount: number): Budget =>
   ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount });
+
+const cat = (
+  id: string,
+  type: Category["type"] = "expense",
+  costType: CostType | null = null
+): Category => ({ id, name: id, type, color: "#000", costType });
+
+const tx = (
+  id: string,
+  date: string,
+  categoryId: string,
+  amount: number,
+  type: Transaction["type"] = "expense"
+): Transaction => ({
+  id,
+  date,
+  amount,
+  type,
+  categoryId,
+  merchant: null,
+  memo: null,
+  member: "chuchu",
+  paymentMethodId: null,
+  localCurrencyId: null,
+  isSpecial: false,
+  habitTag: null,
+  source: "manual",
+  recurringId: null,
+  isPaid: true,
+  createdAt: `${date}T00:00:00.000Z`,
+});
 
 describe("budgetForCategory", () => {
   it("기본 예산만 있으면 그 값(모든 달)", () => {
@@ -34,5 +72,97 @@ describe("totalBudget", () => {
     ];
     expect(totalBudget(budgets, "2026-06")).toBe(600000); // 400000 + 200000
     expect(totalBudget(budgets, "2026-07")).toBe(500000); // 300000 + 200000
+  });
+});
+
+describe("categoryBudgetTotal", () => {
+  const cats = [cat("cat-food"), cat("cat-living"), cat("cat-salary", "income")];
+
+  it("지출 계정과목에 걸린 예산만 합산한다", () => {
+    const budgets = [b(null, "cat-food", 700000), b(null, "cat-living", 150000)];
+    expect(categoryBudgetTotal(budgets, cats, "2026-07")).toBe(850000);
+  });
+
+  it("전체 월예산(categoryId=null) 행은 세지 않는다", () => {
+    const budgets = [b(null, null, 9999999), b(null, "cat-food", 700000)];
+    expect(categoryBudgetTotal(budgets, cats, "2026-07")).toBe(700000);
+  });
+
+  it("그 달 오버라이드가 있으면 오버라이드로 합산", () => {
+    const budgets = [b(null, "cat-food", 700000), b("2026-07", "cat-food", 500000)];
+    expect(categoryBudgetTotal(budgets, cats, "2026-07")).toBe(500000);
+    expect(categoryBudgetTotal(budgets, cats, "2026-08")).toBe(700000);
+  });
+});
+
+describe("budgetBurndown", () => {
+  const cats = [cat("cat-food"), cat("cat-living"), cat("cat-etc"), cat("cat-salary", "income")];
+  const budgets = [b(null, "cat-food", 500000), b(null, "cat-living", 100000)];
+  const txns = [
+    tx("t1", "2026-07-03", "cat-food", 300000),
+    tx("t2", "2026-07-10", "cat-living", 150000), // 예산 초과
+    tx("t3", "2026-07-11", "cat-etc", 80000), // 예산 미설정
+    tx("t4", "2026-06-30", "cat-food", 999999), // 다른 달 — 제외
+    tx("t5", "2026-07-05", "cat-salary", 3000000, "income"), // 수입 — 제외
+  ];
+
+  it("예산 있는 과목은 소진률 높은 순으로 나온다", () => {
+    const r = budgetBurndown(budgets, cats, txns, "2026-07");
+    expect(r.rows.map((x) => x.category.id)).toEqual(["cat-living", "cat-food"]);
+    expect(r.rows[0].pct).toBe(150);
+    expect(r.rows[1].pct).toBe(60);
+  });
+
+  it("전체 소진률 = 예산 합 대비 지출 합", () => {
+    const r = budgetBurndown(budgets, cats, txns, "2026-07");
+    expect(r.budget).toBe(600000);
+    expect(r.spend).toBe(450000);
+    expect(r.pct).toBe(75);
+  });
+
+  it("예산 없이 지출만 있는 과목은 unbudgeted로 분리된다", () => {
+    const r = budgetBurndown(budgets, cats, txns, "2026-07");
+    expect(r.unbudgeted).toEqual([{ category: cats[2], spend: 80000 }]);
+  });
+
+  it("예산이 하나도 없으면 전체 소진률 0", () => {
+    const r = budgetBurndown([], cats, txns, "2026-07");
+    expect(r.budget).toBe(0);
+    expect(r.pct).toBe(0);
+    expect(r.rows).toEqual([]);
+  });
+});
+
+describe("monthTimeProgress", () => {
+  it("현재 월은 경과일 비율", () => {
+    // 2026-07-24 기준: 24/31
+    expect(monthTimeProgress("2026-07", "2026-07-24")).toBeCloseTo((24 / 31) * 100, 6);
+  });
+  it("과거 월·미래 월은 null (점선 표시 안 함)", () => {
+    expect(monthTimeProgress("2026-06", "2026-07-24")).toBe(null);
+    expect(monthTimeProgress("2026-08", "2026-07-24")).toBe(null);
+  });
+});
+
+describe("costTypeSplit", () => {
+  it("고정비/변동비/미지정으로 이번 달 지출을 나눈다", () => {
+    const cats = [
+      cat("cat-rent", "expense", "fixed"),
+      cat("cat-food", "expense", "variable"),
+      cat("cat-etc"), // 미지정
+      cat("cat-salary", "income"),
+    ];
+    const txns = [
+      tx("t1", "2026-07-01", "cat-rent", 600000),
+      tx("t2", "2026-07-02", "cat-food", 200000),
+      tx("t3", "2026-07-03", "cat-etc", 50000),
+      tx("t4", "2026-07-04", "cat-salary", 3000000, "income"),
+      tx("t5", "2026-06-01", "cat-rent", 600000),
+    ];
+    expect(costTypeSplit(txns, cats, "2026-07")).toEqual({
+      fixed: 600000,
+      variable: 200000,
+      unset: 50000,
+    });
   });
 });

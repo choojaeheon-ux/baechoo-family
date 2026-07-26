@@ -13,12 +13,21 @@ export function memberName(id: Member): string {
 
 export type TxType = "income" | "expense";
 
+// 계정과목의 원가 성격 — 지출 계정과목만 사용 (수입은 null)
+export type CostType = "fixed" | "variable";
+export const COST_TYPE_LABEL: Record<CostType, string> = {
+  fixed: "고정비",
+  variable: "변동비",
+};
+
+// 계정 과목 (구 "카테고리") — 수입/지출로 나뉘고, 지출은 고정비/변동비를 가진다.
 export interface Category {
   id: string;
   name: string;
   type: TxType;
   color: string; // hex
   icon?: string; // emoji
+  costType: CostType | null; // 지출만. null = 미지정(수입 계정과목 포함)
 }
 
 // 결제수단 (카드·현금·계좌이체 등) — 직접 관리
@@ -34,7 +43,7 @@ export const PAYMENT_KIND_LABEL: Record<PaymentMethod["kind"], string> = {
   account: "계좌이체",
 };
 
-// 습관 태그 (줄일 수 있는 항목 횟수 집계용)
+// (deprecated) 습관 태그 — 2026-07-26 입력 UI 제거. 기존 거래에 남은 값 보존용으로만 유지한다.
 export const HABIT_TAGS = ["배달", "커피", "외식", "쇼핑", "택시", "구독"] as const;
 export type HabitTag = (typeof HABIT_TAGS)[number];
 
@@ -66,15 +75,16 @@ export interface Transaction {
   date: string; // YYYY-MM-DD
   amount: number;
   type: TxType;
-  categoryId: string;
+  categoryId: string; // 계정 과목
+  merchant: string | null; // 거래처 (예: 이마트)
   memo: string | null; // 내용
   member: Member;
-  paymentMethodId: string | null; // 결제수단
-  isSpecial: boolean; // 특수지출(비정기 큰 지출)
-  habitTag: string | null; // 습관 태그
+  paymentMethodId: string | null; // 결제수단 (지역화폐로 결제하면 null)
+  localCurrencyId: string | null; // 지역화폐/바우처/상품권으로 결제하면 그 id (잔액 차감)
+  isSpecial: boolean; // (deprecated) 특수지출 — 입력 UI 제거, 기존 값 보존용
+  habitTag: string | null; // (deprecated) 습관 태그 — 입력 UI 제거, 기존 값 보존용
   source: "manual" | "auto";
   recurringId: string | null;
-  localCurrencyId: string | null; // 지역화폐 충전으로 생성된 거래면 해당 지역화폐 id
   isPaid: boolean;
   createdAt: string; // ISO timestamp. 같은 날짜 안의 입력 순서용(신규 저장 시 repo가 채움)
 }
@@ -94,14 +104,16 @@ export interface Goal {
   deadline: string | null; // YYYY-MM-DD
 }
 
-// 지역화폐 (온누리·경기지역화폐 등) — 선불 지갑, 매월 충전·이월 잔액
+// 지역화폐 / 바우처 / 상품권 — 선불 지갑, 매월 충전·이월 잔액.
+// 결제수단으로 선택하면 거래 금액만큼 balance가 자동 차감된다.
+// 충전은 자산 이동이므로 거래로 기록하지 않는다(사용 시점에 지출로 잡히므로 이중계상 방지).
 export interface LocalCurrency {
   id: string;
   name: string;
   balance: number; // 이월 포함 현재 잔액
   monthlyCharge: number; // 매월 충전금(기본값)
-  defaultCategoryId: string | null; // 충전 거래에 쓸 기본 카테고리
-  defaultPaymentMethodId: string | null; // 충전 거래에 쓸 기본 결제수단
+  defaultCategoryId: string | null; // (deprecated) 구 충전 거래용
+  defaultPaymentMethodId: string | null; // (deprecated) 구 충전 거래용
 }
 
 // 무지출 챌린지 보상 규칙 (이번 달 누적 무지출 N일 → 보상)

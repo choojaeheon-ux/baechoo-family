@@ -5,15 +5,15 @@ import type { Transaction, Category } from "./types";
 function tx(over: Partial<Transaction>): Transaction {
   return {
     id: "t1", date: "2026-06-01", amount: 1000, type: "expense",
-    categoryId: "cat-food", memo: null, member: "chuchu",
-    paymentMethodId: null, isSpecial: false, habitTag: null,
-    source: "manual", recurringId: null, localCurrencyId: null, isPaid: true,
+    categoryId: "cat-food", merchant: null, memo: null, member: "chuchu",
+    paymentMethodId: null, localCurrencyId: null, isSpecial: false, habitTag: null,
+    source: "manual", recurringId: null, isPaid: true,
     createdAt: "2026-06-01T00:00:00.000Z",
     ...over,
   };
 }
 const cat = (id: string, type: Category["type"]): Category =>
-  ({ id, name: id, type, color: "#000" });
+  ({ id, name: id, type, color: "#000", costType: null });
 
 describe("classifyTx", () => {
   it("수입은 revenue", () => {

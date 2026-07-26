@@ -3,15 +3,14 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
-  HABIT_TAGS,
-  MEMBERS,
+  COST_TYPE_LABEL,
   PAYMENT_KIND_LABEL,
   RECURRING_KIND_LABEL,
   type Budget,
   type Category,
+  type CostType,
   type Goal,
   type LocalCurrency,
-  type Member,
   type PaymentMethod,
   type RecurringExpense,
   type RecurringKind,
@@ -19,10 +18,13 @@ import {
   type Transaction,
   type TxType,
 } from "@/lib/types";
-import { todayISO, ymLabel } from "@/lib/format";
+import { todayISO, won, ymLabel } from "@/lib/format";
 import { Field, inputCls, PrimaryButton, Sheet } from "./ui";
 
-/* ───────── 거래 입력 ───────── */
+/* ───────── 거래 입력 ─────────
+   입력 순서: 지출/수입 → 계정 과목 → 금액 → 거래처 → 내용 → 결제 수단 → 날짜
+   결제 수단은 결제수단 + 지역화폐/바우처/상품권을 한 드롭다운에서 고른다.
+   ("pm:<id>" = 결제수단, "lc:<id>" = 지역화폐 — 지역화폐를 고르면 잔액이 자동 차감된다) */
 export function TransactionForm({
   open,
   onClose,
@@ -34,22 +36,35 @@ export function TransactionForm({
   initial?: Transaction;
   defaultDate?: string;
 }) {
-  const { categories, paymentMethods, saveTransaction, removeTransaction } = useData();
+  const {
+    categories,
+    paymentMethods,
+    localCurrencies,
+    saveTransaction,
+    removeTransaction,
+  } = useData();
   const [type, setType] = useState<TxType>(initial?.type ?? "expense");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayISO());
-  const [member, setMember] = useState<Member>(initial?.member ?? "chuchu");
+  const [merchant, setMerchant] = useState(initial?.merchant ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
-  const [paymentMethodId, setPaymentMethodId] = useState(
-    initial?.paymentMethodId ?? ""
+  const [payment, setPayment] = useState(
+    initial?.localCurrencyId
+      ? `lc:${initial.localCurrencyId}`
+      : initial?.paymentMethodId
+        ? `pm:${initial.paymentMethodId}`
+        : ""
   );
-  const [habitTag, setHabitTag] = useState<string | null>(initial?.habitTag ?? null);
-  const [isSpecial, setIsSpecial] = useState(initial?.isSpecial ?? false);
 
   const cats = categories.filter((c) => c.type === type);
   const amt = Number(amount.replace(/[^0-9]/g, ""));
-  const valid = amt > 0 && (categoryId || cats[0]);
+  // 계정 과목은 반드시 선택해야 한다(기본값 자동 선택 없음)
+  const valid = amt > 0 && !!categoryId && cats.some((c) => c.id === categoryId);
+
+  const lcId = payment.startsWith("lc:") ? payment.slice(3) : null;
+  const pmId = payment.startsWith("pm:") ? payment.slice(3) : null;
+  const selectedLc = lcId ? localCurrencies.find((l) => l.id === lcId) : null;
 
   async function submit() {
     if (!valid) return;
@@ -58,15 +73,16 @@ export function TransactionForm({
       date,
       amount: amt,
       type,
-      categoryId: categoryId || cats[0].id,
-      memo: memo || null,
-      member,
-      paymentMethodId: paymentMethodId || null,
-      isSpecial: type === "expense" ? isSpecial : false,
-      habitTag: type === "expense" ? habitTag : null,
+      categoryId,
+      merchant: merchant.trim() || null,
+      memo: memo.trim() || null,
+      member: initial?.member ?? "chuchu",
+      paymentMethodId: pmId,
+      localCurrencyId: lcId,
+      isSpecial: initial?.isSpecial ?? false,
+      habitTag: initial?.habitTag ?? null,
       source: initial?.source ?? "manual",
       recurringId: initial?.recurringId ?? null,
-      localCurrencyId: initial?.localCurrencyId ?? null,
       isPaid: true,
       createdAt: initial?.createdAt ?? "",
     });
@@ -87,6 +103,22 @@ export function TransactionForm({
         }}
       />
       <div className="h-3" />
+      <Field label="계정 과목">
+        <select
+          className={inputCls}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+        >
+          <option value="">선택하세요</option>
+          {cats.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.icon ? `${c.icon} ` : ""}
+              {c.name}
+              {c.costType ? ` · ${COST_TYPE_LABEL[c.costType]}` : ""}
+            </option>
+          ))}
+        </select>
+      </Field>
       <Field label="금액">
         <input
           className={inputCls + " text-right text-lg font-bold tabular"}
@@ -96,7 +128,15 @@ export function TransactionForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </Field>
-      <Field label="내용 (메모)">
+      <Field label="거래처">
+        <input
+          className={inputCls}
+          value={merchant}
+          onChange={(e) => setMerchant(e.target.value)}
+          placeholder="예: 이마트, 스타벅스"
+        />
+      </Field>
+      <Field label="내용">
         <input
           className={inputCls}
           value={memo}
@@ -104,85 +144,46 @@ export function TransactionForm({
           placeholder="예: 마트 장보기"
         />
       </Field>
-      <Field label="카테고리">
-        <div className="flex flex-wrap gap-2">
-          {cats.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCategoryId(c.id)}
-              className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                (categoryId || cats[0]?.id) === c.id
-                  ? "border-leaf bg-leaf-light text-leaf-dark"
-                  : "border-line text-stone"
-              }`}
-            >
-              {c.icon} {c.name}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="결제수단">
+      <Field label="결제 수단">
         <select
           className={inputCls}
-          value={paymentMethodId}
-          onChange={(e) => setPaymentMethodId(e.target.value)}
+          value={payment}
+          onChange={(e) => setPayment(e.target.value)}
         >
           <option value="">선택 안함</option>
-          {paymentMethods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
-            </option>
-          ))}
+          {paymentMethods.length > 0 && (
+            <optgroup label="결제수단">
+              {paymentMethods.map((p) => (
+                <option key={p.id} value={`pm:${p.id}`}>
+                  {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {localCurrencies.length > 0 && (
+            <optgroup label="지역화폐 · 바우처 · 상품권">
+              {localCurrencies.map((l) => (
+                <option key={l.id} value={`lc:${l.id}`}>
+                  🎟️ {l.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="날짜">
-          <input
-            type="date"
-            className={inputCls}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </Field>
-        <Field label="입력자">
-          <Toggle
-            options={MEMBERS.map((m) => ({ v: m.id, label: `${m.emoji} ${m.name}` }))}
-            value={member}
-            onChange={(v) => setMember(v as Member)}
-          />
-        </Field>
-      </div>
-
-      {type === "expense" && (
-        <>
-          <Field label="습관 태그 (선택 · 줄일 항목 분석용)">
-            <div className="flex flex-wrap gap-2">
-              {HABIT_TAGS.map((h) => (
-                <button
-                  key={h}
-                  onClick={() => setHabitTag(habitTag === h ? null : h)}
-                  className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                    habitTag === h
-                      ? "border-coral bg-coral-light text-coral"
-                      : "border-line text-stone"
-                  }`}
-                >
-                  {h}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <label className="mb-3 flex items-center justify-between rounded-xl border border-line bg-cream px-3 py-2.5">
-            <span className="text-sm font-semibold text-ink">⭐ 특수지출 (비정기 큰 지출)</span>
-            <input
-              type="checkbox"
-              className="h-5 w-5 accent-[var(--color-gold)]"
-              checked={isSpecial}
-              onChange={(e) => setIsSpecial(e.target.checked)}
-            />
-          </label>
-        </>
+      {selectedLc && type === "expense" && (
+        <p className="-mt-1 mb-3 text-[11px] text-stone">
+          저장하면 {selectedLc.name} 잔액 {won(selectedLc.balance)}에서 자동 차감됩니다.
+        </p>
       )}
+      <Field label="날짜">
+        <input
+          type="date"
+          className={inputCls}
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </Field>
 
       <div className="mt-2">
         <PrimaryButton onClick={submit} disabled={!valid}>
@@ -389,8 +390,10 @@ export function BudgetForm({
 }) {
   const { categories, budgets, saveBudget } = useData();
   const cats = categories.filter((c) => c.type === "expense");
+  // 구버전 "전체 월예산"(categoryId=null) 행을 편집할 때만 그 선택지를 남긴다.
+  const legacyOverall = !!initial && initial.categoryId === null;
   const [scope, setScope] = useState<string>(
-    initial ? (initial.categoryId ?? "__all__") : "__all__"
+    initial ? (initial.categoryId ?? "__all__") : ""
   );
   const [range, setRange] = useState<"base" | "month">(
     initial ? (initial.yearMonth === null ? "base" : "month") : "base"
@@ -398,9 +401,10 @@ export function BudgetForm({
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
 
   const amt = Number(amount.replace(/[^0-9]/g, ""));
+  const valid = amt > 0 && scope !== "";
 
   async function submit() {
-    if (amt <= 0) return;
+    if (!valid) return;
     const categoryId = scope === "__all__" ? null : scope;
     const targetYm = range === "base" ? null : ym;
     const existing = budgets.find(
@@ -417,17 +421,20 @@ export function BudgetForm({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="예산 설정">
-      <Field label="대상">
+    <Sheet open={open} onClose={onClose} title="계정 과목 예산 설정">
+      <Field label="계정 과목">
         <select
           className={inputCls}
           value={scope}
           onChange={(e) => setScope(e.target.value)}
         >
-          <option value="__all__">전체 월예산</option>
+          <option value="">선택하세요</option>
+          {legacyOverall && <option value="__all__">전체 월예산 (구버전)</option>}
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
+              {c.icon ? `${c.icon} ` : ""}
+              {c.name}
+              {c.costType ? ` · ${COST_TYPE_LABEL[c.costType]}` : ""}
             </option>
           ))}
         </select>
@@ -458,7 +465,7 @@ export function BudgetForm({
         />
       </Field>
       <div className="mt-2">
-        <PrimaryButton onClick={submit} disabled={amt <= 0}>
+        <PrimaryButton onClick={submit} disabled={!valid}>
           저장
         </PrimaryButton>
       </div>
@@ -556,7 +563,7 @@ export function GoalForm({
   );
 }
 
-/* ───────── 카테고리 관리 ───────── */
+/* ───────── 계정 과목 관리 ───────── */
 const EMOJI_CHOICES = [
   "🍚", "🧺", "🍼", "💊", "🎮", "💳", "🐖", "🏠", "🧾", "🐶",
   "📦", "💼", "💰", "🍔", "☕", "🚕", "🛍️", "🎬", "✈️", "🎁",
@@ -576,7 +583,11 @@ export function CategoryForm({
   const [type, setType] = useState<TxType>(initial?.type ?? "expense");
   const [icon, setIcon] = useState(initial?.icon ?? "📦");
   const [color, setColor] = useState(initial?.color ?? "#8ab560");
+  const [costType, setCostType] = useState<CostType>(
+    initial?.costType ?? "variable"
+  );
 
+  // 지출 계정과목은 고정비/변동비를 반드시 갖는다. 수입은 해당 없음(null).
   const valid = name.trim().length > 0;
 
   async function submit() {
@@ -587,12 +598,17 @@ export function CategoryForm({
       type,
       icon,
       color,
+      costType: type === "expense" ? costType : null,
     });
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={initial ? "카테고리 수정" : "카테고리 추가"}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={initial ? "계정 과목 수정" : "계정 과목 추가"}
+    >
       <Field label="구분">
         <Toggle
           options={[
@@ -611,6 +627,18 @@ export function CategoryForm({
           placeholder="예: 생활용품"
         />
       </Field>
+      {type === "expense" && (
+        <Field label="비용 성격">
+          <Toggle
+            options={[
+              { v: "fixed", label: "고정비" },
+              { v: "variable", label: "변동비" },
+            ]}
+            value={costType}
+            onChange={(v) => setCostType(v as CostType)}
+          />
+        </Field>
+      )}
       <Field label="아이콘">
         <div className="flex flex-wrap gap-1.5">
           {EMOJI_CHOICES.map((e) => (
@@ -716,7 +744,7 @@ export function PaymentMethodForm({
   );
 }
 
-/* ───────── 지역화폐 ───────── */
+/* ───────── 지역화폐 · 바우처 · 상품권 ───────── */
 export function LocalCurrencyForm({
   open,
   onClose,
@@ -726,24 +754,21 @@ export function LocalCurrencyForm({
   onClose: () => void;
   initial?: LocalCurrency;
 }) {
-  const { categories, paymentMethods, saveLocalCurrency, removeLocalCurrency } =
-    useData();
-  const cats = categories.filter((c) => c.type === "expense");
+  const { transactions, saveLocalCurrency, removeLocalCurrency } = useData();
   const [name, setName] = useState(initial?.name ?? "");
   const [balance, setBalance] = useState(initial ? String(initial.balance) : "0");
   const [monthly, setMonthly] = useState(
     initial ? String(initial.monthlyCharge) : "0"
   );
-  const [categoryId, setCategoryId] = useState(
-    initial?.defaultCategoryId ?? cats[0]?.id ?? ""
-  );
-  const [paymentMethodId, setPaymentMethodId] = useState(
-    initial?.defaultPaymentMethodId ?? ""
-  );
 
   const bal = Number(balance.replace(/[^0-9]/g, ""));
   const mon = Number(monthly.replace(/[^0-9]/g, ""));
   const valid = name.trim().length > 0;
+
+  // 이 지역화폐로 결제한 거래 수 — 있으면 삭제를 막는다(거래가 고아가 되므로)
+  const linked = initial
+    ? transactions.filter((t) => t.localCurrencyId === initial.id).length
+    : 0;
 
   async function submit() {
     if (!valid) return;
@@ -752,20 +777,24 @@ export function LocalCurrencyForm({
       name: name.trim(),
       balance: bal,
       monthlyCharge: mon,
-      defaultCategoryId: categoryId || null,
-      defaultPaymentMethodId: paymentMethodId || null,
+      defaultCategoryId: initial?.defaultCategoryId ?? null,
+      defaultPaymentMethodId: initial?.defaultPaymentMethodId ?? null,
     });
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={initial ? "지역화폐 수정" : "지역화폐 추가"}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={initial ? "지역화폐 수정" : "지역화폐 추가"}
+    >
       <Field label="이름">
         <input
           className={inputCls}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="예: 온누리상품권, 경기지역화폐"
+          placeholder="예: 온누리상품권, 경기지역화폐, 문화상품권"
         />
       </Field>
       <Field label="매월 충전금">
@@ -786,49 +815,32 @@ export function LocalCurrencyForm({
           placeholder="0"
         />
       </Field>
-      <Field label="충전 시 기록할 카테고리">
-        <select
-          className={inputCls}
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-        >
-          {cats.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="충전 시 결제수단">
-        <select
-          className={inputCls}
-          value={paymentMethodId}
-          onChange={(e) => setPaymentMethodId(e.target.value)}
-        >
-          <option value="">선택 안함</option>
-          {paymentMethods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({PAYMENT_KIND_LABEL[p.kind]})
-            </option>
-          ))}
-        </select>
-      </Field>
+      <p className="mb-3 text-[11px] text-stone">
+        충전은 자산이 옮겨간 것이라 거래로 기록하지 않습니다. 이 지역화폐로 결제한
+        내역이 지출로 잡힙니다.
+      </p>
       <div className="mt-2">
         <PrimaryButton onClick={submit} disabled={!valid}>
           저장
         </PrimaryButton>
       </div>
-      {initial && (
-        <button
-          onClick={async () => {
-            await removeLocalCurrency(initial.id);
-            onClose();
-          }}
-          className="mt-3 w-full py-2 text-sm text-coral"
-        >
-          삭제
-        </button>
-      )}
+      {initial &&
+        (linked > 0 ? (
+          <p className="mt-3 text-center text-[11px] text-stone">
+            이 지역화폐로 결제한 내역 {linked}건이 있어 삭제할 수 없습니다.
+          </p>
+        ) : (
+          <button
+            onClick={async () => {
+              if (!window.confirm(`${initial.name}을(를) 삭제할까요?`)) return;
+              await removeLocalCurrency(initial.id);
+              onClose();
+            }}
+            className="mt-3 w-full py-2 text-sm text-coral"
+          >
+            삭제
+          </button>
+        ))}
     </Sheet>
   );
 }

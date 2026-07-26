@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
-  totalBudget,
+  categoryBudgetTotal,
   monthTransactions,
   spendByCategory,
   budgetForCategory,
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
-import { Card, SectionTitle, Empty, ProgressBar } from "./ui";
+import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
 import { BudgetForm, GoalForm, CategoryForm } from "./forms";
-import type { Budget, Category, Goal } from "@/lib/types";
+import { COST_TYPE_LABEL, type Budget, type Category, type Goal } from "@/lib/types";
 
 export default function Plans({ ym }: { ym: string }) {
   const { budgets, goals, categories, transactions, categoryById, removeBudget } =
@@ -40,7 +40,7 @@ export default function Plans({ ym }: { ym: string }) {
 
   return (
     <div className="space-y-1 pb-4">
-      {/* 기본 예산 */}
+      {/* 계정과목별 기본 예산 */}
       <SectionTitle
         right={
           <button onClick={openNew} className="text-xs font-semibold text-leaf">
@@ -48,17 +48,16 @@ export default function Plans({ ym }: { ym: string }) {
           </button>
         }
       >
-        기본 예산 · 매달 적용
+        계정 과목 예산 · 매달 적용
       </SectionTitle>
       <Card className="space-y-3">
         {baseOverall && (
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-ink">전체 월예산</span>
+            <span className="text-sm font-semibold text-stone">
+              전체 월예산 (구버전 · 소진률 계산에 쓰이지 않음)
+            </span>
             <div className="flex items-center gap-2">
               <span className="text-sm tabular text-ink">{won(baseOverall.amount)}</span>
-              <button onClick={() => openEdit(baseOverall)} className="text-xs text-leaf">
-                수정
-              </button>
               <button
                 onClick={() => {
                   if (window.confirm("전체 월예산(기본)을 삭제할까요? 매달 적용이 사라집니다."))
@@ -73,7 +72,7 @@ export default function Plans({ ym }: { ym: string }) {
         )}
         {baseCats.length === 0 && !baseOverall ? (
           <Empty>
-            카테고리별 기본 예산을 설정해 보세요
+            계정 과목별 기본 예산을 설정해 보세요
             <br />
             (한 번 설정하면 매달 적용됩니다)
           </Empty>
@@ -85,10 +84,17 @@ export default function Plans({ ym }: { ym: string }) {
             return (
               <div key={bud.id}>
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-ink">
-                    {cat?.icon} {cat?.name}
+                  <span className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink">
+                    <span className="truncate">
+                      {cat?.icon} {cat?.name}
+                    </span>
+                    {cat?.costType && (
+                      <Pill tone={cat.costType === "fixed" ? "sky" : "stone"}>
+                        {COST_TYPE_LABEL[cat.costType]}
+                      </Pill>
+                    )}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <span className="text-xs text-stone">
                       {won(used)} / {won(bud.amount)}
                     </span>
@@ -116,7 +122,7 @@ export default function Plans({ ym }: { ym: string }) {
           })
         )}
         <div className="border-t border-line pt-2 text-right text-xs text-stone">
-          {ymLabel(ym)} 적용 합계 {won(totalBudget(budgets, ym))}
+          {ymLabel(ym)} 적용 합계 {won(categoryBudgetTotal(budgets, categories, ym))}
         </div>
       </Card>
 
@@ -129,7 +135,7 @@ export default function Plans({ ym }: { ym: string }) {
               const label =
                 ov.categoryId === null
                   ? "전체 월예산"
-                  : categoryById(ov.categoryId)?.name ?? "카테고리";
+                  : categoryById(ov.categoryId)?.name ?? "계정 과목";
               const icon = ov.categoryId === null ? "" : categoryById(ov.categoryId)?.icon ?? "";
               const base = baseBudgets.find((b) => b.categoryId === ov.categoryId);
               return (
@@ -222,7 +228,7 @@ export default function Plans({ ym }: { ym: string }) {
         )}
       </Card>
 
-      {/* 카테고리 관리 */}
+      {/* 계정 과목 관리 — 지출/수입을 나눠서 보여준다 */}
       <SectionTitle
         right={
           <button
@@ -236,28 +242,55 @@ export default function Plans({ ym }: { ym: string }) {
           </button>
         }
       >
-        카테고리 관리
+        계정 과목 관리
       </SectionTitle>
-      <Card>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => {
-                setEditCat(c);
-                setCatOpen(true);
-              }}
-              className="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm text-ink active:bg-cream"
-            >
-              <span>{c.icon}</span>
-              {c.name}
-              <span
-                className="ml-0.5 h-2 w-2 rounded-full"
-                style={{ background: c.color }}
-              />
-            </button>
-          ))}
-        </div>
+      <Card className="space-y-4">
+        {(["expense", "income"] as const).map((t) => {
+          const rows = categories.filter((c) => c.type === t);
+          return (
+            <div key={t}>
+              <p className="mb-2 text-[11px] font-semibold text-stone">
+                {t === "expense" ? "지출 계정 과목" : "수입 계정 과목"} ({rows.length})
+              </p>
+              {rows.length === 0 ? (
+                <p className="py-2 text-xs text-stone">아직 없어요.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {rows.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        setEditCat(c);
+                        setCatOpen(true);
+                      }}
+                      className="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm text-ink active:bg-cream"
+                    >
+                      <span>{c.icon}</span>
+                      {c.name}
+                      {t === "expense" && (
+                        <span
+                          className={`text-[10px] font-semibold ${
+                            c.costType === "fixed"
+                              ? "text-sky"
+                              : c.costType === "variable"
+                                ? "text-stone"
+                                : "text-coral"
+                          }`}
+                        >
+                          {c.costType ? COST_TYPE_LABEL[c.costType] : "성격 미지정"}
+                        </span>
+                      )}
+                      <span
+                        className="ml-0.5 h-2 w-2 rounded-full"
+                        style={{ background: c.color }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </Card>
 
       {budgetOpen && (

@@ -187,6 +187,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [paymentMethods]
   );
 
+  // 지역화폐 잔액 증감 적용 (양수 = 되돌림/충전, 음수 = 차감).
+  // 0으로 자르지 않는다 — 자르면 거래를 지웠을 때 되돌릴 금액이 사라진다(잔액이 음수면 화면에서 빨갛게 보인다).
+  const applyLocalCurrencyDelta = useCallback(
+    async (delta: Map<string, number>) => {
+      for (const [lcId, amount] of delta) {
+        if (amount === 0) continue;
+        const lc = localCurrencies.find((l) => l.id === lcId);
+        if (!lc) continue;
+        const saved = await repo.saveLocalCurrency({
+          ...lc,
+          balance: lc.balance + amount,
+        });
+        setLocalCurrencies((prev) => {
+          const idx = prev.findIndex((p) => p.id === saved.id);
+          if (idx < 0) return [...prev, saved];
+          const next = prev.slice();
+          next[idx] = saved;
+          return next;
+        });
+      }
+    },
+    [localCurrencies]
+  );
+
   // 낙관적 업데이트 헬퍼
   const upsertLocal = <T extends { id: string }>(
     setter: React.Dispatch<React.SetStateAction<T[]>>,
@@ -232,22 +256,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       paymentMethodById,
       refresh,
       saveTransaction: async (t) => {
+        // 지역화폐로 결제하면 잔액을 차감한다.
+        // 수정일 수 있으므로 "이전 상태 되돌리기 → 새 상태 적용" 순으로 델타를 계산한다.
+        const prev = t.id ? transactions.find((x) => x.id === t.id) : undefined;
         const saved = await repo.saveTransaction(t);
+        const delta = new Map<string, number>();
+        const add = (lcId: string | null, amount: number) => {
+          if (!lcId) return;
+          delta.set(lcId, (delta.get(lcId) ?? 0) + amount);
+        };
+        if (prev?.type === "expense") add(prev.localCurrencyId, prev.amount); // 되돌리기(+)
+        if (saved.type === "expense") add(saved.localCurrencyId, -saved.amount); // 차감(−)
+        await applyLocalCurrencyDelta(delta);
         upsertLocal(setTransactions, saved);
       },
       removeTransaction: async (id) => {
         const tx = transactions.find((t) => t.id === id);
         await repo.deleteTransaction(id);
         setTransactions((p) => p.filter((x) => x.id !== id));
-        if (tx?.localCurrencyId) {
-          const lc = localCurrencies.find((l) => l.id === tx.localCurrencyId);
-          if (lc) {
-            const saved = await repo.saveLocalCurrency({
-              ...lc,
-              balance: Math.max(lc.balance - tx.amount, 0),
-            });
-            upsertLocal(setLocalCurrencies, saved);
-          }
+        // 지역화폐로 결제했던 지출이면 잔액을 되돌린다.
+        if (tx?.localCurrencyId && tx.type === "expense") {
+          await applyLocalCurrencyDelta(
+            new Map([[tx.localCurrencyId, tx.amount]])
+          );
         }
       },
       saveRecurring: async (r) => {
@@ -446,6 +477,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       categoryById,
       paymentMethodById,
       refresh,
+      applyLocalCurrencyDelta,
     ]
   );
 

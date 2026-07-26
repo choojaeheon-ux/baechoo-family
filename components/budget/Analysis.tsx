@@ -17,7 +17,7 @@ import {
   monthTransactions,
   spendByCategory,
   sumBy,
-  habitSummary,
+  costTypeSplit,
   monthlyExpenseTrend,
   budgetForCategory,
 } from "@/lib/compute";
@@ -48,14 +48,14 @@ export default function Analysis({ ym }: { ym: string }) {
     .sort((a, b) => b.amt - a.amt);
 
   const trend = monthlyExpenseTrend(transactions, ym, 6);
-  const habits = habitSummary(transactions, ym);
+  const split = costTypeSplit(transactions, categories, ym);
   const subs = recurring.filter((r) => r.kind === "subscription");
   const subTotal = subs.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="space-y-1 pb-4">
-      {/* 카테고리 비중 */}
-      <SectionTitle>카테고리별 지출</SectionTitle>
+      {/* 계정 과목 비중 */}
+      <SectionTitle>계정과목별 지출</SectionTitle>
       <Card>
         {catRows.length === 0 ? (
           <Empty>이번 달 지출 내역이 없어요.</Empty>
@@ -147,50 +147,39 @@ export default function Analysis({ ym }: { ym: string }) {
         </div>
       </Card>
 
-      {/* 줄일 수 있는 항목 (습관 횟수) */}
-      <SectionTitle>줄일 수 있는 항목</SectionTitle>
+      {/* 고정비 · 변동비 구성 */}
+      <SectionTitle>고정비 · 변동비 구성</SectionTitle>
       <Card className="space-y-2">
-        {habits.length === 0 && subs.length === 0 ? (
-          <Empty>
-            내역 입력 시 &lsquo;배달·커피·구독&rsquo; 습관 태그를 달면
-            <br />
-            이번 달 횟수와 금액이 여기 모여요.
-          </Empty>
+        {expense === 0 ? (
+          <Empty>이번 달 지출 내역이 없어요.</Empty>
         ) : (
           <>
-            {habits.map((h) => (
-              <div key={h.tag} className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-coral-light text-sm font-bold text-coral">
-                  {h.count}
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-ink">{h.tag}</p>
-                  <p className="text-xs text-stone">이번 달 {h.count}회</p>
-                </div>
-                <span className="text-sm font-bold tabular text-coral">
-                  {won(h.total)}
-                </span>
-              </div>
-            ))}
+            <CostRow label="고정비" value={split.fixed} total={expense} tone="text-sky" />
+            <CostRow
+              label="변동비"
+              value={split.variable}
+              total={expense}
+              tone="text-leaf-dark"
+            />
+            {split.unset > 0 && (
+              <CostRow
+                label="성격 미지정"
+                value={split.unset}
+                total={expense}
+                tone="text-coral"
+              />
+            )}
             {subs.length > 0 && (
-              <div className="flex items-center gap-3 border-t border-line pt-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-coral-light text-sm font-bold text-coral">
-                  {subs.length}
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-ink">구독 서비스</p>
-                  <p className="text-xs text-stone">{subs.length}개 구독 중</p>
-                </div>
-                <span className="text-sm font-bold tabular text-coral">
-                  {won(subTotal)}/월
-                </span>
+              <div className="flex items-center justify-between border-t border-line pt-2 text-sm">
+                <span className="text-stone">구독 서비스 {subs.length}개</span>
+                <span className="font-bold tabular text-ink">{won(subTotal)}/월</span>
               </div>
             )}
           </>
         )}
       </Card>
 
-      {/* 예산 대비 카테고리 사용률 */}
+      {/* 예산 대비 계정과목 사용률 */}
       <SectionTitle>{ymLabel(ym)} 예산 대비</SectionTitle>
       <Card className="space-y-3">
         {(() => {
@@ -225,6 +214,32 @@ export default function Analysis({ ym }: { ym: string }) {
           ));
         })()}
       </Card>
+    </div>
+  );
+}
+
+function CostRow({
+  label,
+  value,
+  total,
+  tone,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  tone: string;
+}) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-sm">
+        <span className={`font-semibold ${tone}`}>{label}</span>
+        <span className="text-ink">
+          <span className="text-xs text-stone">{Math.round(pct)}% · </span>
+          <span className="font-bold tabular">{won(value)}</span>
+        </span>
+      </div>
+      <ProgressBar value={value} max={total} />
     </div>
   );
 }

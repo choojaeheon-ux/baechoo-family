@@ -28,6 +28,7 @@ export default function CalendarView({ ym }: { ym: string }) {
   const {
     recurring,
     transactions,
+    localCurrencies,
     categoryById,
     paymentMethodById,
     rewardRules,
@@ -88,14 +89,15 @@ export default function CalendarView({ ym }: { ym: string }) {
       amount: d.recurring.amount,
       type: "expense",
       categoryId: d.recurring.categoryId,
+      merchant: null,
       memo: d.recurring.name,
       member,
       paymentMethodId: d.recurring.paymentMethodId,
+      localCurrencyId: null,
       isSpecial: false,
       habitTag: null,
       source: "auto",
       recurringId: d.recurring.id,
-      localCurrencyId: null,
       isPaid: true,
       createdAt: "",
     });
@@ -131,12 +133,7 @@ export default function CalendarView({ ym }: { ym: string }) {
     const day = Number(d.dueDate.slice(8));
     dueByDay.set(day, [...(dueByDay.get(day) ?? []), d]);
   }
-  const txnDays = new Set(
-    monthTxns.filter((t) => !t.isSpecial).map((t) => Number(t.date.slice(8)))
-  );
-  const specialDays = new Set(
-    monthTxns.filter((t) => t.isSpecial).map((t) => Number(t.date.slice(8)))
-  );
+  const txnDays = new Set(monthTxns.map((t) => Number(t.date.slice(8))));
 
   // 날짜별 거래 목록 (선택한 날 상세 패널용)
   const txnsByDay = new Map<number, Transaction[]>();
@@ -220,9 +217,6 @@ export default function CalendarView({ ym }: { ym: string }) {
                   {txnDays.has(day) && items.length === 0 && (
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-sky)]" />
                   )}
-                  {specialDays.has(day) && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-                  )}
                 </span>
               </button>
             );
@@ -232,7 +226,6 @@ export default function CalendarView({ ym }: { ym: string }) {
           <Legend color="var(--color-coral)" label="고정지출 예정" />
           <Legend color="var(--color-leaf)" label="납부완료" />
           <Legend color="var(--color-sky)" label="기타지출" />
-          <Legend color="var(--color-gold)" label="특수지출" />
           <Legend color="var(--color-leaf-light)" label="무지출" filled />
         </div>
       </Card>
@@ -269,6 +262,9 @@ export default function CalendarView({ ym }: { ym: string }) {
               const pm = t.paymentMethodId
                 ? paymentMethodById(t.paymentMethodId)
                 : undefined;
+              const lc = t.localCurrencyId
+                ? localCurrencies.find((l) => l.id === t.localCurrencyId)
+                : undefined;
               return (
                 <button
                   key={t.id}
@@ -276,21 +272,15 @@ export default function CalendarView({ ym }: { ym: string }) {
                   className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
                 >
                   <span className="text-xl">{cat?.icon ?? "•"}</span>
-                  <div className="flex-1">
-                    <p className="flex items-center gap-1 text-sm font-semibold text-ink">
-                      {t.isSpecial && <span title="특수지출">⭐</span>}
-                      {t.memo || cat?.name || "내역"}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">
+                      {t.merchant || t.memo || cat?.name || "내역"}
                     </p>
                     <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
                       <span>{cat?.name}</span>
                       {pm && <span>· {pm.name}</span>}
-                      {t.habitTag && <Pill tone="coral">{t.habitTag}</Pill>}
-                      {t.localCurrencyId ? (
-                        <Pill tone="leaf">충전</Pill>
-                      ) : (
-                        t.source === "auto" && <Pill tone="stone">고정</Pill>
-                      )}
-                      <span>· {memberName(t.member)}</span>
+                      {lc && <Pill tone="leaf">🎟️ {lc.name}</Pill>}
+                      {t.source === "auto" && <Pill tone="stone">고정</Pill>}
                     </p>
                   </div>
                   <span

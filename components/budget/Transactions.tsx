@@ -4,12 +4,20 @@ import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
 import { monthTransactions, sumBy } from "@/lib/compute";
 import { won, weekdayKo } from "@/lib/format";
-import { memberName, type Transaction, type TxType } from "@/lib/types";
+import { type Transaction, type TxType } from "@/lib/types";
 import { Card, Empty, Pill } from "./ui";
 import { TransactionForm } from "./forms";
 
+// 결제 수단 필터 키 — 결제수단과 지역화폐를 한 축으로 묶는다
+function payKey(t: Transaction): string | null {
+  if (t.localCurrencyId) return `lc:${t.localCurrencyId}`;
+  if (t.paymentMethodId) return `pm:${t.paymentMethodId}`;
+  return null;
+}
+
 export default function Transactions({ ym }: { ym: string }) {
-  const { transactions, categoryById, paymentMethodById } = useData();
+  const { transactions, categoryById, paymentMethodById, localCurrencies } =
+    useData();
   const [filter, setFilter] = useState<"all" | TxType>("all");
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [pmFilter, setPmFilter] = useState<string | null>(null);
@@ -35,17 +43,24 @@ export default function Transactions({ ym }: { ym: string }) {
       .sort((a, b) => b.amt - a.amt);
   }, [typeTxns, categoryById]);
 
-  // 드롭다운으로 보여줄 결제수단: 현재 타입 필터 안에서 거래가 있는 결제수단만, 금액 큰 순
-  const chipPms = useMemo(() => {
+  // 드롭다운으로 보여줄 결제 수단: 결제수단 + 지역화폐를 한 목록으로("pm:<id>" / "lc:<id>")
+  const chipPays = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const t of typeTxns)
-      if (t.paymentMethodId)
-        totals.set(t.paymentMethodId, (totals.get(t.paymentMethodId) ?? 0) + t.amount);
+    for (const t of typeTxns) {
+      const key = payKey(t);
+      if (key) totals.set(key, (totals.get(key) ?? 0) + t.amount);
+    }
     return [...totals.entries()]
-      .map(([id, amt]) => ({ pm: paymentMethodById(id), amt }))
-      .filter((r): r is { pm: NonNullable<typeof r.pm>; amt: number } => !!r.pm)
+      .map(([key, amt]) => {
+        const id = key.slice(3);
+        const name = key.startsWith("lc:")
+          ? `🎟️ ${localCurrencies.find((l) => l.id === id)?.name ?? ""}`
+          : paymentMethodById(id)?.name;
+        return { key, name, amt };
+      })
+      .filter((r): r is { key: string; name: string; amt: number } => !!r.name)
       .sort((a, b) => b.amt - a.amt);
-  }, [typeTxns, paymentMethodById]);
+  }, [typeTxns, paymentMethodById, localCurrencies]);
 
   // 선택값이 현재 목록에 없으면(타입 필터 변경 등) 자동으로 전체 취급
   const effCat =
@@ -53,7 +68,7 @@ export default function Transactions({ ym }: { ym: string }) {
       ? catFilter
       : null;
   const effPm =
-    pmFilter !== null && chipPms.some((r) => r.pm.id === pmFilter)
+    pmFilter !== null && chipPays.some((r) => r.key === pmFilter)
       ? pmFilter
       : null;
 
@@ -61,7 +76,7 @@ export default function Transactions({ ym }: { ym: string }) {
     () =>
       typeTxns
         .filter((t) => effCat === null || t.categoryId === effCat)
-        .filter((t) => effPm === null || t.paymentMethodId === effPm)
+        .filter((t) => effPm === null || payKey(t) === effPm)
         // 날짜 내림차순 → 같은 날짜 안에서는 나중에 입력한 것이 위로(createdAt 내림차순)
         .sort(
           (a, b) =>
@@ -82,7 +97,7 @@ export default function Transactions({ ym }: { ym: string }) {
   const summaryBase = useMemo(() => {
     let all = monthTransactions(transactions, ym);
     if (effCat !== null) all = all.filter((t) => t.categoryId === effCat);
-    if (effPm !== null) all = all.filter((t) => t.paymentMethodId === effPm);
+    if (effPm !== null) all = all.filter((t) => payKey(t) === effPm);
     return all;
   }, [transactions, ym, effCat, effPm]);
 
@@ -113,9 +128,9 @@ export default function Transactions({ ym }: { ym: string }) {
           value={effCat ?? ""}
           onChange={(e) => setCatFilter(e.target.value || null)}
           className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
-          aria-label="카테고리 필터"
+          aria-label="계정 과목 필터"
         >
-          <option value="">카테고리 전체</option>
+          <option value="">계정 과목 전체</option>
           {chipCats.map(({ cat }) => (
             <option key={cat.id} value={cat.id}>
               {cat.icon ? `${cat.icon} ` : ""}
@@ -128,12 +143,12 @@ export default function Transactions({ ym }: { ym: string }) {
           value={effPm ?? ""}
           onChange={(e) => setPmFilter(e.target.value || null)}
           className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
-          aria-label="결제수단 필터"
+          aria-label="결제 수단 필터"
         >
-          <option value="">결제수단 전체</option>
-          {chipPms.map(({ pm }) => (
-            <option key={pm.id} value={pm.id}>
-              {pm.name}
+          <option value="">결제 수단 전체</option>
+          {chipPays.map(({ key, name }) => (
+            <option key={key} value={key}>
+              {name}
             </option>
           ))}
         </select>
@@ -158,6 +173,9 @@ export default function Transactions({ ym }: { ym: string }) {
               const pm = t.paymentMethodId
                 ? paymentMethodById(t.paymentMethodId)
                 : undefined;
+              const lc = t.localCurrencyId
+                ? localCurrencies.find((l) => l.id === t.localCurrencyId)
+                : undefined;
               return (
                 <button
                   key={t.id}
@@ -165,21 +183,16 @@ export default function Transactions({ ym }: { ym: string }) {
                   className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
                 >
                   <span className="text-xl">{cat?.icon ?? "•"}</span>
-                  <div className="flex-1">
-                    <p className="flex items-center gap-1 text-sm font-semibold text-ink">
-                      {t.isSpecial && <span title="특수지출">⭐</span>}
-                      {t.memo || cat?.name || "내역"}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">
+                      {t.merchant || t.memo || cat?.name || "내역"}
                     </p>
                     <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
                       <span>{cat?.name}</span>
+                      {t.merchant && t.memo && <span>· {t.memo}</span>}
                       {pm && <span>· {pm.name}</span>}
-                      {t.habitTag && <Pill tone="coral">{t.habitTag}</Pill>}
-                      {t.localCurrencyId ? (
-                        <Pill tone="leaf">충전</Pill>
-                      ) : (
-                        t.source === "auto" && <Pill tone="stone">고정</Pill>
-                      )}
-                      <span>· {memberName(t.member)}</span>
+                      {lc && <Pill tone="leaf">🎟️ {lc.name}</Pill>}
+                      {t.source === "auto" && <Pill tone="stone">고정</Pill>}
                     </p>
                   </div>
                   <span

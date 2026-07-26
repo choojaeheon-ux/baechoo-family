@@ -56,6 +56,103 @@ export function totalBudget(budgets: Budget[], ym: string): number {
   return sum;
 }
 
+/* ───────────── 예산 소진률 (계정 과목 기준) ───────────── */
+
+// 계정과목별 예산의 총합 — 전체 예산 소진률의 분모.
+// 지출 계정과목에 걸린 예산만 더한다(전체 월예산 행은 세지 않는다).
+export function categoryBudgetTotal(
+  budgets: Budget[],
+  categories: Category[],
+  ym: string
+): number {
+  let sum = 0;
+  for (const c of categories) {
+    if (c.type !== "expense") continue;
+    const v = budgetForCategory(budgets, ym, c.id);
+    if (v !== null) sum += v;
+  }
+  return sum;
+}
+
+export interface BurnRow {
+  category: Category;
+  budget: number; // 그 달에 적용되는 예산
+  spend: number;
+  pct: number; // 소진률 %
+}
+
+export interface BurnSummary {
+  rows: BurnRow[]; // 예산이 잡힌 계정과목 (소진률 높은 순)
+  unbudgeted: { category: Category; spend: number }[]; // 예산 없이 지출만 있는 계정과목 (금액 큰 순)
+  budget: number; // 예산 총합
+  spend: number; // 예산이 잡힌 과목의 지출 합
+  pct: number; // 전체 소진률 %
+}
+
+// 계정과목별 예산 소진률 + 전체 소진률
+export function budgetBurndown(
+  budgets: Budget[],
+  categories: Category[],
+  txns: Transaction[],
+  ym: string
+): BurnSummary {
+  const spendMap = spendByCategory(monthTransactions(txns, ym));
+  const rows: BurnRow[] = [];
+  const unbudgeted: { category: Category; spend: number }[] = [];
+
+  for (const category of categories) {
+    if (category.type !== "expense") continue;
+    const budget = budgetForCategory(budgets, ym, category.id);
+    const spend = spendMap.get(category.id) ?? 0;
+    if (budget !== null) {
+      rows.push({
+        category,
+        budget,
+        spend,
+        pct: budget > 0 ? (spend / budget) * 100 : 0,
+      });
+    } else if (spend > 0) {
+      unbudgeted.push({ category, spend });
+    }
+  }
+
+  rows.sort((a, b) => b.pct - a.pct || b.budget - a.budget);
+  unbudgeted.sort((a, b) => b.spend - a.spend);
+
+  const budget = rows.reduce((s, r) => s + r.budget, 0);
+  const spend = rows.reduce((s, r) => s + r.spend, 0);
+  return {
+    rows,
+    unbudgeted,
+    budget,
+    spend,
+    pct: budget > 0 ? (spend / budget) * 100 : 0,
+  };
+}
+
+// 그 달의 시간 진행률(%) — 현재 월만 숫자, 과거·미래 월은 null(점선 표시 안 함)
+export function monthTimeProgress(ym: string, today = todayISO()): number | null {
+  if (ym !== yearMonthOf(today)) return null;
+  return (Number(today.slice(8)) / daysInMonth(ym)) * 100;
+}
+
+// 이번 달 지출을 고정비/변동비/미지정으로 쪼갠 합계
+export function costTypeSplit(
+  txns: Transaction[],
+  categories: Category[],
+  ym: string
+): { fixed: number; variable: number; unset: number } {
+  const out = { fixed: 0, variable: 0, unset: 0 };
+  for (const t of monthTransactions(txns, ym)) {
+    if (t.type !== "expense") continue;
+    const ct = categories.find((c) => c.id === t.categoryId)?.costType ?? null;
+    if (ct === "fixed") out.fixed += t.amount;
+    else if (ct === "variable") out.variable += t.amount;
+    else out.unset += t.amount;
+  }
+  return out;
+}
+
 export interface ReducibleItem {
   category: Category;
   spend: number;
