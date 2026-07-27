@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useData } from "@/lib/data-context";
 import {
   monthTransactions,
@@ -11,7 +12,8 @@ import {
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
 import { Card, BurnBar, SectionTitle, Empty } from "./ui";
-import type { Tab } from "./BudgetApp";
+import NoSpendChallenge from "./NoSpendChallenge";
+import { setPendingPnlSub } from "@/components/pnl/pnlNav";
 
 // 예산을 안 잡은 과목은 %를 낼 수 없다 — 쓴 게 있으면 "초과"(막대 가득), 없으면 "—"
 function pctLabel(r: BurnRow): string {
@@ -21,14 +23,19 @@ function pctLabel(r: BurnRow): string {
 
 export default function Dashboard({
   ym,
-  onGoto,
   onGotoCategory,
 }: {
   ym: string;
-  onGoto: (t: Tab) => void;
   onGotoCategory: (categoryId: string) => void;
 }) {
   const { transactions, budgets, categories } = useData();
+  const router = useRouter();
+
+  // 예산 설정은 손익 메뉴의 「예산·목표」로 옮겼다
+  const gotoBudget = () => {
+    setPendingPnlSub("budget");
+    router.push("/pnl");
+  };
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
@@ -78,10 +85,7 @@ export default function Dashboard({
             </p>
           </>
         ) : (
-          <button
-            onClick={() => onGoto("plans")}
-            className="w-full py-3 text-sm text-stone"
-          >
+          <button onClick={gotoBudget} className="w-full py-3 text-sm text-stone">
             아직 계정과목별 예산이 없어요.{" "}
             <span className="font-semibold text-leaf">설정하기 →</span>
           </button>
@@ -91,10 +95,7 @@ export default function Dashboard({
       {/* 계정과목별 예산 소진률 */}
       <SectionTitle
         right={
-          <button
-            onClick={() => onGoto("plans")}
-            className="text-xs font-semibold text-leaf"
-          >
+          <button onClick={gotoBudget} className="text-xs font-semibold text-leaf">
             예산 관리 →
           </button>
         }
@@ -104,7 +105,7 @@ export default function Dashboard({
       <Card className="space-y-4">
         {burn.rows.length === 0 ? (
           <Empty>
-            예산·목표 탭에서 계정 과목별
+            손익 → 예산·목표 탭에서 계정 과목별
             <br />
             기본 예산을 설정해 보세요.
           </Empty>
@@ -153,6 +154,9 @@ export default function Dashboard({
           계정 과목을 누르면 거래내역에서 그 과목만 봅니다.
         </p>
       </Card>
+
+      {/* 무지출 챌린지 — 캘린더에서 대시보드 맨 아래로 옮겼다 */}
+      <NoSpendChallenge ym={ym} />
 
       <div className="h-2" />
       <p className="px-1 text-center text-[11px] text-stone">

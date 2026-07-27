@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ymLabel, shiftMonth } from "@/lib/format";
 
 export function Card({
@@ -128,6 +128,41 @@ export function Pill({
     >
       {children}
     </span>
+  );
+}
+
+// 접었다 펴는 한 줄 — 관리 목록이 아래로 길게 늘어지지 않도록 묶는다
+export function Accordion({
+  label,
+  count,
+  children,
+}: {
+  label: React.ReactNode;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-line last:border-b-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 py-2.5 text-left"
+      >
+        <span
+          className={`text-[10px] text-stone transition-transform ${
+            open ? "rotate-90" : ""
+          }`}
+        >
+          ▶
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+          {label}
+        </span>
+        <span className="shrink-0 text-[11px] text-stone">{count}</span>
+      </button>
+      {open && <div className="pb-3 pl-5">{children}</div>}
+    </div>
   );
 }
 

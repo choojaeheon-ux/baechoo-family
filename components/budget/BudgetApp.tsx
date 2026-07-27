@@ -6,30 +6,17 @@ import { currentYearMonth } from "@/lib/format";
 import { MonthSwitcher } from "./ui";
 import { TransactionForm } from "./forms";
 import Dashboard from "./Dashboard";
-import CalendarView from "./CalendarView";
 import Transactions from "./Transactions";
-import Analysis from "./Analysis";
-import Plans from "./Plans";
 import FixedExpenses from "./FixedExpenses";
 import LocalCurrencies from "./LocalCurrencies";
 
-export type Tab =
-  | "home"
-  | "calendar"
-  | "list"
-  | "plans"
-  | "analysis"
-  | "fixed"
-  | "voucher";
+export type Tab = "home" | "list" | "voucher" | "fixed";
 
 const SUBTABS: { id: Tab; label: string }[] = [
   { id: "home", label: "대시보드" },
-  { id: "calendar", label: "캘린더" },
   { id: "list", label: "거래내역" },
-  { id: "plans", label: "예산·목표" },
-  { id: "analysis", label: "분석" },
-  { id: "fixed", label: "고정지출" },
   { id: "voucher", label: "지역화폐" },
+  { id: "fixed", label: "고정지출" },
 ];
 
 export default function BudgetApp() {
@@ -93,9 +80,8 @@ export default function BudgetApp() {
         ) : (
           <>
             {tab === "home" && (
-              <Dashboard ym={ym} onGoto={goto} onGotoCategory={gotoCategory} />
+              <Dashboard ym={ym} onGotoCategory={gotoCategory} />
             )}
-            {tab === "calendar" && <CalendarView ym={ym} />}
             {tab === "list" && (
               // key로 다시 마운트시켜야 넘겨준 필터가 반영된다.
               // (이미 거래내역에 있을 때는 탭이 안 바뀌어 초기값을 다시 읽지 않는다)
@@ -105,16 +91,14 @@ export default function BudgetApp() {
                 initialCategoryId={listCategoryId}
               />
             )}
-            {tab === "plans" && <Plans ym={ym} />}
-            {tab === "analysis" && <Analysis ym={ym} />}
-            {tab === "fixed" && <FixedExpenses />}
             {tab === "voucher" && <LocalCurrencies ym={ym} />}
+            {tab === "fixed" && <FixedExpenses ym={ym} />}
           </>
         )}
       </div>
 
       {/* 빠른 입력 FAB — 하단 탭 위로 띄움 */}
-      {(tab === "home" || tab === "calendar" || tab === "list") && (
+      {(tab === "home" || tab === "list") && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
           <button
             onClick={() => setAddOpen(true)}

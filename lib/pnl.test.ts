@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { classifyTx, computePnl, buildWaterfall } from "./pnl";
-import type { Transaction, Category } from "./types";
+import { classifyTx, computePnl, buildWaterfall, computeYearPnl } from "./pnl";
+import type { Budget, Transaction, Category } from "./types";
 
 function tx(over: Partial<Transaction>): Transaction {
   return {
@@ -117,5 +117,77 @@ describe("buildWaterfall", () => {
     const segs = buildWaterfall(s);
     expect(segs[3]).toMatchObject({ label: "변동비", range: [-600_000, 100_000], kind: "deduct" });
     expect(segs[4]).toMatchObject({ label: "운영이익", range: [-600_000, 0], kind: "profit" });
+  });
+});
+
+describe("computeYearPnl — 연간 P&L 표", () => {
+  const cats: Category[] = [
+    cat("acc-salary", "income"),
+    cat("acc-rent", "expense", "fixed"),
+    cat("acc-food", "expense", "variable"),
+  ];
+  const byId = (id: string) => cats.find((c) => c.id === id);
+  // 기본 예산(매달 적용) 식비 500,000
+  const budgets: Budget[] = [
+    { id: "b1", yearMonth: null, categoryId: "acc-food", amount: 500_000 },
+  ];
+
+  const txns = [
+    tx({ id: "1", date: "2026-01-10", type: "income", categoryId: "acc-salary", amount: 3_000_000 }),
+    tx({ id: "2", date: "2026-01-15", categoryId: "acc-rent", amount: 1_000_000 }),
+    tx({ id: "3", date: "2026-01-20", categoryId: "acc-food", amount: 400_000 }),
+    tx({ id: "4", date: "2026-02-10", type: "income", categoryId: "acc-salary", amount: 2_000_000 }),
+    tx({ id: "5", date: "2026-02-20", categoryId: "acc-food", amount: 600_000 }),
+    // 다른 해는 섞이면 안 된다
+    tx({ id: "6", date: "2025-01-10", type: "income", categoryId: "acc-salary", amount: 9_000_000 }),
+  ];
+
+  const y = computeYearPnl(txns, byId, budgets, cats, 2026);
+
+  it("12개월을 1월부터 만든다", () => {
+    expect(y.months).toHaveLength(12);
+    expect(y.months[0].ym).toBe("2026-01");
+    expect(y.months[11].ym).toBe("2026-12");
+  });
+
+  it("월별 손익이 그 달 거래만 반영한다", () => {
+    expect(y.months[0].summary.revenue).toBe(3_000_000);
+    expect(y.months[0].summary.fixed).toBe(1_000_000);
+    expect(y.months[0].summary.variable).toBe(400_000);
+    expect(y.months[0].summary.operatingProfit).toBe(1_600_000);
+  });
+
+  it("거래가 없는 달은 전부 0", () => {
+    expect(y.months[5].summary.revenue).toBe(0);
+    expect(y.months[5].summary.operatingProfit).toBe(0);
+  });
+
+  it("합계는 12개월 누적, 운영이익률은 합계에서 다시 계산한다", () => {
+    expect(y.total.revenue).toBe(5_000_000);
+    expect(y.total.fixed).toBe(1_000_000);
+    expect(y.total.variable).toBe(1_000_000);
+    expect(y.total.operatingProfit).toBe(3_000_000);
+    // 월별 이익률(53.3% / 70.0%)의 평균이 아니라 3,000,000 / 5,000,000
+    expect(y.total.operatingMargin).toBeCloseTo(0.6, 10);
+  });
+
+  it("기본 예산은 매달 적용되고 소진률은 그 달 지출 기준", () => {
+    expect(y.months[0].budget).toBe(500_000);
+    expect(y.budget).toBe(6_000_000); // 500,000 × 12개월
+    // 분자는 예산을 안 잡은 과목(월세)까지 포함한 지출 전체 — 대시보드 소진률과 같은 규칙.
+    // 1월 = (1,000,000 + 400,000) / 500,000
+    expect(y.months[0].spend).toBe(1_400_000);
+    expect(y.months[0].burnPct).toBeCloseTo(280, 10);
+    expect(y.months[1].burnPct).toBeCloseTo(120, 10);
+  });
+
+  it("예산이 없으면 소진률은 null (0%로 위장하지 않는다)", () => {
+    const z = computeYearPnl(txns, byId, [], cats, 2026);
+    expect(z.months[0].burnPct).toBeNull();
+    expect(z.burnPct).toBeNull();
+  });
+
+  it("다른 해 거래는 섞이지 않는다", () => {
+    expect(y.total.revenue).not.toBe(14_000_000);
   });
 });

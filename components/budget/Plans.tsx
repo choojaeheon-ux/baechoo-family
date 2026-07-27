@@ -9,26 +9,43 @@ import {
   budgetForCategory,
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
-import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
-import { BudgetForm, GoalForm, CategoryForm } from "./forms";
+import { Card, SectionTitle, Empty, ProgressBar, Pill, Accordion } from "./ui";
+import { BudgetForm, GoalForm, CategoryForm, PaymentMethodForm } from "./forms";
 import {
   COST_TYPE_LABEL,
+  PAYMENT_KIND_LABEL,
   TX_TYPE_COLOR,
   UNGROUPED,
   type Budget,
   type Category,
   type Goal,
+  type PaymentMethod,
 } from "@/lib/types";
 
+const PAYMENT_KIND_ICON: Record<PaymentMethod["kind"], string> = {
+  card: "💳",
+  cash: "💵",
+  account: "🏦",
+};
+
 export default function Plans({ ym }: { ym: string }) {
-  const { budgets, goals, categories, transactions, categoryById, removeBudget } =
-    useData();
+  const {
+    budgets,
+    goals,
+    categories,
+    paymentMethods,
+    transactions,
+    categoryById,
+    removeBudget,
+  } = useData();
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetInitial, setBudgetInitial] = useState<Budget | undefined>(undefined);
   const [goalOpen, setGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [catOpen, setCatOpen] = useState(false);
   const [editCat, setEditCat] = useState<Category | null>(null);
+  const [pmOpen, setPmOpen] = useState(false);
+  const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
 
   const baseBudgets = budgets.filter((b) => b.yearMonth === null);
   const baseOverall = baseBudgets.find((b) => b.categoryId === null);
@@ -277,11 +294,11 @@ export default function Plans({ ym }: { ym: string }) {
               {rows.length === 0 ? (
                 <p className="py-2 text-xs text-stone">아직 없어요.</p>
               ) : (
-                <div className="space-y-2">
+                // 카테고리 줄만 접힌 채로 보여주고, 누르면 그 안의 과목이 펼쳐진다
+                <div className="rounded-xl border border-line px-3">
                   {groups.map(([gName, gRows]) => (
-                    <div key={gName}>
-                      <p className="mb-1 text-[11px] text-stone">{gName}</p>
-                      <div className="flex flex-wrap gap-2 pl-2">
+                    <Accordion key={gName} label={gName} count={gRows.length}>
+                      <div className="flex flex-wrap gap-2">
                         {gRows.map((c) => (
                           <button
                             key={c.id}
@@ -309,13 +326,64 @@ export default function Plans({ ym }: { ym: string }) {
                           </button>
                         ))}
                       </div>
-                    </div>
+                    </Accordion>
                   ))}
                 </div>
               )}
             </div>
           );
         })}
+      </Card>
+
+      {/* 결제수단 관리 — 고정지출 탭에서 옮겨 왔다. 종류별로 접어 둔다 */}
+      <SectionTitle
+        right={
+          <button
+            onClick={() => {
+              setEditPm(null);
+              setPmOpen(true);
+            }}
+            className="text-xs font-semibold text-leaf"
+          >
+            + 추가
+          </button>
+        }
+      >
+        결제수단 관리
+      </SectionTitle>
+      <Card>
+        {paymentMethods.length === 0 ? (
+          <Empty>카드·현금·계좌를 등록해 보세요.</Empty>
+        ) : (
+          <div className="rounded-xl border border-line px-3">
+            {(["card", "cash", "account"] as PaymentMethod["kind"][]).map((k) => {
+              const rows = paymentMethods.filter((p) => p.kind === k);
+              if (rows.length === 0) return null;
+              return (
+                <Accordion
+                  key={k}
+                  label={`${PAYMENT_KIND_ICON[k]} ${PAYMENT_KIND_LABEL[k]}`}
+                  count={rows.length}
+                >
+                  <div className="flex flex-wrap gap-2">
+                    {rows.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setEditPm(p);
+                          setPmOpen(true);
+                        }}
+                        className="rounded-full border border-line px-3 py-1.5 text-sm text-ink active:bg-cream"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </Accordion>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       {budgetOpen && (
@@ -338,6 +406,13 @@ export default function Plans({ ym }: { ym: string }) {
           open={catOpen}
           onClose={() => setCatOpen(false)}
           initial={editCat ?? undefined}
+        />
+      )}
+      {pmOpen && (
+        <PaymentMethodForm
+          open={pmOpen}
+          onClose={() => setPmOpen(false)}
+          initial={editPm ?? undefined}
         />
       )}
     </div>

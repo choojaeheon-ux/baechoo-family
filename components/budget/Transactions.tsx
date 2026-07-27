@@ -7,6 +7,9 @@ import { won, weekdayKo } from "@/lib/format";
 import { TX_TYPE_COLOR, type Transaction, type TxType } from "@/lib/types";
 import { Card, Empty, Pill } from "./ui";
 import { TransactionForm } from "./forms";
+import TransactionCalendar from "./TransactionCalendar";
+
+type View = "list" | "calendar";
 
 // 결제 수단 필터 키 — 결제수단과 지역화폐를 한 축으로 묶는다
 function payKey(t: Transaction): string | null {
@@ -26,6 +29,7 @@ export default function Transactions({
 }) {
   const { transactions, categoryById, paymentMethodById, localCurrencies } =
     useData();
+  const [view, setView] = useState<View>("list");
   const [filter, setFilter] = useState<"all" | TxType>("all");
   const [catFilter, setCatFilter] = useState<string | null>(initialCategoryId);
   const [pmFilter, setPmFilter] = useState<string | null>(null);
@@ -103,13 +107,16 @@ export default function Transactions({
     return [...g.entries()];
   }, [monthTxns]);
 
-  // 요약(수입/지출/잔액): 카테고리·결제수단 선택 시 그 기준, 아니면 이번 달 전체
+  // 요약(수입/지출/잔액): 카테고리·결제수단 선택 시 그 기준, 아니면 이번 달 전체.
+  // 캘린더 보기에는 필터 줄이 없으므로 언제나 이번 달 전체를 보여준다.
   const summaryBase = useMemo(() => {
     let all = monthTransactions(transactions, ym);
-    if (effCat !== null) all = all.filter((t) => t.categoryId === effCat);
-    if (effPm !== null) all = all.filter((t) => payKey(t) === effPm);
+    if (view === "list") {
+      if (effCat !== null) all = all.filter((t) => t.categoryId === effCat);
+      if (effPm !== null) all = all.filter((t) => payKey(t) === effPm);
+    }
     return all;
-  }, [transactions, ym, effCat, effPm]);
+  }, [transactions, ym, effCat, effPm, view]);
 
   const expense = sumBy(summaryBase, "expense");
   const income = sumBy(summaryBase, "income");
@@ -122,105 +129,128 @@ export default function Transactions({
         <SummaryBox label="잔액" value={won(income - expense)} tone="text-ink" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as "all" | TxType)}
-          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
-          aria-label="유형 필터"
-        >
-          <option value="all">전체</option>
-          <option value="expense">지출</option>
-          <option value="income">수입</option>
-        </select>
-
-        <select
-          value={effCat ?? ""}
-          onChange={(e) => setCatFilter(e.target.value || null)}
-          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
-          aria-label="계정 과목 필터"
-        >
-          <option value="">계정 과목 전체</option>
-          {chipCats.map(({ cat }) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.groupName ? `${cat.groupName} · ` : ""}
-              {cat.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={effPm ?? ""}
-          onChange={(e) => setPmFilter(e.target.value || null)}
-          className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
-          aria-label="결제 수단 필터"
-        >
-          <option value="">결제 수단 전체</option>
-          {chipPays.map(({ key, name }) => (
-            <option key={key} value={key}>
-              {name}
-            </option>
-          ))}
-        </select>
+      {/* 리스트 / 캘린더 보기 전환 */}
+      <div className="flex gap-1 rounded-xl bg-card p-1">
+        {(["list", "calendar"] as View[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${
+              view === v ? "bg-leaf text-white" : "text-stone"
+            }`}
+          >
+            {v === "list" ? "리스트" : "캘린더"}
+          </button>
+        ))}
       </div>
 
-      {grouped.length === 0 ? (
-        <Card>
-          <Empty>
-            이번 달 내역이 없어요.
-            <br />
-            오른쪽 아래 + 버튼으로 추가해 보세요.
-          </Empty>
-        </Card>
-      ) : (
-        grouped.map(([date, items]) => (
-          <Card key={date} className="space-y-1">
-            <p className="mb-1 px-1 text-xs font-semibold text-stone">
-              {Number(date.slice(5, 7))}월 {Number(date.slice(8))}일 ({weekdayKo(date)})
-            </p>
-            {items.map((t) => {
-              const cat = categoryById(t.categoryId);
-              const pm = t.paymentMethodId
-                ? paymentMethodById(t.paymentMethodId)
-                : undefined;
-              const lc = t.localCurrencyId
-                ? localCurrencies.find((l) => l.id === t.localCurrencyId)
-                : undefined;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setEdit(t)}
-                  className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
-                >
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: TX_TYPE_COLOR[t.type] }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink">
-                      {t.merchant || t.memo || cat?.name || "내역"}
-                    </p>
-                    <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
-                      <span>{cat?.name}</span>
-                      {t.merchant && t.memo && <span>· {t.memo}</span>}
-                      {pm && <span>· {pm.name}</span>}
-                      {lc && <Pill tone="leaf">🎟️ {lc.name}</Pill>}
-                      {t.source === "auto" && <Pill tone="stone">고정</Pill>}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-sm font-bold tabular ${
-                      t.type === "income" ? "text-sky" : "text-ink"
-                    }`}
-                  >
-                    {t.type === "income" ? "+" : "-"}
-                    {won(t.amount)}
-                  </span>
-                </button>
-              );
-            })}
-          </Card>
-        ))
+      {/* key={ym} — 달을 옮기면 고른 날짜가 남지 않도록 새로 마운트한다 */}
+      {view === "calendar" && <TransactionCalendar key={ym} ym={ym} />}
+
+      {view === "list" && (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as "all" | TxType)}
+              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              aria-label="유형 필터"
+            >
+              <option value="all">전체</option>
+              <option value="expense">지출</option>
+              <option value="income">수입</option>
+            </select>
+
+            <select
+              value={effCat ?? ""}
+              onChange={(e) => setCatFilter(e.target.value || null)}
+              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              aria-label="계정 과목 필터"
+            >
+              <option value="">계정 과목 전체</option>
+              {chipCats.map(({ cat }) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.groupName ? `${cat.groupName} · ` : ""}
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={effPm ?? ""}
+              onChange={(e) => setPmFilter(e.target.value || null)}
+              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              aria-label="결제 수단 필터"
+            >
+              <option value="">결제 수단 전체</option>
+              {chipPays.map(({ key, name }) => (
+                <option key={key} value={key}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {grouped.length === 0 ? (
+            <Card>
+              <Empty>
+                이번 달 내역이 없어요.
+                <br />
+                오른쪽 아래 + 버튼으로 추가해 보세요.
+              </Empty>
+            </Card>
+          ) : (
+            grouped.map(([date, items]) => (
+              <Card key={date} className="space-y-1">
+                <p className="mb-1 px-1 text-xs font-semibold text-stone">
+                  {Number(date.slice(5, 7))}월 {Number(date.slice(8))}일 (
+                  {weekdayKo(date)})
+                </p>
+                {items.map((t) => {
+                  const cat = categoryById(t.categoryId);
+                  const pm = t.paymentMethodId
+                    ? paymentMethodById(t.paymentMethodId)
+                    : undefined;
+                  const lc = t.localCurrencyId
+                    ? localCurrencies.find((l) => l.id === t.localCurrencyId)
+                    : undefined;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setEdit(t)}
+                      className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: TX_TYPE_COLOR[t.type] }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {t.merchant || t.memo || cat?.name || "내역"}
+                        </p>
+                        <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
+                          <span>{cat?.name}</span>
+                          {t.merchant && t.memo && <span>· {t.memo}</span>}
+                          {pm && <span>· {pm.name}</span>}
+                          {lc && <Pill tone="leaf">🎟️ {lc.name}</Pill>}
+                          {t.source === "auto" && <Pill tone="stone">고정</Pill>}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-sm font-bold tabular ${
+                          t.type === "income" ? "text-sky" : "text-ink"
+                        }`}
+                      >
+                        {t.type === "income" ? "+" : "-"}
+                        {won(t.amount)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </Card>
+            ))
+          )}
+        </>
       )}
 
       {edit && (

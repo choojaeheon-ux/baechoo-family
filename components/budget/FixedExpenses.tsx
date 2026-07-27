@@ -4,29 +4,16 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { installmentStatus } from "@/lib/recurring";
 import { won } from "@/lib/format";
-import {
-  PAYMENT_KIND_LABEL,
-  type PaymentMethod,
-  type RecurringExpense,
-  type RecurringKind,
-} from "@/lib/types";
+import { type RecurringExpense, type RecurringKind } from "@/lib/types";
 import { Card, SectionTitle, Empty, Pill } from "./ui";
-import {
-  RecurringForm,
-  PaymentMethodForm,
-} from "./forms";
+import { RecurringForm } from "./forms";
+import RecurringChecklist from "./RecurringChecklist";
 
-export default function FixedExpenses() {
-  const {
-    recurring,
-    paymentMethods,
-    paymentMethodById,
-  } = useData();
+export default function FixedExpenses({ ym }: { ym: string }) {
+  const { recurring, paymentMethodById } = useData();
   const [recOpen, setRecOpen] = useState(false);
   const [editRec, setEditRec] = useState<RecurringExpense | null>(null);
   const [recKind, setRecKind] = useState<RecurringKind>("fixed");
-  const [pmOpen, setPmOpen] = useState(false);
-  const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
   const byKind = (k: RecurringKind) => recurring.filter((r) => r.kind === k);
 
   function openAdd(kind: RecurringKind) {
@@ -45,6 +32,9 @@ export default function FixedExpenses() {
 
   return (
     <div className="space-y-1 pb-4">
+      {/* 이번 달 출금 체크리스트 — 체크해야 실제 거래로 잡힌다 */}
+      <RecurringChecklist ym={ym} />
+
       {/* 고정지출 */}
       <SectionTitle right={<AddBtn onClick={() => openAdd("fixed")} />}>
         고정지출 ({won(monthlyTotal("fixed"))}/월)
@@ -130,52 +120,12 @@ export default function FixedExpenses() {
         )}
       </Card>
 
-      {/* 결제수단 관리 */}
-      <SectionTitle
-        right={
-          <AddBtn
-            onClick={() => {
-              setEditPm(null);
-              setPmOpen(true);
-            }}
-          />
-        }
-      >
-        결제수단 관리
-      </SectionTitle>
-      <Card>
-        <div className="flex flex-wrap gap-2">
-          {paymentMethods.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setEditPm(p);
-                setPmOpen(true);
-              }}
-              className="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm text-ink active:bg-cream"
-            >
-              {p.kind === "card" ? "💳" : p.kind === "cash" ? "💵" : "🏦"} {p.name}
-              <span className="text-[11px] text-stone">
-                {PAYMENT_KIND_LABEL[p.kind]}
-              </span>
-            </button>
-          ))}
-        </div>
-      </Card>
-
       {recOpen && (
         <RecurringForm
           open={recOpen}
           onClose={() => setRecOpen(false)}
           initial={editRec ?? undefined}
           defaultKind={recKind}
-        />
-      )}
-      {pmOpen && (
-        <PaymentMethodForm
-          open={pmOpen}
-          onClose={() => setPmOpen(false)}
-          initial={editPm ?? undefined}
         />
       )}
     </div>

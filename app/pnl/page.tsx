@@ -2,20 +2,31 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
+import { currentYearMonth } from "@/lib/format";
+import { MonthSwitcher } from "@/components/budget/ui";
+import Analysis from "@/components/budget/Analysis";
+import Plans from "@/components/budget/Plans";
 import Dashboard from "@/components/pnl/Dashboard";
-import Plan from "@/components/pnl/Plan";
+import YearPnl from "@/components/pnl/YearPnl";
 import Manual from "@/components/pnl/Manual";
+import { takePendingPnlSub, type PnlSub } from "@/components/pnl/pnlNav";
 
-type Sub = "dashboard" | "plan" | "manual";
-const SUB_LABEL: Record<Sub, string> = {
+const SUB_LABEL: Record<PnlSub, string> = {
   dashboard: "대시보드",
-  plan: "계획",
+  year: "연간",
+  analysis: "분석",
+  budget: "예산·목표",
   manual: "설명서",
 };
 
 export default function PnlPage() {
   const { mode } = useData();
-  const [sub, setSub] = useState<Sub>("dashboard");
+  // 다른 탭에서 「예산·목표」 등을 지정해 넘어왔으면 그 탭으로 연다
+  const [sub, setSub] = useState<PnlSub>(() => takePendingPnlSub() ?? "dashboard");
+  // 분석·예산 탭은 월 기준 화면 — 손익 대시보드·계획은 자체 월 스위처를 쓴다
+  const [ym, setYm] = useState(currentYearMonth());
+
+  const monthly = sub === "analysis" || sub === "budget";
 
   return (
     <div>
@@ -33,11 +44,11 @@ export default function PnlPage() {
           </div>
         </div>
         <div className="flex gap-1 rounded-xl bg-card p-1">
-          {(Object.keys(SUB_LABEL) as Sub[]).map((k) => (
+          {(Object.keys(SUB_LABEL) as PnlSub[]).map((k) => (
             <button
               key={k}
               onClick={() => setSub(k)}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+              className={`flex-1 whitespace-nowrap rounded-lg px-1 py-2 text-[12px] font-medium transition ${
                 sub === k ? "bg-leaf text-white" : "text-stone"
               }`}
             >
@@ -45,11 +56,18 @@ export default function PnlPage() {
             </button>
           ))}
         </div>
+        {monthly && (
+          <div className="mt-3">
+            <MonthSwitcher ym={ym} onChange={setYm} />
+          </div>
+        )}
       </header>
 
       <div className="px-4 pt-4">
         {sub === "dashboard" && <Dashboard />}
-        {sub === "plan" && <Plan />}
+        {sub === "year" && <YearPnl />}
+        {sub === "analysis" && <Analysis ym={ym} />}
+        {sub === "budget" && <Plans ym={ym} />}
         {sub === "manual" && <Manual />}
       </div>
     </div>
