@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { currentYearMonth } from "@/lib/format";
+import { useDrillBack } from "@/lib/useDrillBack";
 import { MonthSwitcher } from "./ui";
 import { TransactionForm } from "./forms";
 import Dashboard from "./Dashboard";
@@ -27,6 +28,12 @@ export default function BudgetApp() {
   // 대시보드에서 계정 과목을 눌러 넘어올 때 거래내역에 걸어줄 필터
   const [listCategoryId, setListCategoryId] = useState<string | null>(null);
 
+  // 드릴다운으로 들어왔으면 뒤로가기가 대시보드로 되돌린다(앱 밖으로 튕기지 않게)
+  const armBack = useDrillBack(() => {
+    setListCategoryId(null);
+    setTab("home");
+  });
+
   // 탭을 직접 고르면 넘겨받은 필터는 지운다(거래내역을 그냥 열면 전체가 보이도록)
   const goto = (t: Tab) => {
     setListCategoryId(null);
@@ -35,6 +42,7 @@ export default function BudgetApp() {
   const gotoCategory = (categoryId: string) => {
     setListCategoryId(categoryId);
     setTab("list");
+    armBack();
   };
 
   return (

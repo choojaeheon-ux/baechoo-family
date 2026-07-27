@@ -11,10 +11,11 @@ import YearPnl from "@/components/pnl/YearPnl";
 import Manual from "@/components/pnl/Manual";
 import { takePendingPnlSub, type PnlSub } from "@/components/pnl/pnlNav";
 
+// 이 순서가 곧 탭 순서다 (Object.keys 순서로 렌더한다)
 const SUB_LABEL: Record<PnlSub, string> = {
   dashboard: "대시보드",
-  year: "연간",
   analysis: "분석",
+  year: "연간",
   budget: "예산·목표",
   manual: "설명서",
 };
