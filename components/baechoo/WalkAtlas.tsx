@@ -9,13 +9,19 @@ import {
   formatDistance,
   formatDuration,
   haversine,
+  routeDistance,
+  pawPoints,
 } from "@/lib/geo";
+import { pawIcon } from "./WalkMap";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NaverNS = any;
 
 // 50m×50m 칸 = 2,500㎡ ≈ 756평
 const PYEONG_PER_CELL = 756;
+
+// 전체 발자국 마커 상한 — 누적 거리에 따라 간격을 자동으로 벌려 성능 유지
+const MAX_PAWS = 1200;
 
 export default function WalkAtlas({ onClose }: { onClose: () => void }) {
   const { baechooWalks } = useData();
@@ -68,19 +74,31 @@ export default function WalkAtlas({ onClose }: { onClose: () => void }) {
         });
         mapRef.current = map;
 
-        // 누적 경로: 반투명 선 — 겹치는 단골길일수록 진해진다
+        // 누적 발자국 트레일 — 지도의 초록 녹지와 구분되게 어두운 톤(저장 산책과 같은 🐾 스타일)
+        // 흐린 점선이 깔리고, 겹치는 단골길일수록 진해진다
+        const totalM = routes.reduce((s, r) => s + routeDistance(r), 0);
+        const interval = Math.max(14, totalM / MAX_PAWS);
         for (const route of routes) {
           overlaysRef.current.push(
             new naver.maps.Polyline({
               map,
               path: route.map((p) => new naver.maps.LatLng(p.lat, p.lng)),
-              strokeColor: "#5b8c3e",
-              strokeWeight: 4,
+              strokeColor: "#2f2a20",
+              strokeWeight: 3,
               strokeOpacity: 0.25,
-              strokeLineCap: "round",
-              strokeLineJoin: "round",
+              strokeStyle: "shortdash",
             })
           );
+          pawPoints(route, interval).forEach((p, i) => {
+            overlaysRef.current.push(
+              new naver.maps.Marker({
+                map,
+                position: new naver.maps.LatLng(p.lat, p.lng),
+                icon: pawIcon(naver, p.bearing, i),
+                zIndex: 40,
+              })
+            );
+          });
         }
 
         // 주 산책 동네에 맞춤 — 여행지 산책(원거리)이 초기 화면을 전국으로 벌리지 않게

@@ -50,7 +50,7 @@ function labelIcon(naver: NaverNS, text: string, bg: string) {
 }
 
 // 강아지 발자국 아이콘 — 진행방향(bearing)으로 회전, 좌우 번갈아 오프셋
-function pawIcon(naver: NaverNS, bearingDeg: number, side: number) {
+export function pawIcon(naver: NaverNS, bearingDeg: number, side: number) {
   const nudge = side % 2 === 0 ? -3 : 3;
   return {
     content: `<div style="font-size:15px;line-height:1;transform:rotate(${bearingDeg}deg) translateX(${nudge}px);transform-origin:center;filter:drop-shadow(0 0 1px rgba(0,0,0,.35))">🐾</div>`,
