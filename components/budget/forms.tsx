@@ -224,7 +224,9 @@ export function RecurringForm({
   );
   const [name, setName] = useState(initial?.name ?? "");
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "cat-card");
+  // 기본값을 특정 과목으로 박아두면 그 과목이 지워졌을 때 없는 id가 그대로 저장된다.
+  // 거래 입력 폼과 같이 "직접 고르게" 한다.
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [day, setDay] = useState(initial ? String(initial.dayOfMonth) : "25");
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayISO());
   const [paymentMethodId, setPaymentMethodId] = useState(
@@ -238,7 +240,13 @@ export function RecurringForm({
   );
 
   const amt = Number(amount.replace(/[^0-9]/g, ""));
-  const valid = name.trim() && amt > 0 && Number(day) >= 1 && Number(day) <= 31;
+  // 계정 과목은 지금 존재하는 것만 통과시킨다 — 지워진 과목 id로 저장되면 조용히 유실된다
+  const valid =
+    name.trim() &&
+    amt > 0 &&
+    Number(day) >= 1 &&
+    Number(day) <= 31 &&
+    cats.some((c) => c.id === categoryId);
 
   async function submit() {
     if (!valid) return;
@@ -313,6 +321,7 @@ export function RecurringForm({
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
         >
+          <option value="">선택하세요</option>
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
               {c.groupName ? `${c.groupName} · ` : ""}
