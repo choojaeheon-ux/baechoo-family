@@ -11,7 +11,8 @@ import {
   type BurnRow,
 } from "@/lib/compute";
 import { won, ymLabel } from "@/lib/format";
-import { Card, BurnBar, SectionTitle, Empty } from "./ui";
+import { COST_TYPE_LABEL, type CostType } from "@/lib/types";
+import { Card, BurnBar, SectionTitle, Empty, Pill } from "./ui";
 import NoSpendChallenge from "./NoSpendChallenge";
 import { setPendingPnlSub } from "@/components/pnl/pnlNav";
 
@@ -20,6 +21,14 @@ function pctLabel(r: BurnRow): string {
   if (r.budget > 0) return `${r.pct.toFixed(1)}%`;
   return r.spend > 0 ? "" : "—";
 }
+
+// 성격 배지 색 — 손익 4버킷을 색으로 구분한다(예산·목표 탭과 같은 톤 규칙).
+const COST_TONE: Record<CostType, "sky" | "stone" | "leaf" | "gold"> = {
+  fixed: "sky",
+  variable: "stone",
+  saving: "leaf",
+  excluded: "gold",
+};
 
 export default function Dashboard({
   ym,
@@ -127,8 +136,24 @@ export default function Dashboard({
                       className="-mx-1 block w-full rounded-md px-1 py-0.5 text-left transition active:bg-cream"
                     >
                       <div className="mb-1 flex items-baseline gap-2">
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
-                          {r.category.name}
+                        {/* 과목명 + 성격(고정비/변동비/저축/손익 제외) 배지 */}
+                        <span className="flex min-w-0 flex-1 items-baseline gap-1">
+                          <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
+                            {r.category.name}
+                          </span>
+                          <span className="shrink-0">
+                            <Pill
+                              tone={
+                                r.category.costType
+                                  ? COST_TONE[r.category.costType]
+                                  : "coral"
+                              }
+                            >
+                              {r.category.costType
+                                ? COST_TYPE_LABEL[r.category.costType]
+                                : "성격 미지정"}
+                            </Pill>
+                          </span>
                         </span>
                         <span
                           className={`shrink-0 text-[13px] font-bold tabular ${
