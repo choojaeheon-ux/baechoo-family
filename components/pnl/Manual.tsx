@@ -27,7 +27,7 @@ export default function Manual() {
         <ul className="list-disc space-y-1 pl-4">
           <li>고정지출 등록·청약·할부 → 고정비</li>
           <li>적금 → 선저축</li>
-          <li>습관태그(배달·커피·외식 등) 포함 그 외 지출 → 변동비</li>
+          <li>그 외 지출 → 변동비</li>
           <li>카드값 → 손익 제외(이중계상 방지, 실제 사용액만 카테고리별 기록)</li>
         </ul>
       </Card>
