@@ -9,6 +9,7 @@ import { Card, Empty, Pill } from "@/components/budget/ui";
 import WalkMap from "./WalkMap";
 import { WalkManualForm, WalkDetailSheet, startHHMM } from "./walk-forms";
 import WalkTracker from "./WalkTracker";
+import WalkAtlas from "./WalkAtlas";
 import BaechooCalendar from "./BaechooCalendar";
 import ViewToggle from "./ViewToggle";
 
@@ -56,6 +57,7 @@ export default function WalkList() {
   const [ym, setYm] = useState(currentYearMonth());
   const [tracking, setTracking] = useState(false);
   const [manual, setManual] = useState(false);
+  const [atlas, setAtlas] = useState(false);
   const [detail, setDetail] = useState<BaechooWalk | null>(null);
 
   const sorted = useMemo(
@@ -95,6 +97,13 @@ export default function WalkList() {
         </button>
       </div>
 
+      <button
+        onClick={() => setAtlas(true)}
+        className="w-full rounded-xl border border-line bg-card py-2.5 text-sm font-bold text-ink active:scale-[0.99]"
+      >
+        🗺️ 대동여지도
+      </button>
+
       <ViewToggle view={view} onChange={setView} />
 
       {view === "calendar" ? (
@@ -133,6 +142,7 @@ export default function WalkList() {
       )}
 
       {tracking && <WalkTracker onClose={() => setTracking(false)} />}
+      {atlas && <WalkAtlas onClose={() => setAtlas(false)} />}
       {manual && (
         <WalkManualForm open onClose={() => setManual(false)} />
       )}
