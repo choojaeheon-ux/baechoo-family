@@ -129,7 +129,7 @@ describe("computeYearPnl — 연간 P&L 표", () => {
   const byId = (id: string) => cats.find((c) => c.id === id);
   // 기본 예산(매달 적용) 식비 500,000
   const budgets: Budget[] = [
-    { id: "b1", yearMonth: null, categoryId: "acc-food", amount: 500_000 },
+    { id: "b1", yearMonth: null, categoryId: "acc-food", amount: 500_000, versionId: null },
   ];
 
   const txns = [

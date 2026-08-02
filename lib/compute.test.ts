@@ -11,7 +11,7 @@ import {
 import type { Budget, Category, CostType, Transaction } from "./types";
 
 const b = (yearMonth: string | null, categoryId: string | null, amount: number): Budget =>
-  ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount });
+  ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount, versionId: null });
 
 const cat = (
   id: string,
