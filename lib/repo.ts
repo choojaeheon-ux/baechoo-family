@@ -10,6 +10,7 @@ import {
 import type {
   AssetSnapshot,
   Budget,
+  BudgetVersion,
   Category,
   Coupon,
   DataSnapshot,
@@ -43,6 +44,7 @@ import type {
   CategoryGroup,
   HealthTodoKind,
 } from "./types";
+import { FIRST_BUDGET_MONTH } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
 
@@ -100,6 +102,26 @@ function normalizeFamilyEvent(x: FamilyEvent): FamilyEvent {
   return x;
 }
 
+// localStorage에는 마이그레이션이 닿지 않는다 — 버전이 하나도 없으면
+// v1을 만들어 기존 예산을 전부 붙인다(클라우드 0025와 같은 결과).
+function normalizeBudgetVersions(
+  versions: BudgetVersion[],
+  budgets: Budget[]
+): { versions: BudgetVersion[]; budgets: Budget[] } {
+  if (versions.length > 0) return { versions, budgets };
+  const v1: BudgetVersion = {
+    id: "bv-1",
+    name: "v1",
+    startMonth: FIRST_BUDGET_MONTH,
+    memo: null,
+    createdAt: "",
+  };
+  return {
+    versions: [v1],
+    budgets: budgets.map((b) => (b.versionId ? b : { ...b, versionId: v1.id })),
+  };
+}
+
 /* ───────────── localStorage 어댑터 ───────────── */
 
 function lsRead(): DataSnapshot {
@@ -114,17 +136,23 @@ function lsRead(): DataSnapshot {
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
         eventCategories: SEED_EVENT_CATEGORIES,
+        budgetVersions: [],
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
     }
     const parsed = JSON.parse(raw) as Partial<DataSnapshot>;
+    const budgetsAndVersions = normalizeBudgetVersions(
+      parsed.budgetVersions ?? [],
+      parsed.budgets ?? []
+    );
     return {
       categories: (parsed.categories ?? []).map(normalizeCategory),
       paymentMethods: parsed.paymentMethods ?? SEED_PAYMENT_METHODS,
       recurring: parsed.recurring ?? [],
       transactions: (parsed.transactions ?? []).map(normalizeTxn),
-      budgets: parsed.budgets ?? [],
+      budgets: budgetsAndVersions.budgets,
+      budgetVersions: budgetsAndVersions.versions,
       goals: parsed.goals ?? [],
       localCurrencies: parsed.localCurrencies ?? [],
       rewardRules: parsed.rewardRules ?? [],
@@ -160,6 +188,7 @@ function emptySnapshot(): DataSnapshot {
     recurring: [],
     transactions: [],
     budgets: [],
+    budgetVersions: [],
     goals: [],
     localCurrencies: [],
     rewardRules: [],
@@ -300,12 +329,29 @@ const toBudget = (r: Record<string, unknown>): Budget => ({
   yearMonth: (r.year_month as string) ?? null,
   categoryId: (r.category_id as string) ?? null,
   amount: Number(r.amount),
+  versionId: (r.version_id as string) ?? null,
 });
 const fromBudget = (x: Budget) => ({
   id: x.id,
   year_month: x.yearMonth,
   category_id: x.categoryId,
   amount: x.amount,
+  version_id: x.versionId,
+});
+
+const toBudgetVersion = (r: Record<string, unknown>): BudgetVersion => ({
+  id: r.id as string,
+  name: r.name as string,
+  startMonth: r.start_month as string,
+  memo: (r.memo as string) ?? null,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromBudgetVersion = (x: BudgetVersion) => ({
+  id: x.id,
+  name: x.name,
+  start_month: x.startMonth,
+  memo: x.memo,
+  created_at: x.createdAt || null,
 });
 
 const toLc = (r: Record<string, unknown>): LocalCurrency => ({
@@ -651,6 +697,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     recs,
     txns,
     buds,
+    bvs,
     goals,
     lcs,
     rules,
@@ -674,6 +721,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("recurring_expenses").select("*"),
     sb.from("transactions").select("*"),
     sb.from("budgets").select("*"),
+    sb.from("budget_versions").select("*"),
     sb.from("goals").select("*"),
     sb.from("local_currencies").select("*"),
     sb.from("reward_rules").select("*"),
@@ -725,6 +773,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     recurring: (recs.data ?? []).map(toRec),
     transactions: (txns.data ?? []).map(toTxn),
     budgets: (buds.data ?? []).map(toBudget),
+    budgetVersions: (bvs.data ?? []).map(toBudgetVersion),
     goals: (goals.data ?? []).map(toGoal),
     localCurrencies: (lcs.data ?? []).map(toLc),
     rewardRules: (rules.data ?? []).map(toRule),
@@ -817,6 +866,17 @@ export async function saveBudget(x: Budget): Promise<Budget> {
 export async function deleteBudget(id: string) {
   if (hasSupabase) await sbDelete("budgets", id);
   else lsDelete("budgets", id);
+}
+
+export async function saveBudgetVersion(x: BudgetVersion): Promise<BudgetVersion> {
+  const row = { ...x, id: x.id || "bv-" + newId() };
+  if (hasSupabase) await sbUpsert("budget_versions", fromBudgetVersion(row));
+  else lsUpsert("budgetVersions", row);
+  return row;
+}
+export async function deleteBudgetVersion(id: string) {
+  if (hasSupabase) await sbDelete("budget_versions", id);
+  else lsDelete("budgetVersions", id);
 }
 
 export async function saveAssetSnapshot(x: AssetSnapshot): Promise<AssetSnapshot> {
