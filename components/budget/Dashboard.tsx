@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useData } from "@/lib/data-context";
 import {
   monthTransactions,
@@ -13,7 +12,6 @@ import {
 import { won, ymLabel } from "@/lib/format";
 import { Card, BurnBar, SectionTitle, Empty } from "./ui";
 import NoSpendChallenge from "./NoSpendChallenge";
-import { setPendingPnlSub } from "@/components/pnl/pnlNav";
 
 // 예산을 안 잡은 과목은 %를 낼 수 없다 — 쓴 게 있으면 "초과"(막대 가득), 없으면 "—"
 function pctLabel(r: BurnRow): string {
@@ -24,18 +22,13 @@ function pctLabel(r: BurnRow): string {
 export default function Dashboard({
   ym,
   onGotoCategory,
+  onGotoBudget,
 }: {
   ym: string;
   onGotoCategory: (categoryId: string) => void;
+  onGotoBudget: () => void;
 }) {
   const { transactions, budgets, budgetVersions, categories } = useData();
-  const router = useRouter();
-
-  // 예산 설정은 손익 메뉴의 「예산·목표」로 옮겼다
-  const gotoBudget = () => {
-    setPendingPnlSub("budget");
-    router.push("/pnl");
-  };
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
@@ -85,7 +78,7 @@ export default function Dashboard({
             </p>
           </>
         ) : (
-          <button onClick={gotoBudget} className="w-full py-3 text-sm text-stone">
+          <button onClick={onGotoBudget} className="w-full py-3 text-sm text-stone">
             아직 계정과목별 예산이 없어요.{" "}
             <span className="font-semibold text-leaf">설정하기 →</span>
           </button>
@@ -95,7 +88,7 @@ export default function Dashboard({
       {/* 계정과목별 예산 소진률 */}
       <SectionTitle
         right={
-          <button onClick={gotoBudget} className="text-xs font-semibold text-leaf">
+          <button onClick={onGotoBudget} className="text-xs font-semibold text-leaf">
             예산 관리 →
           </button>
         }
@@ -104,11 +97,7 @@ export default function Dashboard({
       </SectionTitle>
       <Card className="space-y-4">
         {burn.rows.length === 0 ? (
-          <Empty>
-            손익 → 예산·목표 탭에서 계정 과목별
-            <br />
-            기본 예산을 설정해 보세요.
-          </Empty>
+          <Empty>예산 탭에서 계정 과목별 예산을 설정해 보세요.</Empty>
         ) : (
           groups.map((g) => (
             <div key={g.name}>

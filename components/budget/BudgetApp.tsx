@@ -90,7 +90,11 @@ export default function BudgetApp() {
         ) : (
           <>
             {tab === "home" && (
-              <Dashboard ym={ym} onGotoCategory={gotoCategory} />
+              <Dashboard
+                ym={ym}
+                onGotoCategory={gotoCategory}
+                onGotoBudget={() => goto("budget")}
+              />
             )}
             {tab === "list" && (
               // key로 다시 마운트시켜야 넘겨준 필터가 반영된다.
