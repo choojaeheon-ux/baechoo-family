@@ -10,14 +10,16 @@ import Dashboard from "./Dashboard";
 import Transactions from "./Transactions";
 import FixedExpenses from "./FixedExpenses";
 import LocalCurrencies from "./LocalCurrencies";
+import BudgetVersions from "./BudgetVersions";
 
-export type Tab = "home" | "list" | "voucher" | "fixed";
+export type Tab = "home" | "list" | "voucher" | "fixed" | "budget";
 
 const SUBTABS: { id: Tab; label: string }[] = [
   { id: "home", label: "대시보드" },
   { id: "list", label: "거래내역" },
   { id: "voucher", label: "지역화폐" },
   { id: "fixed", label: "고정지출" },
+  { id: "budget", label: "예산" },
 ];
 
 export default function BudgetApp() {
@@ -101,6 +103,7 @@ export default function BudgetApp() {
             )}
             {tab === "voucher" && <LocalCurrencies ym={ym} />}
             {tab === "fixed" && <FixedExpenses ym={ym} />}
+            {tab === "budget" && <BudgetVersions key={ym} ym={ym} />}
           </>
         )}
       </div>

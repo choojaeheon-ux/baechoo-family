@@ -5,6 +5,7 @@ import { useData } from "@/lib/data-context";
 import {
   categoryBudgetTotal,
   monthTransactions,
+  resolveVersion,
   spendByCategory,
   budgetForCategory,
 } from "@/lib/compute";
@@ -393,7 +394,10 @@ export default function Plans({ ym }: { ym: string }) {
         <BudgetForm
           open={budgetOpen}
           onClose={() => setBudgetOpen(false)}
-          ym={ym}
+          // 버전 도입 전 화면 — 편집 대상 행의 버전을 그대로 쓰고, 신규 행은 이번 달 적용 버전에 붙인다.
+          versionId={
+            budgetInitial?.versionId ?? resolveVersion(budgetVersions, ym)?.id ?? ""
+          }
           initial={budgetInitial}
         />
       )}
