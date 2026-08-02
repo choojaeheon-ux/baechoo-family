@@ -25,13 +25,13 @@ type NumRow = {
 };
 
 export default function YearPnl() {
-  const { transactions, categories, budgets, categoryById } = useData();
+  const { transactions, categories, budgets, budgetVersions, categoryById } = useData();
   const [year, setYear] = useState(() => Number(currentYearMonth().slice(0, 4)));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const y: YearPnl = useMemo(
-    () => computeYearPnl(transactions, categoryById, budgets, categories, year),
-    [transactions, categoryById, budgets, categories, year]
+    () => computeYearPnl(transactions, categoryById, budgets, budgetVersions, categories, year),
+    [transactions, categoryById, budgets, budgetVersions, categories, year]
   );
 
   // 올해를 보면 이번 달이 바로 보이게 가로 스크롤을 맞춘다.

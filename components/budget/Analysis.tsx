@@ -37,7 +37,7 @@ ChartJS.register(
 );
 
 export default function Analysis({ ym }: { ym: string }) {
-  const { transactions, budgets, categories, recurring } = useData();
+  const { transactions, budgets, budgetVersions, categories, recurring } = useData();
 
   const monthTxns = monthTransactions(transactions, ym);
   const expense = sumBy(monthTxns, "expense");
@@ -207,7 +207,7 @@ export default function Analysis({ ym }: { ym: string }) {
             .map((c) => ({
               c,
               spend: byCat.get(c.id) ?? 0,
-              budget: budgetForCategory(budgets, ym, c.id),
+              budget: budgetForCategory(budgets, budgetVersions, ym, c.id),
             }))
             .filter((r) => r.budget !== null);
           if (rows.length === 0)

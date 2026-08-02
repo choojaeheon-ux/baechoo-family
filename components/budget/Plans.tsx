@@ -31,6 +31,7 @@ const PAYMENT_KIND_ICON: Record<PaymentMethod["kind"], string> = {
 export default function Plans({ ym }: { ym: string }) {
   const {
     budgets,
+    budgetVersions,
     goals,
     categories,
     paymentMethods,
@@ -103,7 +104,8 @@ export default function Plans({ ym }: { ym: string }) {
         ) : (
           baseCats.map((bud) => {
             const cat = categoryById(bud.categoryId!);
-            const applied = budgetForCategory(budgets, ym, bud.categoryId!) ?? bud.amount;
+            const applied =
+              budgetForCategory(budgets, budgetVersions, ym, bud.categoryId!) ?? bud.amount;
             const used = spend.get(bud.categoryId!) ?? 0;
             return (
               <div key={bud.id}>
@@ -149,7 +151,8 @@ export default function Plans({ ym }: { ym: string }) {
           })
         )}
         <div className="border-t border-line pt-2 text-right text-xs text-stone">
-          {ymLabel(ym)} 적용 합계 {won(categoryBudgetTotal(budgets, categories, ym))}
+          {ymLabel(ym)} 적용 합계{" "}
+          {won(categoryBudgetTotal(budgets, budgetVersions, categories, ym))}
         </div>
       </Card>
 

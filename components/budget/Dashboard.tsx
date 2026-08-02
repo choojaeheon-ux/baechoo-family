@@ -28,7 +28,7 @@ export default function Dashboard({
   ym: string;
   onGotoCategory: (categoryId: string) => void;
 }) {
-  const { transactions, budgets, categories } = useData();
+  const { transactions, budgets, budgetVersions, categories } = useData();
   const router = useRouter();
 
   // 예산 설정은 손익 메뉴의 「예산·목표」로 옮겼다
@@ -42,7 +42,7 @@ export default function Dashboard({
   const income = sumBy(monthTxns, "income");
   const balance = income - expense;
 
-  const burn = budgetBurndown(budgets, categories, transactions, ym);
+  const burn = budgetBurndown(budgets, budgetVersions, categories, transactions, ym);
   const groups = groupBurnRows(burn.rows);
   const timePct = monthTimeProgress(ym);
 
