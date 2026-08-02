@@ -1,4 +1,11 @@
-import { UNGROUPED, type Budget, type Category, type RecurringExpense, type Transaction } from "./types";
+import {
+  UNGROUPED,
+  type Budget,
+  type BudgetVersion,
+  type Category,
+  type RecurringExpense,
+  type Transaction,
+} from "./types";
 import {
   yearMonthOf,
   shiftMonth,
@@ -24,6 +31,42 @@ export function spendByCategory(txns: Transaction[]): Map<string, number> {
     m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + t.amount);
   }
   return m;
+}
+
+/* ───────────── 예산 버전 해석 ───────────── */
+
+// 그 달에 적용되는 예산 버전.
+// 시작월이 그 달 이하인 버전 중 가장 늦은 것. 하나도 없으면 가장 이른 버전으로
+// 폴백한다 — 가장 이른 시작월보다 앞선 달에도 예산이 통째로 사라지지 않게.
+export function resolveVersion(
+  versions: BudgetVersion[],
+  ym: string
+): BudgetVersion | null {
+  if (versions.length === 0) return null;
+  const sorted = [...versions].sort(
+    (a, b) =>
+      a.startMonth.localeCompare(b.startMonth) ||
+      a.createdAt.localeCompare(b.createdAt) ||
+      a.id.localeCompare(b.id)
+  );
+  let found: BudgetVersion | null = null;
+  for (const v of sorted) {
+    if (v.startMonth <= ym) found = v;
+  }
+  return found ?? sorted[0];
+}
+
+// 그 달에 적용되는 버전의 예산 행만 남긴다.
+// 버전에 없는 과목이 다른 버전 행으로 대체되면 안 된다 —
+// 계정과목 폐지가 자동으로 풀리는 것이 이 설계의 핵심이다.
+export function budgetsOfMonth(
+  budgets: Budget[],
+  versions: BudgetVersion[],
+  ym: string
+): Budget[] {
+  const v = resolveVersion(versions, ym);
+  if (!v) return [];
+  return budgets.filter((b) => b.versionId === v.id);
 }
 
 export function budgetForCategory(

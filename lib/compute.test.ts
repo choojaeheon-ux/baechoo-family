@@ -7,8 +7,10 @@ import {
   groupBurnRows,
   monthTimeProgress,
   costTypeSplit,
+  resolveVersion,
+  budgetsOfMonth,
 } from "./compute";
-import type { Budget, Category, CostType, Transaction } from "./types";
+import type { Budget, BudgetVersion, Category, CostType, Transaction } from "./types";
 
 const b = (yearMonth: string | null, categoryId: string | null, amount: number): Budget =>
   ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount, versionId: null });
@@ -226,5 +228,76 @@ describe("costTypeSplit", () => {
 
   it("total은 손익 제외를 빼고 계산한다(비율의 분모)", () => {
     expect(costTypeSplit(txns, cats, "2026-07").total).toBe(1150000);
+  });
+});
+
+describe("resolveVersion — 그 달에 적용되는 예산 버전", () => {
+  const v = (id: string, startMonth: string, createdAt = ""): BudgetVersion => ({
+    id,
+    name: id,
+    startMonth,
+    memo: null,
+    createdAt,
+  });
+  const versions = [v("bv-b", "2026-08"), v("bv-a", "2026-06"), v("bv-c", "2026-11")];
+
+  it("시작월과 조회월이 같으면 그 버전", () => {
+    expect(resolveVersion(versions, "2026-08")?.id).toBe("bv-b");
+  });
+
+  it("두 버전 사이의 달은 앞 버전", () => {
+    expect(resolveVersion(versions, "2026-09")?.id).toBe("bv-b");
+    expect(resolveVersion(versions, "2026-07")?.id).toBe("bv-a");
+  });
+
+  it("마지막 버전 이후는 계속 그 버전", () => {
+    expect(resolveVersion(versions, "2027-03")?.id).toBe("bv-c");
+  });
+
+  it("가장 이른 시작월보다 앞선 달은 가장 이른 버전으로 폴백", () => {
+    expect(resolveVersion(versions, "2026-01")?.id).toBe("bv-a");
+  });
+
+  it("버전이 없으면 null", () => {
+    expect(resolveVersion([], "2026-08")).toBe(null);
+  });
+
+  it("시작월이 같으면 나중에 만든 버전", () => {
+    const dup = [
+      v("bv-old", "2026-08", "2026-08-01T00:00:00Z"),
+      v("bv-new", "2026-08", "2026-08-02T00:00:00Z"),
+    ];
+    expect(resolveVersion(dup, "2026-08")?.id).toBe("bv-new");
+  });
+});
+
+describe("budgetsOfMonth — 그 달 버전의 예산 행만", () => {
+  const v = (id: string, startMonth: string): BudgetVersion => ({
+    id,
+    name: id,
+    startMonth,
+    memo: null,
+    createdAt: "",
+  });
+  const versions = [v("bv-a", "2026-06"), v("bv-b", "2026-08")];
+  const budgets: Budget[] = [
+    { id: "b1", yearMonth: null, categoryId: "cat-x", amount: 12345, versionId: "bv-a" },
+    { id: "b2", yearMonth: null, categoryId: "cat-y", amount: 23456, versionId: "bv-a" },
+    { id: "b3", yearMonth: null, categoryId: "cat-x", amount: 34567, versionId: "bv-b" },
+  ];
+
+  it("적용 버전의 행만 남는다", () => {
+    const rows = budgetsOfMonth(budgets, versions, "2026-08");
+    expect(rows.map((r) => r.id)).toEqual(["b3"]);
+  });
+
+  it("그 버전에 없는 과목은 다른 버전 행으로 대체되지 않는다", () => {
+    // bv-b에는 cat-y 예산이 없다 → 8월 cat-y는 "예산 없음"이어야 한다.
+    const rows = budgetsOfMonth(budgets, versions, "2026-08");
+    expect(rows.find((r) => r.categoryId === "cat-y")).toBeUndefined();
+  });
+
+  it("버전이 없으면 빈 배열", () => {
+    expect(budgetsOfMonth(budgets, [], "2026-08")).toEqual([]);
   });
 });
