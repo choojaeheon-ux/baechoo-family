@@ -76,11 +76,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
       </SectionTitle>
       <Card className="space-y-1">
         {sorted.length === 0 ? (
-          <Empty>
-            예산 버전을 만들어 보세요.
-            <br />
-            시작 월부터 다음 버전 전까지 적용됩니다.
-          </Empty>
+          <Empty>예산 버전을 만들어 보세요.</Empty>
         ) : (
           sorted.map((v) => (
             <div key={v.id} className="flex items-center gap-2">

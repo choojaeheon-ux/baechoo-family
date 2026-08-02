@@ -424,7 +424,7 @@ export function BudgetForm({
       categoryId,
       amount: amt,
       versionId,
-    } as Budget);
+    });
     setAmount("");
     onClose();
   }
