@@ -471,11 +471,13 @@ export function BudgetVersionForm({
   onClose,
   initial,
   duplicateFrom,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: BudgetVersion; // 수정
   duplicateFrom?: BudgetVersion; // 복제 — 이 버전의 예산 행까지 복사한다
+  onCreated?: (id: string) => void; // 복제로 새로 생긴 버전 id — 호출부가 선택을 옮긴다
 }) {
   const { budgetVersions, budgets, saveBudgetVersion, removeBudgetVersion, duplicateBudgetVersion } =
     useData();
@@ -486,6 +488,7 @@ export function BudgetVersionForm({
     initial?.startMonth ?? shiftMonth(currentYearMonth(), 1)
   );
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const valid = name.trim() !== "" && /^\d{4}-\d{2}$/.test(startMonth);
 
@@ -499,9 +502,11 @@ export function BudgetVersionForm({
   async function submit() {
     if (!valid || saving) return;
     setSaving(true);
+    setSaveError(false);
     try {
       if (duplicateFrom) {
-        await duplicateBudgetVersion(duplicateFrom.id, name.trim(), startMonth);
+        const id = await duplicateBudgetVersion(duplicateFrom.id, name.trim(), startMonth);
+        onCreated?.(id);
       } else {
         await saveBudgetVersion({
           id: initial?.id ?? "",
@@ -512,6 +517,10 @@ export function BudgetVersionForm({
         });
       }
       onClose();
+    } catch (err) {
+      // 버전 insert 실패는 예산 행까지 연쇄로 실패한다 — 조용히 닫지 않고 시트를 열어둔다.
+      console.error("예산 버전 저장 실패:", err);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -539,6 +548,11 @@ export function BudgetVersionForm({
           onChange={(e) => setStartMonth(e.target.value)}
         />
       </Field>
+      {saveError && (
+        <p className="mb-2 text-xs text-coral">
+          저장에 실패했어요. 다시 시도해 주세요.
+        </p>
+      )}
       <PrimaryButton onClick={submit} disabled={!valid || saving}>
         {duplicateFrom ? "복제" : "저장"}
       </PrimaryButton>
@@ -552,7 +566,9 @@ export function BudgetVersionForm({
                 `${initial.name} 버전과 그 안의 예산 ${rowCount}건을 삭제할까요?`
               )
             ) {
-              removeBudgetVersion(initial.id).then(onClose);
+              removeBudgetVersion(initial.id)
+                .then(onClose)
+                .catch((err) => console.error("버전 삭제 실패:", err));
             }
           }}
           className={`mt-3 w-full py-2 text-sm ${

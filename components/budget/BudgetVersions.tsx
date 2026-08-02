@@ -8,7 +8,7 @@ import {
   resolveVersion,
   spendByCategory,
 } from "@/lib/compute";
-import { currentYearMonth, won, ymLabel } from "@/lib/format";
+import { won, ymLabel } from "@/lib/format";
 import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
 import { BudgetForm, BudgetVersionForm } from "./forms";
 import { COST_TYPE_LABEL, type Budget, type BudgetVersion } from "@/lib/types";
@@ -38,9 +38,11 @@ export default function BudgetVersions({ ym }: { ym: string }) {
   );
   const spend = spendByCategory(monthTransactions(transactions, ym));
 
-  // 이번 달 적용 버전이 아니면서 이미 시작한 버전 = 과거. 고치면 지난 달 숫자가 바뀐다.
+  // 더 늦은 시작월의 버전이 이미 있는 버전 = 과거. 고치면 그 구간의 숫자가 바뀐다.
+  // (조회 중인 달 ym 기준의 applied와는 무관 — 예산 탭 월 스위처로 과거 달로 이동해도
+  // 배너가 꺼지면 안 된다.)
   const isPast =
-    !!selected && selected.id !== applied?.id && selected.startMonth <= currentYearMonth();
+    !!selected && budgetVersions.some((v) => v.startMonth > selected.startMonth);
   const isApplied = !!selected && selected.id === applied?.id;
 
   const rows = selected
@@ -90,7 +92,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
                 <span className="shrink-0 text-xs text-stone">
                   {ymLabel(v.startMonth)}부터
                 </span>
-                {v.id === applied?.id && <Pill tone="leaf">이번 달 적용중</Pill>}
+                {v.id === applied?.id && <Pill tone="leaf">적용중</Pill>}
               </button>
               <button
                 onClick={() => setVersionForm({ duplicateFrom: v })}
@@ -234,6 +236,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
           onClose={() => setVersionForm(null)}
           initial={versionForm.initial}
           duplicateFrom={versionForm.duplicateFrom}
+          onCreated={(id) => setSelectedId(id)}
         />
       )}
       {budgetForm && selected && (
