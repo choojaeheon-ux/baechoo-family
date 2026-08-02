@@ -1,4 +1,11 @@
-import { UNGROUPED, type Budget, type Category, type RecurringExpense, type Transaction } from "./types";
+import {
+  UNGROUPED,
+  type Budget,
+  type BudgetVersion,
+  type Category,
+  type RecurringExpense,
+  type Transaction,
+} from "./types";
 import {
   yearMonthOf,
   shiftMonth,
@@ -26,32 +33,67 @@ export function spendByCategory(txns: Transaction[]): Map<string, number> {
   return m;
 }
 
+/* ───────────── 예산 버전 해석 ───────────── */
+
+// 그 달에 적용되는 예산 버전.
+// 시작월이 그 달 이하인 버전 중 가장 늦은 것. 하나도 없으면 가장 이른 버전으로
+// 폴백한다 — 가장 이른 시작월보다 앞선 달에도 예산이 통째로 사라지지 않게.
+export function resolveVersion(
+  versions: BudgetVersion[],
+  ym: string
+): BudgetVersion | null {
+  if (versions.length === 0) return null;
+  const sorted = [...versions].sort(
+    (a, b) =>
+      a.startMonth.localeCompare(b.startMonth) ||
+      a.createdAt.localeCompare(b.createdAt) ||
+      a.id.localeCompare(b.id)
+  );
+  let found: BudgetVersion | null = null;
+  for (const v of sorted) {
+    if (v.startMonth <= ym) found = v;
+  }
+  return found ?? sorted[0];
+}
+
+// 그 달에 적용되는 버전의 예산 행만 남긴다.
+// 버전에 없는 과목이 다른 버전 행으로 대체되면 안 된다 —
+// 계정과목 폐지가 자동으로 풀리는 것이 이 설계의 핵심이다.
+export function budgetsOfMonth(
+  budgets: Budget[],
+  versions: BudgetVersion[],
+  ym: string
+): Budget[] {
+  const v = resolveVersion(versions, ym);
+  if (!v) return [];
+  return budgets.filter((b) => b.versionId === v.id);
+}
+
+// 그 달·과목의 예산. 「이번 달만 조정」 오버라이드는 폐지됐다 — yearMonth는 죽은 필드,
+// ym은 버전 해석에만 쓴다. 예산을 바꾸려면 새 버전을 만든다.
 export function budgetForCategory(
   budgets: Budget[],
+  versions: BudgetVersion[],
   ym: string,
   categoryId: string | null
 ): number | null {
-  const override = budgets.find(
-    (x) => x.yearMonth === ym && x.categoryId === categoryId
+  const row = budgetsOfMonth(budgets, versions, ym).find(
+    (x) => x.categoryId === categoryId
   );
-  if (override) return override.amount;
-  const base = budgets.find(
-    (x) => x.yearMonth === null && x.categoryId === categoryId
-  );
-  return base ? base.amount : null;
+  return row ? row.amount : null;
 }
 
 // 전체 월예산: categoryId=null 예산이 있으면 그것, 없으면 카테고리 예산 합
-export function totalBudget(budgets: Budget[], ym: string): number {
-  const overall = budgetForCategory(budgets, ym, null); // 전체 예산(카테고리 null)
+export function totalBudget(
+  budgets: Budget[],
+  versions: BudgetVersion[],
+  ym: string
+): number {
+  const overall = budgetForCategory(budgets, versions, ym, null); // 전체 예산(구버전)
   if (overall !== null) return overall;
-  const catIds = new Set(
-    budgets.filter((x) => x.categoryId !== null).map((x) => x.categoryId!)
-  );
   let sum = 0;
-  for (const id of catIds) {
-    const v = budgetForCategory(budgets, ym, id);
-    if (v !== null) sum += v;
+  for (const b of budgetsOfMonth(budgets, versions, ym)) {
+    if (b.categoryId !== null) sum += b.amount;
   }
   return sum;
 }
@@ -62,13 +104,14 @@ export function totalBudget(budgets: Budget[], ym: string): number {
 // 지출 계정과목에 걸린 예산만 더한다(전체 월예산 행은 세지 않는다).
 export function categoryBudgetTotal(
   budgets: Budget[],
+  versions: BudgetVersion[],
   categories: Category[],
   ym: string
 ): number {
   let sum = 0;
   for (const c of categories) {
     if (c.type !== "expense") continue;
-    const v = budgetForCategory(budgets, ym, c.id);
+    const v = budgetForCategory(budgets, versions, ym, c.id);
     if (v !== null) sum += v;
   }
   return sum;
@@ -98,6 +141,7 @@ function byBurn(a: BurnRow, b: BurnRow): number {
 // 예산을 안 잡은 과목도 예산 0원으로 함께 집계한다 — 쓴 돈이 어디에도 안 잡히면 안 되므로.
 export function budgetBurndown(
   budgets: Budget[],
+  versions: BudgetVersion[],
   categories: Category[],
   txns: Transaction[],
   ym: string
@@ -107,7 +151,7 @@ export function budgetBurndown(
 
   for (const category of categories) {
     if (category.type !== "expense") continue;
-    const budget = budgetForCategory(budgets, ym, category.id) ?? 0;
+    const budget = budgetForCategory(budgets, versions, ym, category.id) ?? 0;
     const spend = spendMap.get(category.id) ?? 0;
     rows.push({
       category,
@@ -203,6 +247,7 @@ export interface ReducibleItem {
 export function reducibleItems(
   txns: Transaction[],
   budgets: Budget[],
+  versions: BudgetVersion[],
   categories: Category[],
   ym: string
 ): ReducibleItem[] {
@@ -214,7 +259,7 @@ export function reducibleItems(
   for (const [catId, spend] of cur) {
     const category = categories.find((c) => c.id === catId);
     if (!category) continue;
-    const budget = budgetForCategory(budgets, ym, catId);
+    const budget = budgetForCategory(budgets, versions, ym, catId);
     const prevSpend = prev.get(catId) ?? 0;
     const reasons: string[] = [];
     let overBy = 0;

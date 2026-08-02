@@ -116,11 +116,24 @@ export interface Transaction {
   createdAt: string; // ISO timestamp. 같은 날짜 안의 입력 순서용(신규 저장 시 repo가 채움)
 }
 
+// 예산 기준선. 매주 가족회의로 갱신되므로 버전으로 묶어 과거를 보존한다.
+export interface BudgetVersion {
+  id: string;
+  name: string;
+  startMonth: string; // "YYYY-MM". 이 달부터 다음 버전 직전까지 적용
+  memo: string | null;
+  createdAt: string; // ISO timestamp
+}
+
+// 가장 이른 버전보다 앞선 달을 조회할 때의 폴백 기준 + v1 시작월
+export const FIRST_BUDGET_MONTH = "2026-06";
+
 export interface Budget {
   id: string;
-  yearMonth: string | null; // null = 기본 예산(매달 적용), "YYYY-MM" = 그 달 오버라이드
-  categoryId: string | null; // null = 전체 예산
+  yearMonth: string | null; // (구) 이번 달 조정. 버전 도입으로 미사용 — 컬럼·값만 보존
+  categoryId: string | null; // null = 전체 예산(구버전)
   amount: number;
+  versionId: string | null; // 어느 예산 버전에 속하는가
 }
 
 export interface Goal {
@@ -437,6 +450,7 @@ export interface DataSnapshot {
   recurring: RecurringExpense[];
   transactions: Transaction[];
   budgets: Budget[];
+  budgetVersions: BudgetVersion[];
   goals: Goal[];
   localCurrencies: LocalCurrency[];
   rewardRules: RewardRule[];

@@ -25,13 +25,13 @@ type NumRow = {
 };
 
 export default function YearPnl() {
-  const { transactions, categories, budgets, categoryById } = useData();
+  const { transactions, categories, budgets, budgetVersions, categoryById } = useData();
   const [year, setYear] = useState(() => Number(currentYearMonth().slice(0, 4)));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const y: YearPnl = useMemo(
-    () => computeYearPnl(transactions, categoryById, budgets, categories, year),
-    [transactions, categoryById, budgets, categories, year]
+    () => computeYearPnl(transactions, categoryById, budgets, budgetVersions, categories, year),
+    [transactions, categoryById, budgets, budgetVersions, categories, year]
   );
 
   // 올해를 보면 이번 달이 바로 보이게 가로 스크롤을 맞춘다.
@@ -163,8 +163,8 @@ export default function YearPnl() {
       </Card>
 
       <p className="px-1 text-[11px] text-stone">
-        지출예산 = 계정과목별 기본 예산의 합. 소진률 분자는 예산을 안 잡은 과목의 지출까지
-        포함합니다(가계부 대시보드와 같은 기준).
+        지출예산 = 그 달에 적용되는 예산 버전의 계정과목별 예산 합. 소진률 분자는 예산을
+        안 잡은 과목의 지출까지 포함합니다(가계부 대시보드와 같은 기준).
       </p>
 
       {/* 연 추이 그래프 */}

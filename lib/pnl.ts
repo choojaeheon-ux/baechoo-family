@@ -1,5 +1,6 @@
 import type {
   Budget,
+  BudgetVersion,
   Transaction,
   Category,
   PnlClass,
@@ -110,6 +111,7 @@ export function computeYearPnl(
   txns: Transaction[],
   categoryById: (id: string) => Category | undefined,
   budgets: Budget[],
+  versions: BudgetVersion[],
   categories: Category[],
   year: number
 ): YearPnl {
@@ -120,7 +122,7 @@ export function computeYearPnl(
       categoryById
     );
     // 예산·소진률은 가계부 대시보드와 같은 계산을 써서 숫자가 어긋나지 않게 한다
-    const burn = budgetBurndown(budgets, categories, txns, ym);
+    const burn = budgetBurndown(budgets, versions, categories, txns, ym);
     return {
       ym,
       summary,

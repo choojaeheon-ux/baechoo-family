@@ -13,6 +13,7 @@ import * as repo from "./repo";
 import type {
   AssetSnapshot,
   Budget,
+  BudgetVersion,
   Category,
   Coupon,
   Goal,
@@ -43,6 +44,7 @@ interface DataContextValue {
   recurring: RecurringExpense[];
   transactions: Transaction[];
   budgets: Budget[];
+  budgetVersions: BudgetVersion[];
   goals: Goal[];
   localCurrencies: LocalCurrency[];
   rewardRules: RewardRule[];
@@ -70,6 +72,14 @@ interface DataContextValue {
   removeRecurring: (id: string) => Promise<void>;
   saveBudget: (b: Budget) => Promise<void>;
   removeBudget: (id: string) => Promise<void>;
+  saveBudgetVersion: (v: BudgetVersion) => Promise<void>;
+  removeBudgetVersion: (id: string) => Promise<void>;
+  // 버전 행 + 그 버전의 예산 행 전체를 새 id로 복사한다. 새 버전 id를 돌려준다.
+  duplicateBudgetVersion: (
+    sourceId: string,
+    name: string,
+    startMonth: string
+  ) => Promise<string>;
   saveGoal: (g: Goal) => Promise<void>;
   removeGoal: (id: string) => Promise<void>;
   saveCategory: (c: Category) => Promise<void>;
@@ -119,6 +129,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgetVersions, setBudgetVersions] = useState<BudgetVersion[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [localCurrencies, setLocalCurrencies] = useState<LocalCurrency[]>([]);
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
@@ -146,6 +157,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setRecurring(snap.recurring);
     setTransactions(snap.transactions);
     setBudgets(snap.budgets);
+    setBudgetVersions(snap.budgetVersions);
     setGoals(snap.goals);
     setLocalCurrencies(snap.localCurrencies);
     setRewardRules(snap.rewardRules);
@@ -235,6 +247,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       recurring,
       transactions,
       budgets,
+      budgetVersions,
       goals,
       localCurrencies,
       rewardRules,
@@ -296,6 +309,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       removeBudget: async (id) => {
         await repo.deleteBudget(id);
         setBudgets((p) => p.filter((x) => x.id !== id));
+      },
+      saveBudgetVersion: async (v) => {
+        const saved = await repo.saveBudgetVersion(v);
+        upsertLocal(setBudgetVersions, saved);
+      },
+      removeBudgetVersion: async (id) => {
+        // 예산 행을 먼저 지운다 — 버전만 지우면 고아 행이 남는다.
+        for (const b of budgets.filter((x) => x.versionId === id)) {
+          await repo.deleteBudget(b.id);
+        }
+        setBudgets((p) => p.filter((x) => x.versionId !== id));
+        await repo.deleteBudgetVersion(id);
+        setBudgetVersions((p) => p.filter((x) => x.id !== id));
+      },
+      duplicateBudgetVersion: async (sourceId, name, startMonth) => {
+        const saved = await repo.saveBudgetVersion({
+          id: "",
+          name,
+          startMonth,
+          memo: null,
+          createdAt: new Date().toISOString(),
+        });
+        upsertLocal(setBudgetVersions, saved);
+        for (const b of budgets.filter((x) => x.versionId === sourceId)) {
+          // budgets.id는 uuid 타입이라 슬러그를 넣으면 400 22P02가 난다.
+          const copy = await repo.saveBudget({ ...b, id: "", versionId: saved.id });
+          upsertLocal(setBudgets, copy);
+        }
+        return saved.id;
       },
       saveGoal: async (g) => {
         const saved = await repo.saveGoal(g);
@@ -457,6 +499,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       recurring,
       transactions,
       budgets,
+      budgetVersions,
       goals,
       localCurrencies,
       rewardRules,

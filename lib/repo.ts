@@ -10,6 +10,7 @@ import {
 import type {
   AssetSnapshot,
   Budget,
+  BudgetVersion,
   Category,
   Coupon,
   DataSnapshot,
@@ -43,6 +44,7 @@ import type {
   CategoryGroup,
   HealthTodoKind,
 } from "./types";
+import { FIRST_BUDGET_MONTH } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
 
@@ -100,6 +102,26 @@ function normalizeFamilyEvent(x: FamilyEvent): FamilyEvent {
   return x;
 }
 
+// localStorage에는 마이그레이션이 닿지 않는다 — 버전이 하나도 없으면
+// v1을 만들어 기존 예산을 전부 붙인다(클라우드 0025와 같은 결과).
+function normalizeBudgetVersions(
+  versions: BudgetVersion[],
+  budgets: Budget[]
+): { versions: BudgetVersion[]; budgets: Budget[] } {
+  if (versions.length > 0) return { versions, budgets };
+  const v1: BudgetVersion = {
+    id: "bv-1",
+    name: "v1",
+    startMonth: FIRST_BUDGET_MONTH,
+    memo: null,
+    createdAt: "",
+  };
+  return {
+    versions: [v1],
+    budgets: budgets.map((b) => (b.versionId ? b : { ...b, versionId: v1.id })),
+  };
+}
+
 /* ───────────── localStorage 어댑터 ───────────── */
 
 function lsRead(): DataSnapshot {
@@ -114,17 +136,23 @@ function lsRead(): DataSnapshot {
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
         eventCategories: SEED_EVENT_CATEGORIES,
+        budgetVersions: [],
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
     }
     const parsed = JSON.parse(raw) as Partial<DataSnapshot>;
+    const budgetsAndVersions = normalizeBudgetVersions(
+      parsed.budgetVersions ?? [],
+      parsed.budgets ?? []
+    );
     return {
       categories: (parsed.categories ?? []).map(normalizeCategory),
       paymentMethods: parsed.paymentMethods ?? SEED_PAYMENT_METHODS,
       recurring: parsed.recurring ?? [],
       transactions: (parsed.transactions ?? []).map(normalizeTxn),
-      budgets: parsed.budgets ?? [],
+      budgets: budgetsAndVersions.budgets,
+      budgetVersions: budgetsAndVersions.versions,
       goals: parsed.goals ?? [],
       localCurrencies: parsed.localCurrencies ?? [],
       rewardRules: parsed.rewardRules ?? [],
@@ -160,6 +188,7 @@ function emptySnapshot(): DataSnapshot {
     recurring: [],
     transactions: [],
     budgets: [],
+    budgetVersions: [],
     goals: [],
     localCurrencies: [],
     rewardRules: [],
@@ -300,12 +329,29 @@ const toBudget = (r: Record<string, unknown>): Budget => ({
   yearMonth: (r.year_month as string) ?? null,
   categoryId: (r.category_id as string) ?? null,
   amount: Number(r.amount),
+  versionId: (r.version_id as string) ?? null,
 });
 const fromBudget = (x: Budget) => ({
   id: x.id,
   year_month: x.yearMonth,
   category_id: x.categoryId,
   amount: x.amount,
+  version_id: x.versionId,
+});
+
+const toBudgetVersion = (r: Record<string, unknown>): BudgetVersion => ({
+  id: r.id as string,
+  name: r.name as string,
+  startMonth: r.start_month as string,
+  memo: (r.memo as string) ?? null,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromBudgetVersion = (x: BudgetVersion) => ({
+  id: x.id,
+  name: x.name,
+  start_month: x.startMonth,
+  memo: x.memo,
+  created_at: x.createdAt || null,
 });
 
 const toLc = (r: Record<string, unknown>): LocalCurrency => ({
@@ -651,6 +697,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     recs,
     txns,
     buds,
+    bvs,
     goals,
     lcs,
     rules,
@@ -674,6 +721,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("recurring_expenses").select("*"),
     sb.from("transactions").select("*"),
     sb.from("budgets").select("*"),
+    sb.from("budget_versions").select("*"),
     sb.from("goals").select("*"),
     sb.from("local_currencies").select("*"),
     sb.from("reward_rules").select("*"),
@@ -719,12 +767,41 @@ export async function loadAll(): Promise<DataSnapshot> {
     await sb.from("event_categories").insert(SEED_EVENT_CATEGORIES.map(fromEventCategory));
     eventCategories = SEED_EVENT_CATEGORIES;
   }
+
+  // budget_versions: 에러 없이 0행이면 다른 시드와 같은 패턴으로 v1을 만든다
+  // (0025 마이그레이션과 같은 결과 — 기존 예산 중 version_id가 비어 있던 행도 v1으로 백필).
+  // 에러(테이블 없음 등)면 v1을 합성하지 않는다 — localStorage 경로처럼 조용히 v1을
+  // 지어내면 클라우드에서 진짜 장애가 났을 때도 예산이 있는 것처럼 보인다. 잘못된 값을
+  // 보여주는 것보다 눈에 띄게 비어 있는 편이 낫다. 대신 콘솔에 원인을 남긴다.
+  let budgets = (buds.data ?? []).map(toBudget);
+  let budgetVersions: BudgetVersion[];
+  if (bvs.error) {
+    console.error("[repo.loadAll] budget_versions 조회 실패:", bvs.error);
+    budgetVersions = [];
+  } else {
+    budgetVersions = (bvs.data ?? []).map(toBudgetVersion);
+    if (budgetVersions.length === 0) {
+      const v1: BudgetVersion = {
+        id: "bv-1",
+        name: "v1",
+        startMonth: FIRST_BUDGET_MONTH,
+        memo: null,
+        createdAt: "",
+      };
+      await sb.from("budget_versions").insert(fromBudgetVersion(v1));
+      budgetVersions = [v1];
+      await sb.from("budgets").update({ version_id: v1.id }).is("version_id", null);
+      budgets = budgets.map((b) => (b.versionId ? b : { ...b, versionId: v1.id }));
+    }
+  }
+
   return {
     categories,
     paymentMethods,
     recurring: (recs.data ?? []).map(toRec),
     transactions: (txns.data ?? []).map(toTxn),
-    budgets: (buds.data ?? []).map(toBudget),
+    budgets,
+    budgetVersions,
     goals: (goals.data ?? []).map(toGoal),
     localCurrencies: (lcs.data ?? []).map(toLc),
     rewardRules: (rules.data ?? []).map(toRule),
@@ -747,6 +824,14 @@ export async function loadAll(): Promise<DataSnapshot> {
 
 async function sbUpsert(table: string, row: Record<string, unknown>) {
   await getSupabase()!.from(table).upsert(row);
+}
+// sbUpsert는 error를 버려 실패가 조용한 유실이 된다(저장소 전반의 기존 패턴 —
+// 여기서 전역으로 바꾸지 않는다). 예산 버전은 버전 1행 + 예산 N행을 순차로 쓰는
+// 다중 쓰기의 첫 단계라 실패를 삼키면 이후 행이 전부 FK 위반으로 죽어도 화면엔
+// 완전한 버전이 그려진다. 그 경로(saveBudgetVersion·saveBudget)에서만 던진다.
+async function sbUpsertOrThrow(table: string, row: Record<string, unknown>) {
+  const { error } = await getSupabase()!.from(table).upsert(row);
+  if (error) throw error;
 }
 async function sbDelete(table: string, id: string) {
   await getSupabase()!.from(table).delete().eq("id", id);
@@ -810,13 +895,24 @@ export async function deleteTransaction(id: string) {
 
 export async function saveBudget(x: Budget): Promise<Budget> {
   const row = { ...x, id: x.id || newId() };
-  if (hasSupabase) await sbUpsert("budgets", fromBudget(row));
+  if (hasSupabase) await sbUpsertOrThrow("budgets", fromBudget(row));
   else lsUpsert("budgets", row);
   return row;
 }
 export async function deleteBudget(id: string) {
   if (hasSupabase) await sbDelete("budgets", id);
   else lsDelete("budgets", id);
+}
+
+export async function saveBudgetVersion(x: BudgetVersion): Promise<BudgetVersion> {
+  const row = { ...x, id: x.id || "bv-" + newId() };
+  if (hasSupabase) await sbUpsertOrThrow("budget_versions", fromBudgetVersion(row));
+  else lsUpsert("budgetVersions", row);
+  return row;
+}
+export async function deleteBudgetVersion(id: string) {
+  if (hasSupabase) await sbDelete("budget_versions", id);
+  else lsDelete("budgetVersions", id);
 }
 
 export async function saveAssetSnapshot(x: AssetSnapshot): Promise<AssetSnapshot> {

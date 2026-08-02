@@ -2,25 +2,18 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import {
-  categoryBudgetTotal,
-  monthTransactions,
-  spendByCategory,
-  budgetForCategory,
-} from "@/lib/compute";
-import { won, ymLabel } from "@/lib/format";
-import { Card, SectionTitle, Empty, ProgressBar, Pill, Accordion } from "./ui";
-import { BudgetForm, GoalForm, CategoryForm, PaymentMethodForm } from "./forms";
+import { Card, SectionTitle, Empty, ProgressBar, Accordion } from "./ui";
+import { GoalForm, CategoryForm, PaymentMethodForm } from "./forms";
 import {
   COST_TYPE_LABEL,
   PAYMENT_KIND_LABEL,
   TX_TYPE_COLOR,
   UNGROUPED,
-  type Budget,
   type Category,
   type Goal,
   type PaymentMethod,
 } from "@/lib/types";
+import { won } from "@/lib/format";
 
 const PAYMENT_KIND_ICON: Record<PaymentMethod["kind"], string> = {
   card: "💳",
@@ -28,18 +21,8 @@ const PAYMENT_KIND_ICON: Record<PaymentMethod["kind"], string> = {
   account: "🏦",
 };
 
-export default function Plans({ ym }: { ym: string }) {
-  const {
-    budgets,
-    goals,
-    categories,
-    paymentMethods,
-    transactions,
-    categoryById,
-    removeBudget,
-  } = useData();
-  const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetInitial, setBudgetInitial] = useState<Budget | undefined>(undefined);
+export default function Plans() {
+  const { goals, categories, paymentMethods } = useData();
   const [goalOpen, setGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [catOpen, setCatOpen] = useState(false);
@@ -47,155 +30,8 @@ export default function Plans({ ym }: { ym: string }) {
   const [pmOpen, setPmOpen] = useState(false);
   const [editPm, setEditPm] = useState<PaymentMethod | null>(null);
 
-  const baseBudgets = budgets.filter((b) => b.yearMonth === null);
-  const baseOverall = baseBudgets.find((b) => b.categoryId === null);
-  const baseCats = baseBudgets.filter((b) => b.categoryId !== null);
-  const overrides = budgets.filter((b) => b.yearMonth === ym);
-  const spend = spendByCategory(monthTransactions(transactions, ym));
-
-  const openNew = () => {
-    setBudgetInitial(undefined);
-    setBudgetOpen(true);
-  };
-  const openEdit = (bud: Budget) => {
-    setBudgetInitial(bud);
-    setBudgetOpen(true);
-  };
-
   return (
     <div className="space-y-1 pb-4">
-      {/* 계정과목별 기본 예산 */}
-      <SectionTitle
-        right={
-          <button onClick={openNew} className="text-xs font-semibold text-leaf">
-            + 설정
-          </button>
-        }
-      >
-        계정 과목 예산 · 매달 적용
-      </SectionTitle>
-      <Card className="space-y-3">
-        {baseOverall && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-stone">
-              전체 월예산 (구버전 · 소진률 계산에 쓰이지 않음)
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm tabular text-ink">{won(baseOverall.amount)}</span>
-              <button
-                onClick={() => {
-                  if (window.confirm("전체 월예산(기본)을 삭제할까요? 매달 적용이 사라집니다."))
-                    removeBudget(baseOverall.id);
-                }}
-                className="text-xs text-coral"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        )}
-        {baseCats.length === 0 && !baseOverall ? (
-          <Empty>
-            계정 과목별 기본 예산을 설정해 보세요
-            <br />
-            (한 번 설정하면 매달 적용됩니다)
-          </Empty>
-        ) : (
-          baseCats.map((bud) => {
-            const cat = categoryById(bud.categoryId!);
-            const applied = budgetForCategory(budgets, ym, bud.categoryId!) ?? bud.amount;
-            const used = spend.get(bud.categoryId!) ?? 0;
-            return (
-              <div key={bud.id}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink">
-                    <span className="truncate">
-                      {cat?.groupName && (
-                        <span className="text-stone">{cat.groupName} · </span>
-                      )}
-                      {cat?.name}
-                    </span>
-                    {cat?.costType && (
-                      <Pill tone={cat.costType === "fixed" ? "sky" : "stone"}>
-                        {COST_TYPE_LABEL[cat.costType]}
-                      </Pill>
-                    )}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-stone">
-                      {won(used)} / {won(bud.amount)}
-                    </span>
-                    <button onClick={() => openEdit(bud)} className="text-xs text-leaf">
-                      수정
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `${cat?.name ?? "이"} 기본 예산을 삭제할까요? 매달 적용이 사라집니다.`
-                          )
-                        )
-                          removeBudget(bud.id);
-                      }}
-                      className="text-xs text-coral"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </div>
-                <ProgressBar value={used} max={applied} />
-              </div>
-            );
-          })
-        )}
-        <div className="border-t border-line pt-2 text-right text-xs text-stone">
-          {ymLabel(ym)} 적용 합계 {won(categoryBudgetTotal(budgets, categories, ym))}
-        </div>
-      </Card>
-
-      {/* 이번 달 조정 */}
-      {overrides.length > 0 && (
-        <>
-          <SectionTitle>{ymLabel(ym)} 이번 달 조정</SectionTitle>
-          <Card className="space-y-2">
-            {overrides.map((ov) => {
-              const label =
-                ov.categoryId === null
-                  ? "전체 월예산"
-                  : categoryById(ov.categoryId)?.name ?? "계정 과목";
-              const base = baseBudgets.find((b) => b.categoryId === ov.categoryId);
-              return (
-                <div key={ov.id} className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-ink">
-                    {label}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm tabular text-ink">{won(ov.amount)}</span>
-                    {base && (
-                      <span className="text-xs text-stone">(기본 {won(base.amount)})</span>
-                    )}
-                    <button onClick={() => openEdit(ov)} className="text-xs text-leaf">
-                      수정
-                    </button>
-                    <button
-                      onClick={() => {
-                        const msg = base
-                          ? `${label} 이번 달 조정을 취소하고 기본 예산(${won(base.amount)})으로 되돌릴까요?`
-                          : `${label} 예산을 삭제할까요? 되돌릴 기본 예산이 없어 완전히 삭제됩니다.`;
-                        if (window.confirm(msg)) removeBudget(ov.id);
-                      }}
-                      className={`text-xs ${base ? "text-leaf" : "text-coral"}`}
-                    >
-                      {base ? "기본으로 되돌리기" : "삭제"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
-        </>
-      )}
-
       {/* 연간 목표 */}
       <SectionTitle
         right={
@@ -386,14 +222,6 @@ export default function Plans({ ym }: { ym: string }) {
         )}
       </Card>
 
-      {budgetOpen && (
-        <BudgetForm
-          open={budgetOpen}
-          onClose={() => setBudgetOpen(false)}
-          ym={ym}
-          initial={budgetInitial}
-        />
-      )}
       {goalOpen && (
         <GoalForm
           open={goalOpen}

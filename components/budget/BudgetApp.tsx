@@ -10,14 +10,16 @@ import Dashboard from "./Dashboard";
 import Transactions from "./Transactions";
 import FixedExpenses from "./FixedExpenses";
 import LocalCurrencies from "./LocalCurrencies";
+import BudgetVersions from "./BudgetVersions";
 
-export type Tab = "home" | "list" | "voucher" | "fixed";
+export type Tab = "home" | "list" | "voucher" | "fixed" | "budget";
 
 const SUBTABS: { id: Tab; label: string }[] = [
   { id: "home", label: "대시보드" },
   { id: "list", label: "거래내역" },
   { id: "voucher", label: "지역화폐" },
   { id: "fixed", label: "고정지출" },
+  { id: "budget", label: "예산" },
 ];
 
 export default function BudgetApp() {
@@ -88,7 +90,11 @@ export default function BudgetApp() {
         ) : (
           <>
             {tab === "home" && (
-              <Dashboard ym={ym} onGotoCategory={gotoCategory} />
+              <Dashboard
+                ym={ym}
+                onGotoCategory={gotoCategory}
+                onGotoBudget={() => goto("budget")}
+              />
             )}
             {tab === "list" && (
               // key로 다시 마운트시켜야 넘겨준 필터가 반영된다.
@@ -101,6 +107,7 @@ export default function BudgetApp() {
             )}
             {tab === "voucher" && <LocalCurrencies ym={ym} />}
             {tab === "fixed" && <FixedExpenses ym={ym} />}
+            {tab === "budget" && <BudgetVersions key={ym} ym={ym} />}
           </>
         )}
       </div>

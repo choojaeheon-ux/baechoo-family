@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { classifyTx, computePnl, buildWaterfall, computeYearPnl } from "./pnl";
-import type { Budget, Transaction, Category } from "./types";
+import type { Budget, BudgetVersion, Transaction, Category } from "./types";
 
 function tx(over: Partial<Transaction>): Transaction {
   return {
@@ -127,9 +127,13 @@ describe("computeYearPnl — 연간 P&L 표", () => {
     cat("acc-food", "expense", "variable"),
   ];
   const byId = (id: string) => cats.find((c) => c.id === id);
+  // 단일 버전 — 버전 해석 자체는 compute.test.ts에서 따로 검증한다
+  const versions: BudgetVersion[] = [
+    { id: "bv-a", name: "v1", startMonth: "2026-01", memo: null, createdAt: "" },
+  ];
   // 기본 예산(매달 적용) 식비 500,000
   const budgets: Budget[] = [
-    { id: "b1", yearMonth: null, categoryId: "acc-food", amount: 500_000 },
+    { id: "b1", yearMonth: null, categoryId: "acc-food", amount: 500_000, versionId: "bv-a" },
   ];
 
   const txns = [
@@ -142,7 +146,7 @@ describe("computeYearPnl — 연간 P&L 표", () => {
     tx({ id: "6", date: "2025-01-10", type: "income", categoryId: "acc-salary", amount: 9_000_000 }),
   ];
 
-  const y = computeYearPnl(txns, byId, budgets, cats, 2026);
+  const y = computeYearPnl(txns, byId, budgets, versions, cats, 2026);
 
   it("12개월을 1월부터 만든다", () => {
     expect(y.months).toHaveLength(12);
@@ -182,7 +186,7 @@ describe("computeYearPnl — 연간 P&L 표", () => {
   });
 
   it("예산이 없으면 소진률은 null (0%로 위장하지 않는다)", () => {
-    const z = computeYearPnl(txns, byId, [], cats, 2026);
+    const z = computeYearPnl(txns, byId, [], versions, cats, 2026);
     expect(z.months[0].burnPct).toBeNull();
     expect(z.burnPct).toBeNull();
   });

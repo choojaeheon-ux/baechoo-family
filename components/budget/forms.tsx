@@ -8,6 +8,7 @@ import {
   PAYMENT_KIND_LABEL,
   RECURRING_KIND_LABEL,
   type Budget,
+  type BudgetVersion,
   type Category,
   type CostType,
   type Goal,
@@ -19,7 +20,7 @@ import {
   type Transaction,
   type TxType,
 } from "@/lib/types";
-import { todayISO, won, ymLabel } from "@/lib/format";
+import { currentYearMonth, shiftMonth, todayISO, won } from "@/lib/format";
 import { Field, inputCls, PrimaryButton, Sheet } from "./ui";
 
 /* ───────── 거래 입력 ─────────
@@ -390,12 +391,12 @@ export function RecurringForm({
 export function BudgetForm({
   open,
   onClose,
-  ym,
+  versionId,
   initial,
 }: {
   open: boolean;
   onClose: () => void;
-  ym: string;
+  versionId: string;
   initial?: Budget;
 }) {
   const { categories, budgets, saveBudget } = useData();
@@ -405,9 +406,6 @@ export function BudgetForm({
   const [scope, setScope] = useState<string>(
     initial ? (initial.categoryId ?? "__all__") : ""
   );
-  const [range, setRange] = useState<"base" | "month">(
-    initial ? (initial.yearMonth === null ? "base" : "month") : "base"
-  );
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
 
   const amt = Number(amount.replace(/[^0-9]/g, ""));
@@ -416,16 +414,17 @@ export function BudgetForm({
   async function submit() {
     if (!valid) return;
     const categoryId = scope === "__all__" ? null : scope;
-    const targetYm = range === "base" ? null : ym;
+    // 같은 버전 안에서 같은 과목의 행은 하나뿐이다.
     const existing = budgets.find(
-      (b) => b.yearMonth === targetYm && b.categoryId === categoryId
+      (b) => b.versionId === versionId && b.categoryId === categoryId
     );
     await saveBudget({
       id: existing?.id ?? "",
-      yearMonth: targetYm,
+      yearMonth: null,
       categoryId,
       amount: amt,
-    } as Budget);
+      versionId,
+    });
     setAmount("");
     onClose();
   }
@@ -448,22 +447,6 @@ export function BudgetForm({
           ))}
         </select>
       </Field>
-      <Field label="적용 범위">
-        <div className="flex gap-1">
-          {(["base", "month"] as const).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
-                range === r ? "bg-leaf text-white" : "bg-card border border-line text-stone"
-              }`}
-            >
-              {r === "base" ? "기본 예산 (매달)" : `이번 달만 (${ymLabel(ym)})`}
-            </button>
-          ))}
-        </div>
-      </Field>
       <Field label="예산 금액">
         <input
           className={inputCls + " text-right tabular"}
@@ -478,6 +461,127 @@ export function BudgetForm({
           저장
         </PrimaryButton>
       </div>
+    </Sheet>
+  );
+}
+
+/* ───────── 예산 버전 ───────── */
+export function BudgetVersionForm({
+  open,
+  onClose,
+  initial,
+  duplicateFrom,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: BudgetVersion; // 수정
+  duplicateFrom?: BudgetVersion; // 복제 — 이 버전의 예산 행까지 복사한다
+  onCreated?: (id: string) => void; // 복제로 새로 생긴 버전 id — 호출부가 선택을 옮긴다
+}) {
+  const { budgetVersions, budgets, saveBudgetVersion, removeBudgetVersion, duplicateBudgetVersion } =
+    useData();
+  const [name, setName] = useState(
+    initial?.name ?? (duplicateFrom ? `${duplicateFrom.name} 복사본` : "")
+  );
+  const [startMonth, setStartMonth] = useState(
+    initial?.startMonth ?? shiftMonth(currentYearMonth(), 1)
+  );
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  const valid = name.trim() !== "" && /^\d{4}-\d{2}$/.test(startMonth);
+
+  // 이미 적용된 버전은 지울 수 없다 — 지난 달의 숫자가 통째로 바뀐다.
+  const started = !!initial && initial.startMonth <= currentYearMonth();
+  const canDelete = !!initial && !started && budgetVersions.length > 1;
+  const rowCount = initial
+    ? budgets.filter((b) => b.versionId === initial.id).length
+    : 0;
+
+  async function submit() {
+    if (!valid || saving) return;
+    setSaving(true);
+    setSaveError(false);
+    try {
+      if (duplicateFrom) {
+        const id = await duplicateBudgetVersion(duplicateFrom.id, name.trim(), startMonth);
+        onCreated?.(id);
+      } else {
+        await saveBudgetVersion({
+          id: initial?.id ?? "",
+          name: name.trim(),
+          startMonth,
+          memo: initial?.memo ?? null,
+          createdAt: initial?.createdAt ?? new Date().toISOString(),
+        });
+      }
+      onClose();
+    } catch (err) {
+      // 버전 insert 실패는 예산 행까지 연쇄로 실패한다 — 조용히 닫지 않고 시트를 열어둔다.
+      console.error("예산 버전 저장 실패:", err);
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={duplicateFrom ? "예산 버전 복제" : initial ? "예산 버전 수정" : "예산 버전 추가"}
+    >
+      <Field label="이름">
+        <input
+          className={inputCls}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예: 8월 기준"
+        />
+      </Field>
+      <Field label="시작 월">
+        <input
+          type="month"
+          className={inputCls}
+          value={startMonth}
+          onChange={(e) => setStartMonth(e.target.value)}
+        />
+      </Field>
+      {saveError && (
+        <p className="mb-2 text-xs text-coral">
+          저장에 실패했어요. 다시 시도해 주세요.
+        </p>
+      )}
+      <PrimaryButton onClick={submit} disabled={!valid || saving}>
+        {duplicateFrom ? "복제" : "저장"}
+      </PrimaryButton>
+      {initial && (
+        <button
+          type="button"
+          disabled={!canDelete}
+          onClick={() => {
+            if (
+              window.confirm(
+                `${initial.name} 버전과 그 안의 예산 ${rowCount}건을 삭제할까요?`
+              )
+            ) {
+              removeBudgetVersion(initial.id)
+                .then(onClose)
+                .catch((err) => console.error("버전 삭제 실패:", err));
+            }
+          }}
+          className={`mt-3 w-full py-2 text-sm ${
+            canDelete ? "text-coral" : "text-stone/50"
+          }`}
+        >
+          {canDelete
+            ? "버전 삭제"
+            : budgetVersions.length <= 1
+              ? "마지막 버전은 삭제할 수 없어요"
+              : "이미 적용된 버전은 삭제할 수 없어요"}
+        </button>
+      )}
     </Sheet>
   );
 }
