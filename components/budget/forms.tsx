@@ -402,8 +402,11 @@ export function BudgetForm({
   );
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
 
-  const amt = Number(amount.replace(/[^0-9]/g, ""));
-  const valid = amt > 0 && scope !== "";
+  // 0원 예산을 허용한다 — 예산은 안 잡되 거래 입력 목록에는 띄우려는 과목이 있다.
+  // 빈 칸은 Number("")가 0이라 그냥 통과하므로 숫자가 하나라도 있는지로 가른다.
+  const digits = amount.replace(/[^0-9]/g, "");
+  const amt = Number(digits);
+  const valid = digits !== "" && scope !== "";
 
   async function submit() {
     if (!valid) return;
