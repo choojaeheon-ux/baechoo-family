@@ -112,6 +112,7 @@ export function TransactionForm({
           type={type}
           value={categoryId}
           onChange={setCategoryId}
+          budgetedOnly
         />
       </Field>
       <Field label="금액">
