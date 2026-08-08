@@ -13,7 +13,7 @@ import {
 import type { Budget, BudgetVersion, Category, CostType, Transaction } from "./types";
 
 const b = (yearMonth: string | null, categoryId: string | null, amount: number): Budget =>
-  ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount, versionId: "bv-a" });
+  ({ id: `${yearMonth}-${categoryId}`, yearMonth, categoryId, amount, versionId: "bv-a", sortOrder: null });
 
 // 이 파일 전체가 쓰는 단일 버전 — 버전 해석 자체는 resolveVersion·budgetsOfMonth describe에서 따로 검증한다
 const V1: BudgetVersion[] = [
@@ -69,9 +69,9 @@ describe("budgetForCategory — 버전이 갈리면 달마다 다른 금액", ()
     { id: "bv-b", name: "v2", startMonth: "2026-08", memo: null, createdAt: "" },
   ];
   const budgets: Budget[] = [
-    { id: "b1", yearMonth: null, categoryId: "cat-x", amount: 12345, versionId: "bv-a" },
-    { id: "b2", yearMonth: null, categoryId: "cat-y", amount: 23456, versionId: "bv-a" },
-    { id: "b3", yearMonth: null, categoryId: "cat-x", amount: 34567, versionId: "bv-b" },
+    { id: "b1", yearMonth: null, categoryId: "cat-x", amount: 12345, versionId: "bv-a", sortOrder: null },
+    { id: "b2", yearMonth: null, categoryId: "cat-y", amount: 23456, versionId: "bv-a", sortOrder: null },
+    { id: "b3", yearMonth: null, categoryId: "cat-x", amount: 34567, versionId: "bv-b", sortOrder: null },
   ];
 
   it("7월은 v1 금액", () => {
@@ -296,9 +296,9 @@ describe("budgetsOfMonth — 그 달 버전의 예산 행만", () => {
   });
   const versions = [v("bv-a", "2026-06"), v("bv-b", "2026-08")];
   const budgets: Budget[] = [
-    { id: "b1", yearMonth: null, categoryId: "cat-x", amount: 12345, versionId: "bv-a" },
-    { id: "b2", yearMonth: null, categoryId: "cat-y", amount: 23456, versionId: "bv-a" },
-    { id: "b3", yearMonth: null, categoryId: "cat-x", amount: 34567, versionId: "bv-b" },
+    { id: "b1", yearMonth: null, categoryId: "cat-x", amount: 12345, versionId: "bv-a", sortOrder: null },
+    { id: "b2", yearMonth: null, categoryId: "cat-y", amount: 23456, versionId: "bv-a", sortOrder: null },
+    { id: "b3", yearMonth: null, categoryId: "cat-x", amount: 34567, versionId: "bv-b", sortOrder: null },
   ];
 
   it("적용 버전의 행만 남는다", () => {

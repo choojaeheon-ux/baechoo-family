@@ -330,6 +330,7 @@ const toBudget = (r: Record<string, unknown>): Budget => ({
   categoryId: (r.category_id as string) ?? null,
   amount: Number(r.amount),
   versionId: (r.version_id as string) ?? null,
+  sortOrder: r.sort_order === null || r.sort_order === undefined ? null : Number(r.sort_order),
 });
 const fromBudget = (x: Budget) => ({
   id: x.id,
@@ -337,6 +338,7 @@ const fromBudget = (x: Budget) => ({
   category_id: x.categoryId,
   amount: x.amount,
   version_id: x.versionId,
+  sort_order: x.sortOrder,
 });
 
 const toBudgetVersion = (r: Record<string, unknown>): BudgetVersion => ({
