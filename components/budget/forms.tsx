@@ -22,6 +22,7 @@ import {
 } from "@/lib/types";
 import { currentYearMonth, shiftMonth, todayISO, won } from "@/lib/format";
 import { Field, inputCls, PrimaryButton, Sheet } from "./ui";
+import CategoryPicker from "./CategoryPicker";
 
 /* ───────── 거래 입력 ─────────
    입력 순서: 지출/수입 → 계정 과목 → 금액 → 거래처 → 내용 → 결제 수단 → 날짜
@@ -106,19 +107,12 @@ export function TransactionForm({
       />
       <div className="h-3" />
       <Field label="계정 과목">
-        <select
-          className={inputCls}
+        <CategoryPicker
+          key={type}
+          type={type}
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-        >
-          <option value="">선택하세요</option>
-          {cats.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.groupName ? `${c.groupName} · ` : ""}
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={setCategoryId}
+        />
       </Field>
       <Field label="금액">
         <input
@@ -399,8 +393,7 @@ export function BudgetForm({
   versionId: string;
   initial?: Budget;
 }) {
-  const { categories, budgets, saveBudget } = useData();
-  const cats = categories.filter((c) => c.type === "expense");
+  const { budgets, saveBudget } = useData();
   // 구버전 "전체 월예산"(categoryId=null) 행을 편집할 때만 그 선택지를 남긴다.
   const legacyOverall = !!initial && initial.categoryId === null;
   const [scope, setScope] = useState<string>(
@@ -418,12 +411,18 @@ export function BudgetForm({
     const existing = budgets.find(
       (b) => b.versionId === versionId && b.categoryId === categoryId
     );
+    // 새 행은 목록 맨 뒤. 같은 카테고리 옆에 끼워 넣지 않는다 — 「순서 편집」으로 옮긴다.
+    // undefined도 "순서 없음"으로 본다(느슨한 비교) — localStorage 구버전 행 방어.
+    const maxOrder = budgets
+      .filter((b) => b.versionId === versionId && b.sortOrder != null)
+      .reduce((m, b) => Math.max(m, b.sortOrder!), -1);
     await saveBudget({
       id: existing?.id ?? "",
       yearMonth: null,
       categoryId,
       amount: amt,
       versionId,
+      sortOrder: existing ? existing.sortOrder : maxOrder + 1,
     });
     setAmount("");
     onClose();
@@ -432,20 +431,14 @@ export function BudgetForm({
   return (
     <Sheet open={open} onClose={onClose} title="계정 과목 예산 설정">
       <Field label="계정 과목">
-        <select
-          className={inputCls}
+        <CategoryPicker
+          type="expense"
           value={scope}
-          onChange={(e) => setScope(e.target.value)}
-        >
-          <option value="">선택하세요</option>
-          {legacyOverall && <option value="__all__">전체 월예산 (구버전)</option>}
-          {cats.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.groupName ? `${c.groupName} · ` : ""}
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={setScope}
+          extraOption={
+            legacyOverall ? { value: "__all__", label: "전체 월예산 (구버전)" } : undefined
+          }
+        />
       </Field>
       <Field label="예산 금액">
         <input

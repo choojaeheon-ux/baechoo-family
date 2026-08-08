@@ -134,6 +134,7 @@ export interface Budget {
   categoryId: string | null; // null = 전체 예산(구버전)
   amount: number;
   versionId: string | null; // 어느 예산 버전에 속하는가
+  sortOrder: number | null; // 그 버전 안에서 사람이 정한 표시 순서. 없으면 자동 정렬 뒤로
 }
 
 export interface Goal {

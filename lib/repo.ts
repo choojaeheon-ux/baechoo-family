@@ -67,6 +67,12 @@ function normalizeCategory(x: Category): Category {
   return { ...x, costType: x.costType ?? null, groupName: x.groupName ?? null };
 }
 
+// 구버전 localStorage 예산 승격 — sortOrder 키 자체가 없는 행은 미지정(null)으로
+// (undefined로 두면 groupBudgetsByCategory 등의 `!== null` 비교를 "순서 있음"으로 통과한다)
+function normalizeBudget(x: Budget): Budget {
+  return { ...x, sortOrder: x.sortOrder ?? null };
+}
+
 // 구버전 localStorage 측정 기록(weight만 있음)을 measureName/value/unit로 승격
 function normalizeExam(x: BaechooExam): BaechooExam {
   if (x.examType === "measure" && x.measureName == null && x.weight != null) {
@@ -144,7 +150,7 @@ function lsRead(): DataSnapshot {
     const parsed = JSON.parse(raw) as Partial<DataSnapshot>;
     const budgetsAndVersions = normalizeBudgetVersions(
       parsed.budgetVersions ?? [],
-      parsed.budgets ?? []
+      (parsed.budgets ?? []).map(normalizeBudget)
     );
     return {
       categories: (parsed.categories ?? []).map(normalizeCategory),
@@ -330,6 +336,7 @@ const toBudget = (r: Record<string, unknown>): Budget => ({
   categoryId: (r.category_id as string) ?? null,
   amount: Number(r.amount),
   versionId: (r.version_id as string) ?? null,
+  sortOrder: r.sort_order === null || r.sort_order === undefined ? null : Number(r.sort_order),
 });
 const fromBudget = (x: Budget) => ({
   id: x.id,
@@ -337,6 +344,7 @@ const fromBudget = (x: Budget) => ({
   category_id: x.categoryId,
   amount: x.amount,
   version_id: x.versionId,
+  sort_order: x.sortOrder,
 });
 
 const toBudgetVersion = (r: Record<string, unknown>): BudgetVersion => ({
