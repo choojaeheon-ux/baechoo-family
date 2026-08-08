@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
   categoryBudgetTotal,
+  groupBudgetsByCategory,
   monthTransactions,
   resolveVersion,
   spendByCategory,
 } from "@/lib/compute";
+import { moveGroup, moveSubject } from "@/lib/budgetOrder";
 import { won, ymLabel } from "@/lib/format";
 import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
 import { BudgetForm, BudgetVersionForm } from "./forms";
@@ -23,6 +25,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
     categoryById,
     transactions,
     removeBudget,
+    saveBudget,
   } = useData();
 
   const applied = resolveVersion(budgetVersions, ym);
@@ -45,22 +48,41 @@ export default function BudgetVersions({ ym }: { ym: string }) {
     !!selected && budgetVersions.some((v) => v.startMonth > selected.startMonth);
   const isApplied = !!selected && selected.id === applied?.id;
 
-  const rows = selected
-    ? budgets
-        .filter((b) => b.versionId === selected.id && b.categoryId !== null)
-        .sort((a, b) => {
-          const ca = categoryById(a.categoryId!);
-          const cb = categoryById(b.categoryId!);
-          return (
-            (ca?.groupName ?? "").localeCompare(cb?.groupName ?? "") ||
-            (ca?.name ?? "").localeCompare(cb?.name ?? "")
-          );
-        })
+  const groups = selected
+    ? groupBudgetsByCategory(
+        budgets.filter((b) => b.versionId === selected.id && b.categoryId !== null),
+        categoryById
+      )
     : [];
+  const total = groups.reduce(
+    (s, g) => s + g.rows.reduce((t, b) => t + b.amount, 0),
+    0
+  );
   const legacyOverall = selected
     ? budgets.find((b) => b.versionId === selected.id && b.categoryId === null)
     : undefined;
-  const total = rows.reduce((s, b) => s + b.amount, 0);
+
+  const [ordering, setOrdering] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // 이동 결과를 저장한다. saveBudget은 실패 시 예외를 던지므로(sbUpsertOrThrow)
+  // 낙관적으로 먼저 그리지 않고, 바뀐 행만 저장이 끝난 뒤 컨텍스트가 반영하게 둔다.
+  async function applyOrder(next: Budget[]) {
+    if (saving) return;
+    const current = new Map(
+      groups.flatMap((g) => g.rows).map((b) => [b.id, b.sortOrder])
+    );
+    const changed = next.filter((b) => current.get(b.id) !== b.sortOrder);
+    if (changed.length === 0) return;
+    setSaving(true);
+    try {
+      for (const b of changed) await saveBudget(b);
+    } catch {
+      window.alert("순서를 저장하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-1 pb-4">
@@ -115,12 +137,22 @@ export default function BudgetVersions({ ym }: { ym: string }) {
         <>
           <SectionTitle
             right={
-              <button
-                onClick={() => setBudgetForm({})}
-                className="text-xs font-semibold text-leaf"
-              >
-                + 설정
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setOrdering((v) => !v)}
+                  className="text-xs font-semibold text-stone"
+                >
+                  {ordering ? "편집 완료" : "순서 편집"}
+                </button>
+                {!ordering && (
+                  <button
+                    onClick={() => setBudgetForm({})}
+                    className="text-xs font-semibold text-leaf"
+                  >
+                    + 설정
+                  </button>
+                )}
+              </div>
             }
           >
             {selected.name} · 과목별 예산
@@ -140,7 +172,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
             </Card>
           )}
 
-          <Card className="space-y-3">
+          <Card className="space-y-4">
             {legacyOverall && (
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-stone">
@@ -162,59 +194,108 @@ export default function BudgetVersions({ ym }: { ym: string }) {
                 </div>
               </div>
             )}
-            {rows.length === 0 ? (
+            {groups.length === 0 ? (
               <Empty>이 버전에는 아직 예산이 없어요.</Empty>
             ) : (
-              rows.map((bud) => {
-                const cat = categoryById(bud.categoryId!);
-                const used = spend.get(bud.categoryId!) ?? 0;
-                return (
-                  <div key={bud.id}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink">
-                        <span className="truncate">
-                          {cat?.groupName && (
-                            <span className="text-stone">{cat.groupName} · </span>
-                          )}
-                          {cat?.name}
-                        </span>
-                        {cat?.costType && (
-                          <Pill tone={cat.costType === "fixed" ? "sky" : "stone"}>
-                            {COST_TYPE_LABEL[cat.costType]}
-                          </Pill>
-                        )}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-xs text-stone">
-                          {isApplied ? `${won(used)} / ` : ""}
-                          {won(bud.amount)}
-                        </span>
+              groups.map((g, gi) => (
+                <div key={g.name}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <p className="flex-1 rounded-md bg-stone px-2 py-1 text-[11px] font-bold text-white">
+                      {g.name}
+                    </p>
+                    {ordering && (
+                      <div className="flex shrink-0 items-center gap-1">
                         <button
-                          onClick={() => setBudgetForm({ initial: bud })}
-                          className="text-xs text-leaf"
+                          disabled={gi === 0 || saving}
+                          onClick={() => applyOrder(moveGroup(groups, gi, -1))}
+                          aria-label={`${g.name} 위로`}
+                          className="px-2 py-1 text-sm text-leaf disabled:text-stone/40"
                         >
-                          수정
+                          ▲
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `${cat?.name ?? "이"} 예산을 ${selected.name}에서 삭제할까요?`
-                              )
-                            )
-                              removeBudget(bud.id);
-                          }}
-                          className="text-xs text-coral"
+                          disabled={gi === groups.length - 1 || saving}
+                          onClick={() => applyOrder(moveGroup(groups, gi, 1))}
+                          aria-label={`${g.name} 아래로`}
+                          className="px-2 py-1 text-sm text-leaf disabled:text-stone/40"
                         >
-                          삭제
+                          ▼
                         </button>
                       </div>
-                    </div>
-                    {/* 사용액은 이번 달 기준이라 적용중 버전에서만 의미가 있다 */}
-                    {isApplied && <ProgressBar value={used} max={bud.amount} />}
+                    )}
                   </div>
-                );
-              })
+                  <div className="space-y-3 border-l-2 border-line pl-2">
+                    {g.rows.map((bud, ri) => {
+                      const cat = categoryById(bud.categoryId!);
+                      const used = spend.get(bud.categoryId!) ?? 0;
+                      return (
+                        <div key={bud.id}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink">
+                              <span className="truncate">{cat?.name}</span>
+                              {cat?.costType && (
+                                <Pill tone={cat.costType === "fixed" ? "sky" : "stone"}>
+                                  {COST_TYPE_LABEL[cat.costType]}
+                                </Pill>
+                              )}
+                            </span>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-xs text-stone">
+                                {isApplied ? `${won(used)} / ` : ""}
+                                {won(bud.amount)}
+                              </span>
+                              {ordering ? (
+                                <>
+                                  <button
+                                    disabled={ri === 0 || saving}
+                                    onClick={() => applyOrder(moveSubject(groups, g.name, ri, -1))}
+                                    aria-label={`${cat?.name ?? "과목"} 위로`}
+                                    className="px-1 text-sm text-leaf disabled:text-stone/40"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    disabled={ri === g.rows.length - 1 || saving}
+                                    onClick={() => applyOrder(moveSubject(groups, g.name, ri, 1))}
+                                    aria-label={`${cat?.name ?? "과목"} 아래로`}
+                                    className="px-1 text-sm text-leaf disabled:text-stone/40"
+                                  >
+                                    ▼
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => setBudgetForm({ initial: bud })}
+                                    className="text-xs text-leaf"
+                                  >
+                                    수정
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `${cat?.name ?? "이"} 예산을 ${selected.name}에서 삭제할까요?`
+                                        )
+                                      )
+                                        removeBudget(bud.id);
+                                    }}
+                                    className="text-xs text-coral"
+                                  >
+                                    삭제
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {/* 사용액은 이번 달 기준이라 적용중 버전에서만 의미가 있다 */}
+                          {isApplied && !ordering && <ProgressBar value={used} max={bud.amount} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
             )}
             <div className="border-t border-line pt-2 text-right text-xs text-stone">
               합계 {won(total)}
