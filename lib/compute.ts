@@ -122,6 +122,7 @@ export interface BurnRow {
   budget: number; // 그 달에 적용되는 예산. 안 잡았으면 0
   spend: number;
   pct: number; // 소진률 %. 예산 0인데 쓴 게 있으면 Infinity(= 막대 가득·초과)
+  order: number | null; // 그 버전에서 사람이 정한 순서. 예산 행이 없으면 null
 }
 
 export interface BurnSummary {
@@ -137,6 +138,23 @@ function byBurn(a: BurnRow, b: BurnRow): number {
   return b.spend - a.spend || b.budget - a.budget;
 }
 
+// 사람이 정한 순서가 있으면 그것이 먼저. 순서가 없는 행은 뒤에서 기존 소진률 순.
+function byOrderThenBurn(a: BurnRow, b: BurnRow): number {
+  if (a.order !== null && b.order !== null) return a.order - b.order;
+  if (a.order !== null) return -1;
+  if (b.order !== null) return 1;
+  return byBurn(a, b);
+}
+
+// 그룹의 순서 = 소속 행의 최소 order. 하나도 없으면 null(자동 정렬 대상).
+function groupOrder(rows: BurnRow[]): number | null {
+  let min: number | null = null;
+  for (const r of rows) {
+    if (r.order !== null && (min === null || r.order < min)) min = r.order;
+  }
+  return min;
+}
+
 // 계정과목별 예산 소진률 + 전체 소진률.
 // 예산을 안 잡은 과목도 예산 0원으로 함께 집계한다 — 쓴 돈이 어디에도 안 잡히면 안 되므로.
 export function budgetBurndown(
@@ -147,21 +165,29 @@ export function budgetBurndown(
   ym: string
 ): BurnSummary {
   const spendMap = spendByCategory(monthTransactions(txns, ym));
+  // 금액과 순서를 같은 행에서 읽어야 하므로 그 달 적용 버전의 행을 한 번만 뽑는다.
+  // 같은 과목 행이 둘이면 앞의 것을 쓴다(budgetForCategory의 .find와 같은 규칙).
+  const rowByCat = new Map<string, Budget>();
+  for (const b of budgetsOfMonth(budgets, versions, ym)) {
+    if (b.categoryId !== null && !rowByCat.has(b.categoryId)) rowByCat.set(b.categoryId, b);
+  }
   const rows: BurnRow[] = [];
 
   for (const category of categories) {
     if (category.type !== "expense") continue;
-    const budget = budgetForCategory(budgets, versions, ym, category.id) ?? 0;
+    const row = rowByCat.get(category.id);
+    const budget = row?.amount ?? 0;
     const spend = spendMap.get(category.id) ?? 0;
     rows.push({
       category,
       budget,
       spend,
       pct: budget > 0 ? (spend / budget) * 100 : spend > 0 ? Infinity : 0,
+      order: row?.sortOrder ?? null,
     });
   }
 
-  rows.sort(byBurn);
+  rows.sort(byOrderThenBurn);
 
   const budget = rows.reduce((s, r) => s + r.budget, 0);
   const spend = rows.reduce((s, r) => s + r.spend, 0);
@@ -183,7 +209,8 @@ export interface BurnGroup {
 }
 
 // 계정과목 행들을 상위 카테고리로 묶는다.
-// 그룹 순서 = 하위 예산 합 큰 순, "미분류"는 항상 맨 뒤. 그룹 안은 소진률 높은 순.
+// 그룹 순서 = 소속 과목의 최소 order 순. 순서가 없는 그룹은 뒤에서 예산 합 큰 순.
+// "미분류"는 항상 맨 뒤. 그룹 안도 order 순(없으면 소진률 순).
 export function groupBurnRows(rows: BurnRow[]): BurnGroup[] {
   const map = new Map<string, BurnRow[]>();
   for (const r of rows) {
@@ -192,14 +219,68 @@ export function groupBurnRows(rows: BurnRow[]): BurnGroup[] {
   }
   const groups: BurnGroup[] = [...map.entries()].map(([name, gRows]) => ({
     name,
-    rows: [...gRows].sort(byBurn),
+    rows: [...gRows].sort(byOrderThenBurn),
     budget: gRows.reduce((s, r) => s + r.budget, 0),
     spend: gRows.reduce((s, r) => s + r.spend, 0),
   }));
   return groups.sort((a, b) => {
     if (a.name === UNGROUPED) return 1;
     if (b.name === UNGROUPED) return -1;
+    const ao = groupOrder(a.rows);
+    const bo = groupOrder(b.rows);
+    if (ao !== null && bo !== null) return ao - bo;
+    if (ao !== null) return -1;
+    if (bo !== null) return 1;
     return b.budget - a.budget || b.spend - a.spend || a.name.localeCompare(b.name);
+  });
+}
+
+/* ───────────── 예산 탭 목록 묶음 ───────────── */
+
+export interface BudgetGroup {
+  name: string; // 카테고리명 (없으면 "미분류")
+  rows: Budget[]; // 그 카테고리의 예산 행 — sortOrder 순
+}
+
+// 한 버전의 예산 행들을 카테고리로 묶는다. 예산 탭이 대시보드와 같은 모양을 갖게 하려는 것이다.
+// 정렬 규칙은 groupBurnRows와 같다 — sortOrder 순, 없으면 뒤에 과목명 순, "미분류"는 맨 뒤.
+export function groupBudgetsByCategory(
+  rows: Budget[],
+  categoryById: (id: string) => Category | undefined
+): BudgetGroup[] {
+  const nameOf = (b: Budget) => categoryById(b.categoryId ?? "")?.name ?? "";
+  const bySort = (a: Budget, b: Budget) => {
+    if (a.sortOrder !== null && b.sortOrder !== null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder !== null) return -1;
+    if (b.sortOrder !== null) return 1;
+    return nameOf(a).localeCompare(nameOf(b));
+  };
+  const minSort = (gRows: Budget[]): number | null => {
+    let min: number | null = null;
+    for (const r of gRows) {
+      if (r.sortOrder !== null && (min === null || r.sortOrder < min)) min = r.sortOrder;
+    }
+    return min;
+  };
+
+  const map = new Map<string, Budget[]>();
+  for (const b of rows) {
+    const key = categoryById(b.categoryId ?? "")?.groupName || UNGROUPED;
+    map.set(key, [...(map.get(key) ?? []), b]);
+  }
+  const groups: BudgetGroup[] = [...map.entries()].map(([name, gRows]) => ({
+    name,
+    rows: [...gRows].sort(bySort),
+  }));
+  return groups.sort((a, b) => {
+    if (a.name === UNGROUPED) return 1;
+    if (b.name === UNGROUPED) return -1;
+    const ao = minSort(a.rows);
+    const bo = minSort(b.rows);
+    if (ao !== null && bo !== null) return ao - bo;
+    if (ao !== null) return -1;
+    if (bo !== null) return 1;
+    return a.name.localeCompare(b.name);
   });
 }
 

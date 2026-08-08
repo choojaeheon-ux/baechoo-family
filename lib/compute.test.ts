@@ -5,6 +5,7 @@ import {
   categoryBudgetTotal,
   budgetBurndown,
   groupBurnRows,
+  groupBudgetsByCategory,
   monthTimeProgress,
   costTypeSplit,
   resolveVersion,
@@ -314,5 +315,116 @@ describe("budgetsOfMonth — 그 달 버전의 예산 행만", () => {
 
   it("버전이 없으면 빈 배열", () => {
     expect(budgetsOfMonth(budgets, [], "2026-08")).toEqual([]);
+  });
+});
+
+describe("순서 지정 반영", () => {
+  const V: BudgetVersion[] = [
+    { id: "bv-o", name: "v", startMonth: "2026-01", memo: null, createdAt: "" },
+  ];
+  const cat = (id: string, name: string, groupName: string | null): Category => ({
+    id,
+    name,
+    type: "expense",
+    groupName,
+    costType: "variable",
+    color: "",
+  });
+  const cats = [
+    cat("c-a", "가", "알파"),
+    cat("c-b", "나", "알파"),
+    cat("c-c", "다", "베타"),
+    cat("c-d", "라", null), // 미분류
+    cat("c-e", "마", "감마"), // 예산 행 없음
+  ];
+  const bud = (id: string, categoryId: string, amount: number, sortOrder: number | null): Budget => ({
+    id,
+    yearMonth: null,
+    categoryId,
+    amount,
+    versionId: "bv-o",
+    sortOrder,
+  });
+  // 베타(다)가 알파(가·나)보다 앞. 미분류(라)는 순서가 있어도 그룹은 맨 뒤.
+  const budgets = [
+    bud("b1", "c-c", 12345, 0),
+    bud("b2", "c-a", 23456, 1),
+    bud("b3", "c-b", 34567, 2),
+    bud("b4", "c-d", 45678, 3),
+  ];
+  const txns: Transaction[] = [];
+
+  it("budgetBurndown이 예산 행의 sortOrder를 order로 싣는다", () => {
+    const r = budgetBurndown(budgets, V, cats, txns, "2026-02");
+    const byId = new Map(r.rows.map((x) => [x.category.id, x.order]));
+    expect(byId.get("c-c")).toBe(0);
+    expect(byId.get("c-a")).toBe(1);
+  });
+
+  it("예산 행이 없는 과목의 order는 null이다", () => {
+    const r = budgetBurndown(budgets, V, cats, txns, "2026-02");
+    expect(r.rows.find((x) => x.category.id === "c-e")!.order).toBe(null);
+  });
+
+  it("행 정렬 — 순서가 있는 것이 앞, 없는 것은 뒤", () => {
+    const r = budgetBurndown(budgets, V, cats, txns, "2026-02");
+    expect(r.rows.map((x) => x.category.id)).toEqual([
+      "c-c",
+      "c-a",
+      "c-b",
+      "c-d",
+      "c-e",
+    ]);
+  });
+
+  it("그룹 순서 — 소속 과목의 최소 order 순, 미분류는 맨 뒤", () => {
+    const g = groupBurnRows(budgetBurndown(budgets, V, cats, txns, "2026-02").rows);
+    expect(g.map((x) => x.name)).toEqual(["베타", "알파", "감마", "미분류"]);
+  });
+
+  it("그룹 안 과목도 order 순", () => {
+    const g = groupBurnRows(budgetBurndown(budgets, V, cats, txns, "2026-02").rows);
+    const alpha = g.find((x) => x.name === "알파")!;
+    expect(alpha.rows.map((r) => r.category.id)).toEqual(["c-a", "c-b"]);
+  });
+});
+
+describe("groupBudgetsByCategory — 예산 탭 목록 묶음", () => {
+  const cats = new Map<string, Category>([
+    ["c-a", { id: "c-a", name: "가", type: "expense", groupName: "알파", costType: "variable", color: "" }],
+    ["c-b", { id: "c-b", name: "나", type: "expense", groupName: "알파", costType: "variable", color: "" }],
+    ["c-c", { id: "c-c", name: "다", type: "expense", groupName: "베타", costType: "variable", color: "" }],
+    ["c-d", { id: "c-d", name: "라", type: "expense", groupName: null, costType: "variable", color: "" }],
+  ]);
+  const byId = (id: string) => cats.get(id);
+  const bud = (id: string, categoryId: string, sortOrder: number | null): Budget => ({
+    id,
+    yearMonth: null,
+    categoryId,
+    amount: 12345,
+    versionId: "bv-o",
+    sortOrder,
+  });
+
+  it("그룹은 최소 sortOrder 순, 미분류는 맨 뒤", () => {
+    const g = groupBudgetsByCategory(
+      [bud("b1", "c-a", 2), bud("b2", "c-c", 0), bud("b3", "c-b", 3), bud("b4", "c-d", 1)],
+      byId
+    );
+    expect(g.map((x) => x.name)).toEqual(["베타", "알파", "미분류"]);
+    expect(g[1].rows.map((r) => r.id)).toEqual(["b1", "b3"]);
+  });
+
+  it("sortOrder가 없는 행은 뒤로, 과목명 순", () => {
+    const g = groupBudgetsByCategory(
+      [bud("b1", "c-b", null), bud("b2", "c-a", null), bud("b3", "c-a", 0)],
+      byId
+    );
+    expect(g[0].name).toBe("알파");
+    expect(g[0].rows.map((r) => r.id)).toEqual(["b3", "b2", "b1"]);
+  });
+
+  it("빈 목록은 빈 배열", () => {
+    expect(groupBudgetsByCategory([], byId)).toEqual([]);
   });
 });
