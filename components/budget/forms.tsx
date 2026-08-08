@@ -412,8 +412,9 @@ export function BudgetForm({
       (b) => b.versionId === versionId && b.categoryId === categoryId
     );
     // 새 행은 목록 맨 뒤. 같은 카테고리 옆에 끼워 넣지 않는다 — 「순서 편집」으로 옮긴다.
+    // undefined도 "순서 없음"으로 본다(느슨한 비교) — localStorage 구버전 행 방어.
     const maxOrder = budgets
-      .filter((b) => b.versionId === versionId && b.sortOrder !== null)
+      .filter((b) => b.versionId === versionId && b.sortOrder != null)
       .reduce((m, b) => Math.max(m, b.sortOrder!), -1);
     await saveBudget({
       id: existing?.id ?? "",

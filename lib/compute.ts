@@ -249,16 +249,18 @@ export function groupBudgetsByCategory(
   categoryById: (id: string) => Category | undefined
 ): BudgetGroup[] {
   const nameOf = (b: Budget) => categoryById(b.categoryId ?? "")?.name ?? "";
+  // undefined도 "순서 없음"으로 본다(느슨한 비교) — localStorage 폴백 경로에서
+  // sortOrder 키 자체가 없는 구버전 행이 섞여 들어와도 정렬이 죽지 않게.
   const bySort = (a: Budget, b: Budget) => {
-    if (a.sortOrder !== null && b.sortOrder !== null) return a.sortOrder - b.sortOrder;
-    if (a.sortOrder !== null) return -1;
-    if (b.sortOrder !== null) return 1;
+    if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder != null) return -1;
+    if (b.sortOrder != null) return 1;
     return nameOf(a).localeCompare(nameOf(b));
   };
   const minSort = (gRows: Budget[]): number | null => {
     let min: number | null = null;
     for (const r of gRows) {
-      if (r.sortOrder !== null && (min === null || r.sortOrder < min)) min = r.sortOrder;
+      if (r.sortOrder != null && (min === null || r.sortOrder < min)) min = r.sortOrder;
     }
     return min;
   };

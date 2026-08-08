@@ -13,7 +13,7 @@ import { moveGroup, moveSubject } from "@/lib/budgetOrder";
 import { won, ymLabel } from "@/lib/format";
 import { Card, SectionTitle, Empty, ProgressBar, Pill } from "./ui";
 import { BudgetForm, BudgetVersionForm } from "./forms";
-import { COST_TYPE_LABEL, type Budget, type BudgetVersion } from "@/lib/types";
+import { COST_TYPE_LABEL, UNGROUPED, type Budget, type BudgetVersion } from "@/lib/types";
 
 // 호출부에서 key={ym}으로 리마운트한다 — 달이 바뀌면 고른 버전도 그 달 기준으로 되돌아간다.
 // (effect로 setState하면 set-state-in-effect 룰에 걸린다)
@@ -61,6 +61,10 @@ export default function BudgetVersions({ ym }: { ym: string }) {
   const legacyOverall = selected
     ? budgets.find((b) => b.versionId === selected.id && b.categoryId === null)
     : undefined;
+  // 미분류는 groupBudgetsByCategory가 항상 맨 뒤로 강제해 이동이 표시에 반영되지 않는다.
+  // 그룹 이동은 미분류 자체와, 미분류 바로 앞(사실상 맨 뒤)까지만 허용한다.
+  const lastMovable =
+    groups.at(-1)?.name === UNGROUPED ? groups.length - 2 : groups.length - 1;
 
   const [ordering, setOrdering] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -77,7 +81,8 @@ export default function BudgetVersions({ ym }: { ym: string }) {
     setSaving(true);
     try {
       for (const b of changed) await saveBudget(b);
-    } catch {
+    } catch (e) {
+      console.error("순서 저장 실패", e);
       window.alert("순서를 저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       setSaving(false);
@@ -206,7 +211,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
                     {ordering && (
                       <div className="flex shrink-0 items-center gap-1">
                         <button
-                          disabled={gi === 0 || saving}
+                          disabled={gi === 0 || g.name === UNGROUPED || saving}
                           onClick={() => applyOrder(moveGroup(groups, gi, -1))}
                           aria-label={`${g.name} 위로`}
                           className="px-2 py-1 text-sm text-leaf disabled:text-stone/40"
@@ -214,7 +219,7 @@ export default function BudgetVersions({ ym }: { ym: string }) {
                           ▲
                         </button>
                         <button
-                          disabled={gi === groups.length - 1 || saving}
+                          disabled={gi >= lastMovable || g.name === UNGROUPED || saving}
                           onClick={() => applyOrder(moveGroup(groups, gi, 1))}
                           aria-label={`${g.name} 아래로`}
                           className="px-2 py-1 text-sm text-leaf disabled:text-stone/40"
