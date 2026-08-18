@@ -16,6 +16,9 @@ import type {
   BudgetVersion,
   Category,
   Coupon,
+  DailyTodo,
+  DailyTodoCategory,
+  DailyTodoSettings,
   Goal,
   LocalCurrency,
   PaymentMethod,
@@ -58,6 +61,9 @@ interface DataContextValue {
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
   planItems: PlanItem[];
+  dailyTodos: DailyTodo[];
+  dailyTodoCategories: DailyTodoCategory[];
+  dailyTodoSettings: DailyTodoSettings;
   categoryById: (id: string) => Category | undefined;
   paymentMethodById: (id: string) => PaymentMethod | undefined;
   refresh: () => Promise<void>;
@@ -110,6 +116,11 @@ interface DataContextValue {
   removeAssetSnapshot: (id: string) => Promise<void>;
   savePlanItem: (p: PlanItem) => Promise<void>;
   removePlanItem: (id: string) => Promise<void>;
+  saveDailyTodo: (t: DailyTodo) => Promise<void>;
+  removeDailyTodo: (id: string) => Promise<void>;
+  saveDailyTodoCategory: (c: DailyTodoCategory) => Promise<void>;
+  removeDailyTodoCategory: (id: string) => Promise<void>;
+  saveDailyTodoSettings: (s: DailyTodoSettings) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -139,6 +150,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [baechooVaccines, setBaechooVaccines] = useState<BaechooVaccine[]>([]);
   const [assetSnapshots, setAssetSnapshots] = useState<AssetSnapshot[]>([]);
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  const [dailyTodos, setDailyTodos] = useState<DailyTodo[]>([]);
+  const [dailyTodoCategories, setDailyTodoCategories] = useState<DailyTodoCategory[]>([]);
+  const [dailyTodoSettings, setDailyTodoSettings] = useState<DailyTodoSettings>({ goalPct: 80 });
 
   const refresh = useCallback(async () => {
     const snap = await repo.loadAll();
@@ -163,6 +177,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooVaccines(snap.baechooVaccines);
     setAssetSnapshots(snap.assetSnapshots);
     setPlanItems(snap.planItems);
+    setDailyTodos(snap.dailyTodos);
+    setDailyTodoCategories(snap.dailyTodoCategories);
+    setDailyTodoSettings(snap.dailyTodoSettings);
   }, []);
 
   useEffect(() => {
@@ -251,6 +268,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooVaccines,
       assetSnapshots,
       planItems,
+      dailyTodos,
+      dailyTodoCategories,
+      dailyTodoSettings,
       categoryById,
       paymentMethodById,
       refresh,
@@ -461,6 +481,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deletePlanItem(id);
         setPlanItems((p) => p.filter((x) => x.id !== id));
       },
+      saveDailyTodo: async (t) => {
+        const saved = await repo.saveDailyTodo(t);
+        upsertLocal(setDailyTodos, saved);
+      },
+      removeDailyTodo: async (id) => {
+        await repo.deleteDailyTodo(id);
+        setDailyTodos((p) => p.filter((x) => x.id !== id));
+      },
+      saveDailyTodoCategory: async (c) => {
+        const saved = await repo.saveDailyTodoCategory(c);
+        upsertLocal(setDailyTodoCategories, saved);
+      },
+      removeDailyTodoCategory: async (id) => {
+        await repo.deleteDailyTodoCategory(id);
+        setDailyTodoCategories((p) => p.filter((x) => x.id !== id));
+      },
+      saveDailyTodoSettings: async (s) => {
+        const saved = await repo.saveDailyTodoSettings(s);
+        setDailyTodoSettings(saved);
+      },
     }),
     [
       loading,
@@ -485,6 +525,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooVaccines,
       assetSnapshots,
       planItems,
+      dailyTodos,
+      dailyTodoCategories,
+      dailyTodoSettings,
       categoryById,
       paymentMethodById,
       refresh,

@@ -5,6 +5,8 @@ import {
   SEED_PAYMENT_METHODS,
   SEED_BAECHOO_CATEGORIES,
   SEED_PLAN_ITEMS,
+  SEED_DAILY_TODO_CATEGORIES,
+  SEED_DAILY_TODO_SETTINGS,
 } from "./seed";
 import type {
   AssetSnapshot,
@@ -12,6 +14,9 @@ import type {
   BudgetVersion,
   Category,
   Coupon,
+  DailyTodo,
+  DailyTodoCategory,
+  DailyTodoSettings,
   DataSnapshot,
   Goal,
   LocalCurrency,
@@ -130,10 +135,9 @@ function lsRead(): DataSnapshot {
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
         budgetVersions: [],
-        // TODO(Task 3): 데일리 투두 시드로 교체
         dailyTodos: [],
-        dailyTodoCategories: [],
-        dailyTodoSettings: { goalPct: 80 },
+        dailyTodoCategories: SEED_DAILY_TODO_CATEGORIES,
+        dailyTodoSettings: SEED_DAILY_TODO_SETTINGS,
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -165,10 +169,9 @@ function lsRead(): DataSnapshot {
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
-      // TODO(Task 3): 데일리 투두 실제 배선(parsed에서 읽기)으로 교체
-      dailyTodos: [],
-      dailyTodoCategories: [],
-      dailyTodoSettings: { goalPct: 80 },
+      dailyTodos: parsed.dailyTodos ?? [],
+      dailyTodoCategories: parsed.dailyTodoCategories ?? SEED_DAILY_TODO_CATEGORIES,
+      dailyTodoSettings: parsed.dailyTodoSettings ?? SEED_DAILY_TODO_SETTINGS,
     };
   } catch {
     return emptySnapshot();
@@ -203,10 +206,9 @@ function emptySnapshot(): DataSnapshot {
     baechooVaccines: [],
     assetSnapshots: [],
     planItems: [],
-    // TODO(Task 3): 데일리 투두 실제 배선으로 교체
     dailyTodos: [],
     dailyTodoCategories: [],
-    dailyTodoSettings: { goalPct: 80 },
+    dailyTodoSettings: SEED_DAILY_TODO_SETTINGS,
   };
 }
 
@@ -641,6 +643,46 @@ const fromPlanItem = (x: PlanItem) => ({
   sort_order: x.sortOrder,
 });
 
+// 데일리 투두 — 카테고리
+const toDailyTodoCategory = (r: Record<string, unknown>): DailyTodoCategory => ({
+  id: r.id as string,
+  name: r.name as string,
+  color: r.color as string,
+  sortOrder: (r.sort_order as number) ?? 0,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromDailyTodoCategory = (x: DailyTodoCategory) => ({
+  id: x.id,
+  name: x.name,
+  color: x.color,
+  sort_order: x.sortOrder,
+  created_at: x.createdAt || null,
+});
+
+// 데일리 투두 — 항목
+const toDailyTodo = (r: Record<string, unknown>): DailyTodo => ({
+  id: r.id as string,
+  title: r.title as string,
+  categoryId: r.category_id as string,
+  startDate: r.start_date as string,
+  endDate: (r.end_date as string) ?? null,
+  onceDate: (r.once_date as string) ?? null,
+  doneDates: Array.isArray(r.done_dates) ? (r.done_dates as string[]) : [],
+  sortOrder: (r.sort_order as number) ?? 0,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromDailyTodo = (x: DailyTodo) => ({
+  id: x.id,
+  title: x.title,
+  category_id: x.categoryId,
+  start_date: x.startDate,
+  end_date: x.endDate,
+  once_date: x.onceDate,
+  done_dates: x.doneDates,
+  sort_order: x.sortOrder,
+  created_at: x.createdAt || null,
+});
+
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -668,6 +710,9 @@ export async function loadAll(): Promise<DataSnapshot> {
     vaccines,
     assetSnaps,
     plans,
+    dtcats,
+    dtodos,
+    dtset,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -690,6 +735,9 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
     sb.from("plan_items").select("*"),
+    sb.from("daily_todo_categories").select("*"),
+    sb.from("daily_todos").select("*"),
+    sb.from("daily_todo_settings").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -712,6 +760,24 @@ export async function loadAll(): Promise<DataSnapshot> {
   if (planItems.length === 0) {
     await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
     planItems = SEED_PLAN_ITEMS;
+  }
+  let dailyTodoCategories = (dtcats.data ?? []).map(toDailyTodoCategory);
+  if (dailyTodoCategories.length === 0) {
+    await sb
+      .from("daily_todo_categories")
+      .insert(SEED_DAILY_TODO_CATEGORIES.map(fromDailyTodoCategory));
+    dailyTodoCategories = SEED_DAILY_TODO_CATEGORIES;
+  }
+
+  const settingsRow = (dtset.data ?? [])[0] as Record<string, unknown> | undefined;
+  let dailyTodoSettings: DailyTodoSettings;
+  if (settingsRow) {
+    dailyTodoSettings = { goalPct: (settingsRow.goal_pct as number) ?? 80 };
+  } else {
+    await sb
+      .from("daily_todo_settings")
+      .insert({ id: "singleton", goal_pct: SEED_DAILY_TODO_SETTINGS.goalPct });
+    dailyTodoSettings = SEED_DAILY_TODO_SETTINGS;
   }
 
   // budget_versions: 에러 없이 0행이면 다른 시드와 같은 패턴으로 v1을 만든다
@@ -763,10 +829,9 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
     planItems,
-    // TODO(Task 3): 데일리 투두 Supabase 조회·매퍼로 교체
-    dailyTodos: [],
-    dailyTodoCategories: [],
-    dailyTodoSettings: { goalPct: 80 },
+    dailyTodos: (dtodos.data ?? []).map(toDailyTodo),
+    dailyTodoCategories,
+    dailyTodoSettings,
   };
 }
 
@@ -883,6 +948,44 @@ export async function savePlanItem(x: PlanItem): Promise<PlanItem> {
 export async function deletePlanItem(id: string) {
   if (hasSupabase) await sbDelete("plan_items", id);
   else lsDelete("planItems", id);
+}
+
+export async function saveDailyTodo(x: DailyTodo): Promise<DailyTodo> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("daily_todos", fromDailyTodo(row));
+  else lsUpsert("dailyTodos", row);
+  return row;
+}
+export async function deleteDailyTodo(id: string) {
+  if (hasSupabase) await sbDelete("daily_todos", id);
+  else lsDelete("dailyTodos", id);
+}
+
+export async function saveDailyTodoCategory(
+  x: DailyTodoCategory
+): Promise<DailyTodoCategory> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("daily_todo_categories", fromDailyTodoCategory(row));
+  else lsUpsert("dailyTodoCategories", row);
+  return row;
+}
+export async function deleteDailyTodoCategory(id: string) {
+  if (hasSupabase) await sbDelete("daily_todo_categories", id);
+  else lsDelete("dailyTodoCategories", id);
+}
+
+// 단일 행. 테이블의 id='singleton'은 여기서만 다룬다.
+export async function saveDailyTodoSettings(
+  s: DailyTodoSettings
+): Promise<DailyTodoSettings> {
+  if (hasSupabase) {
+    await sbUpsert("daily_todo_settings", { id: "singleton", goal_pct: s.goalPct });
+  } else {
+    const snap = lsRead();
+    snap.dailyTodoSettings = s;
+    lsWrite(snap);
+  }
+  return s;
 }
 
 export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency> {

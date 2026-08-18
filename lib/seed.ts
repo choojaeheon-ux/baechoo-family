@@ -1,4 +1,11 @@
-import type { Category, PaymentMethod, BaechooCategory, PlanItem } from "./types";
+import type {
+  Category,
+  PaymentMethod,
+  BaechooCategory,
+  PlanItem,
+  DailyTodoCategory,
+  DailyTodoSettings,
+} from "./types";
 
 // 기본 계정 과목 시드 (앱 최초 실행 시 자동 주입, 이후 관리 화면에서 수정)
 // groupName = 상위 카테고리. color/icon은 더 이상 화면에서 쓰지 않지만 컬럼 호환을 위해 남긴다.
@@ -75,3 +82,12 @@ export const SEED_PLAN_ITEMS: PlanItem[] = [
   { id: "plan-cond-baejji-wedding", group: "saving", name: "배찌 결혼 축의금", amount: 40000, pnlClass: "saving", conditional: true, startYearMonth: null, endYearMonth: "2026-12", targetTotal: 200000, note: null, sortOrder: 430 },
   { id: "plan-cond-gyeongjosa", group: "saving", name: "경조사 저축", amount: 20000, pnlClass: "saving", conditional: true, startYearMonth: null, endYearMonth: null, targetTotal: null, note: null, sortOrder: 440 },
 ];
+
+// 데일리 투두 기본 카테고리 — 카테고리가 0개면 항목을 만들 수 없어 최소 하나가 필요하다.
+// 실제로 쓸 이름은 관리 시트에서 바꾼다.
+export const SEED_DAILY_TODO_CATEGORIES: DailyTodoCategory[] = [
+  { id: "dtcat-daily", name: "일상", color: "#5b8c3e", sortOrder: 10, createdAt: "2026-08-18" },
+];
+
+// 미션 기본 목표
+export const SEED_DAILY_TODO_SETTINGS: DailyTodoSettings = { goalPct: 80 };
