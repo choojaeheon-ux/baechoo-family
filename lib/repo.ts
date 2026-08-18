@@ -130,6 +130,10 @@ function lsRead(): DataSnapshot {
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
         budgetVersions: [],
+        // TODO(Task 3): 데일리 투두 시드로 교체
+        dailyTodos: [],
+        dailyTodoCategories: [],
+        dailyTodoSettings: { goalPct: 80 },
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -161,6 +165,10 @@ function lsRead(): DataSnapshot {
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
+      // TODO(Task 3): 데일리 투두 실제 배선(parsed에서 읽기)으로 교체
+      dailyTodos: [],
+      dailyTodoCategories: [],
+      dailyTodoSettings: { goalPct: 80 },
     };
   } catch {
     return emptySnapshot();
@@ -195,6 +203,10 @@ function emptySnapshot(): DataSnapshot {
     baechooVaccines: [],
     assetSnapshots: [],
     planItems: [],
+    // TODO(Task 3): 데일리 투두 실제 배선으로 교체
+    dailyTodos: [],
+    dailyTodoCategories: [],
+    dailyTodoSettings: { goalPct: 80 },
   };
 }
 
@@ -751,6 +763,10 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
     planItems,
+    // TODO(Task 3): 데일리 투두 Supabase 조회·매퍼로 교체
+    dailyTodos: [],
+    dailyTodoCategories: [],
+    dailyTodoSettings: { goalPct: 80 },
   };
 }
 

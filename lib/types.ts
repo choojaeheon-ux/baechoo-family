@@ -207,6 +207,41 @@ export interface WeekTodo {
   completedAt: string | null;
 }
 
+/* ───────────── 데일리 투두 ───────────── */
+
+// 카테고리 — 사용자 관리(이름 + 색). 항목을 묶고 정렬 순서를 준다.
+export interface DailyTodoCategory {
+  id: string;
+  name: string;
+  color: string; // hex
+  sortOrder: number;
+  createdAt: string; // YYYY-MM-DD
+}
+
+// 데일리 투두 항목.
+//   onceDate = null  → 매일 반복. startDate부터 endDate 전날까지 활성
+//   onceDate != null → 그 하루만 활성 (특별 이벤트)
+//
+// 활성 기간이 있어야 과거 기록이 고정된다. 오늘 항목을 추가하면 startDate가
+// 오늘이라 어제 분모가 커지지 않고, 그만두면 endDate가 오늘이라 어제 기록이
+// 살아남는다. 이게 없으면 항목을 하나 건드릴 때마다 히트맵 전체가 흔들린다.
+export interface DailyTodo {
+  id: string;
+  title: string;
+  categoryId: string;
+  startDate: string; // 활성 시작일 (YYYY-MM-DD)
+  endDate: string | null; // 이 날짜부터 비활성(=그만둔 날). null = 계속
+  onceDate: string | null; // 1회성 지정일
+  doneDates: string[]; // 체크한 날짜들 (YYYY-MM-DD, 오름차순)
+  sortOrder: number;
+  createdAt: string; // YYYY-MM-DD
+}
+
+// 미션 목표 — 단일 행. 테이블의 id='singleton'은 repo 매퍼가 붙였다 뗀다.
+export interface DailyTodoSettings {
+  goalPct: number; // 0~100
+}
+
 /* ───────────── 배추 생활기록부 ───────────── */
 
 // 식사/간식 기록
@@ -432,6 +467,9 @@ export interface DataSnapshot {
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
   planItems: PlanItem[];
+  dailyTodos: DailyTodo[];
+  dailyTodoCategories: DailyTodoCategory[];
+  dailyTodoSettings: DailyTodoSettings;
 }
 
 export type PnlClass =
