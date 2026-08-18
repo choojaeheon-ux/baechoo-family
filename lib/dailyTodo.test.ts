@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   activeOn,
+  applyEdit,
   groupByCategory,
   isDoneOn,
   monthProgress,
@@ -197,6 +198,48 @@ describe("월 히트맵", () => {
     const cells = monthProgress(todos, "2026-08", 80);
     expect(cells.find((c) => c.iso === "2026-08-25")!.hasOnce).toBe(true);
     expect(cells.find((c) => c.iso === "2026-08-24")!.hasOnce).toBe(false);
+  });
+});
+
+describe("편집 — 성격과 활성 구간은 고정된다", () => {
+  it("매일 항목을 편집해도 어제 활성 목록과 진행률이 그대로다", () => {
+    const t = todo({ startDate: "2026-08-01", doneDates: ["2026-08-05"] });
+    const before = progressOn([t], "2026-08-05");
+    const edited = applyEdit(t, { title: "바뀐 제목", categoryId: "c2" });
+    expect(progressOn([edited], "2026-08-05")).toEqual(before);
+    expect(edited.startDate).toBe("2026-08-01");
+    expect(edited.endDate).toBeNull();
+    expect(edited.onceDate).toBeNull();
+  });
+
+  it("매일 항목은 편집으로 1회성이 되지 않는다", () => {
+    const t = todo({ startDate: "2026-08-01" });
+    const edited = applyEdit(t, { title: "양치", categoryId: "c1", onceDate: "2026-08-20" });
+    expect(edited.onceDate).toBeNull();
+    expect(edited.startDate).toBe("2026-08-01");
+  });
+
+  it("1회성 항목은 편집으로 매일이 되지 않는다", () => {
+    const t = todo({ onceDate: "2026-08-05", startDate: "2026-08-05" });
+    const edited = applyEdit(t, { title: "본가 방문", categoryId: "c1" });
+    expect(edited.onceDate).toBe("2026-08-05");
+  });
+
+  it("1회성 지정일을 옮기면 startDate가 따라가고 endDate는 그대로다", () => {
+    const t = todo({ onceDate: "2026-08-05", startDate: "2026-08-05" });
+    const edited = applyEdit(t, { title: "본가 방문", categoryId: "c1", onceDate: "2026-08-20" });
+    expect(edited.onceDate).toBe("2026-08-20");
+    expect(edited.startDate).toBe("2026-08-20");
+    expect(edited.endDate).toBeNull();
+    expect(activeOn([edited], "2026-08-05")).toHaveLength(0);
+    expect(activeOn([edited], "2026-08-20")).toHaveLength(1);
+  });
+
+  it("편집은 원본을 변형하지 않는다", () => {
+    const t = todo({ startDate: "2026-08-01" });
+    applyEdit(t, { title: "바뀜", categoryId: "c2" });
+    expect(t.title).toBe("양치");
+    expect(t.categoryId).toBe("c1");
   });
 });
 

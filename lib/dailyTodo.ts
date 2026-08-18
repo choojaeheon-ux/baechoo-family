@@ -33,6 +33,19 @@ export function toggleDone(t: DailyTodo, iso: string): DailyTodo {
   return { ...t, doneDates };
 }
 
+// 편집으로 저장할 항목. 항목의 성격(매일/1회성)과 활성 구간은 생성 시 고정이며
+// 편집으로 바뀌지 않는다 — 바뀌면 과거 날짜의 활성 목록과 진행률이 뒤집힌다.
+// 1회성의 지정일만 옮길 수 있다(1회성은 항목 자체가 곧 그날의 기록이다).
+export function applyEdit(
+  t: DailyTodo,
+  patch: { title: string; categoryId: string; onceDate?: string }
+): DailyTodo {
+  const base = { ...t, title: patch.title, categoryId: patch.categoryId };
+  if (t.onceDate === null) return base;
+  const onceDate = patch.onceDate ?? t.onceDate;
+  return { ...base, onceDate, startDate: onceDate };
+}
+
 export interface Progress {
   done: number;
   total: number;

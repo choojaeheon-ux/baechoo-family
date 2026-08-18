@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { newId } from "@/lib/repo";
 import { todayISO } from "@/lib/format";
+import { applyEdit } from "@/lib/dailyTodo";
 import type { DailyTodo, DailyTodoCategory } from "@/lib/types";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 
@@ -23,25 +24,27 @@ export default function TodoForm({
   const { saveDailyTodo, removeDailyTodo, dailyTodos } = useData();
   const [title, setTitle] = useState(editing?.title ?? "");
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? cats[0]?.id ?? "");
-  const [once, setOnce] = useState(editing ? editing.onceDate !== null : false);
+  const [once, setOnce] = useState(false); // 신규 생성 전용 — 편집은 성격을 바꾸지 않는다
   const [onceDate, setOnceDate] = useState(editing?.onceDate ?? defaultDate);
   const [confirming, setConfirming] = useState(false);
 
   const today = todayISO();
+  // 편집에서는 항목의 성격(매일/1회성)이 생성 시점에 고정된다 — 토글을 두지 않는다.
+  const isOnce = editing ? editing.onceDate !== null : once;
 
   async function submit() {
     const t = title.trim();
     if (!t || !categoryId) return;
 
     if (editing) {
-      // 편집은 제목·카테고리·1회성 지정일만 바꾼다. startDate/endDate는 기록이라 건드리지 않는다.
-      await saveDailyTodo({
-        ...editing,
-        title: t,
-        categoryId,
-        onceDate: once ? onceDate : null,
-        startDate: once ? onceDate : editing.startDate,
-      });
+      // 편집은 제목·카테고리·(1회성이면) 지정일만 바꾼다. 성격과 활성 구간은 기록이라 건드리지 않는다.
+      await saveDailyTodo(
+        applyEdit(editing, {
+          title: t,
+          categoryId,
+          ...(editing.onceDate !== null ? { onceDate } : {}),
+        })
+      );
     } else {
       const maxSort = dailyTodos.reduce((m, x) => Math.max(m, x.sortOrder), 0);
       await saveDailyTodo({
@@ -95,30 +98,32 @@ export default function TodoForm({
         </select>
       </Field>
 
-      <Field label="언제">
-        <div className="flex gap-1 rounded-xl bg-cream p-1">
-          <button
-            type="button"
-            onClick={() => setOnce(false)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-              !once ? "bg-leaf text-white" : "text-stone"
-            }`}
-          >
-            매일
-          </button>
-          <button
-            type="button"
-            onClick={() => setOnce(true)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-              once ? "bg-leaf text-white" : "text-stone"
-            }`}
-          >
-            특정일
-          </button>
-        </div>
-      </Field>
+      {!editing && (
+        <Field label="언제">
+          <div className="flex gap-1 rounded-xl bg-cream p-1">
+            <button
+              type="button"
+              onClick={() => setOnce(false)}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+                !once ? "bg-leaf text-white" : "text-stone"
+              }`}
+            >
+              매일
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnce(true)}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+                once ? "bg-leaf text-white" : "text-stone"
+              }`}
+            >
+              특정일
+            </button>
+          </div>
+        </Field>
+      )}
 
-      {once && (
+      {isOnce && (
         <Field label="날짜">
           <input
             type="date"

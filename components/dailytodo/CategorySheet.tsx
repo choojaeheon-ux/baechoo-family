@@ -17,15 +17,17 @@ function Row({ cat }: { cat: DailyTodoCategory }) {
     saveDailyTodo,
   } = useData();
   const [name, setName] = useState(cat.name);
+  const [color, setColor] = useState(cat.color);
   const [confirming, setConfirming] = useState(false);
 
   const usedCount = dailyTodos.filter((t) => t.categoryId === cat.id).length;
   const others = dailyTodoCategories.filter((c) => c.id !== cat.id);
   const canDelete = others.length >= 1;
 
-  async function saveName() {
-    if (!name.trim()) return;
-    await saveDailyTodoCategory({ ...cat, name: name.trim() });
+  // 이름·색은 각자 다른 시점에 저장되지만(이름=blur, 색=클릭) 둘 다 서로의
+  // 최신 로컬값을 함께 실어 보낸다 — 따로 보내면 늦게 도착한 쪽이 먼저 쓴 값을 덮어쓴다.
+  async function save(next: Partial<DailyTodoCategory> = {}) {
+    await saveDailyTodoCategory({ ...cat, name: name.trim() || cat.name, color, ...next });
   }
 
   // 이 카테고리 항목을 첫 다른 카테고리로 옮긴 뒤 지운다(고아 방지).
@@ -43,13 +45,13 @@ function Row({ cat }: { cat: DailyTodoCategory }) {
       <div className="flex items-center gap-2">
         <span
           className="h-5 w-5 shrink-0 rounded-full"
-          style={{ backgroundColor: cat.color }}
+          style={{ backgroundColor: color }}
         />
         <input
           className={inputCls}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onBlur={saveName}
+          onBlur={() => save()}
         />
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -57,11 +59,12 @@ function Row({ cat }: { cat: DailyTodoCategory }) {
           <button
             key={c}
             type="button"
-            onClick={() =>
-              saveDailyTodoCategory({ ...cat, name: name.trim() || cat.name, color: c })
-            }
+            onClick={async () => {
+              setColor(c);
+              await save({ color: c });
+            }}
             className={`h-6 w-6 rounded-full ${
-              cat.color === c ? "ring-2 ring-leaf ring-offset-1" : ""
+              color === c ? "ring-2 ring-leaf ring-offset-1" : ""
             }`}
             style={{ backgroundColor: c }}
             aria-label={c}
