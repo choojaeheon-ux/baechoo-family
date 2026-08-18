@@ -207,41 +207,6 @@ export interface WeekTodo {
   completedAt: string | null;
 }
 
-/* ───────────── 가족 캘린더 ───────────── */
-
-// 캘린더 카테고리 — 사용자 관리(이름 + 색). assignee 축을 대체.
-export interface EventCategory {
-  id: string;
-  name: string;
-  color: string; // hex
-  emoji: string | null;
-  sortOrder: number;
-  createdAt: string; // YYYY-MM-DD
-}
-
-// 반복 규칙 — 시리즈 단일 레코드 + 예외(제외 회차) 목록 모델
-export type EventRecurrence = "none" | "weekly" | "monthly";
-export const EVENT_RECURRENCE_LABEL: Record<EventRecurrence, string> = {
-  none: "없음",
-  weekly: "매주",
-  monthly: "매월",
-};
-
-export interface FamilyEvent {
-  id: string;
-  title: string;
-  startDate: string; // YYYY-MM-DD (반복이면 첫 회차 시작일)
-  endDate: string | null; // 연박 종료일, null = 당일
-  time: string | null; // "HH:MM", null = 종일
-  categoryId: string; // event_categories.id
-  memo: string | null;
-  recurrence: EventRecurrence;
-  repeatInterval: number; // 1=매주/매월, 2=격주/격월…
-  repeatUntil: string | null; // 반복 종료일, null = 무기한
-  exceptions: string[]; // "이 회차만 삭제"된 회차 시작일들
-  createdAt: string; // YYYY-MM-DD
-}
-
 /* ───────────── 배추 생활기록부 ───────────── */
 
 // 식사/간식 기록
@@ -466,8 +431,6 @@ export interface DataSnapshot {
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
-  familyEvents: FamilyEvent[];
-  eventCategories: EventCategory[];
   planItems: PlanItem[];
 }
 

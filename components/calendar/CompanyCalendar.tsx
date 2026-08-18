@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { currentYearMonth, daysInMonth, todayISO } from "@/lib/format";
-import { addDays } from "@/lib/calendar";
+import { addDays, currentYearMonth, daysInMonth, todayISO } from "@/lib/format";
 import { FAMILY_PIN } from "@/components/PinGate";
 import { Card, MonthSwitcher } from "@/components/budget/ui";
 

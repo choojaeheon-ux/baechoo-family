@@ -5,7 +5,6 @@ import {
   SEED_PAYMENT_METHODS,
   SEED_BAECHOO_CATEGORIES,
   SEED_PLAN_ITEMS,
-  SEED_EVENT_CATEGORIES,
 } from "./seed";
 import type {
   AssetSnapshot,
@@ -34,8 +33,6 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
-  FamilyEvent,
-  EventCategory,
   LatLng,
   Stool,
   MealType,
@@ -99,15 +96,6 @@ function normalizeVaccine(
   };
 }
 
-// 구버전 localStorage 일정(assignee만 있음)을 categoryId로 승격
-function normalizeFamilyEvent(x: FamilyEvent): FamilyEvent {
-  const legacy = x as FamilyEvent & { assignee?: string };
-  if (!x.categoryId && legacy.assignee) {
-    return { ...x, categoryId: "cat-" + legacy.assignee };
-  }
-  return x;
-}
-
 // localStorage에는 마이그레이션이 닿지 않는다 — 버전이 하나도 없으면
 // v1을 만들어 기존 예산을 전부 붙인다(클라우드 0025와 같은 결과).
 function normalizeBudgetVersions(
@@ -141,7 +129,6 @@ function lsRead(): DataSnapshot {
         paymentMethods: SEED_PAYMENT_METHODS,
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
-        eventCategories: SEED_EVENT_CATEGORIES,
         budgetVersions: [],
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
@@ -173,8 +160,6 @@ function lsRead(): DataSnapshot {
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
-      familyEvents: (parsed.familyEvents ?? []).map(normalizeFamilyEvent),
-      eventCategories: parsed.eventCategories ?? SEED_EVENT_CATEGORIES,
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
     };
   } catch {
@@ -209,8 +194,6 @@ function emptySnapshot(): DataSnapshot {
     ujuChecklists: [],
     baechooVaccines: [],
     assetSnapshots: [],
-    familyEvents: [],
-    eventCategories: [],
     planItems: [],
   };
 }
@@ -646,54 +629,6 @@ const fromPlanItem = (x: PlanItem) => ({
   sort_order: x.sortOrder,
 });
 
-// 가족 캘린더 일정
-const toFamilyEvent = (r: Record<string, unknown>): FamilyEvent => ({
-  id: r.id as string,
-  title: (r.title as string) ?? "",
-  startDate: (r.start_date as string) ?? "",
-  endDate: (r.end_date as string) ?? null,
-  time: (r.time as string) ?? null,
-  categoryId: (r.category_id as string) ?? "cat-together",
-  memo: (r.memo as string) ?? null,
-  recurrence: (r.recurrence as FamilyEvent["recurrence"]) ?? "none",
-  repeatInterval: Number(r.repeat_interval ?? 1),
-  repeatUntil: (r.repeat_until as string) ?? null,
-  exceptions: Array.isArray(r.exceptions) ? (r.exceptions as string[]) : [],
-  createdAt: (r.created_at as string) ?? "",
-});
-const fromFamilyEvent = (x: FamilyEvent) => ({
-  id: x.id,
-  title: x.title,
-  start_date: x.startDate,
-  end_date: x.endDate,
-  time: x.time,
-  category_id: x.categoryId,
-  memo: x.memo,
-  recurrence: x.recurrence,
-  repeat_interval: x.repeatInterval,
-  repeat_until: x.repeatUntil,
-  exceptions: x.exceptions,
-  created_at: x.createdAt || null,
-});
-
-// 캘린더 카테고리
-const toEventCategory = (r: Record<string, unknown>): EventCategory => ({
-  id: r.id as string,
-  name: (r.name as string) ?? "",
-  color: (r.color as string) ?? "#7c766a",
-  emoji: (r.emoji as string) ?? null,
-  sortOrder: Number(r.sort_order ?? 0),
-  createdAt: (r.created_at as string) ?? "",
-});
-const fromEventCategory = (x: EventCategory) => ({
-  id: x.id,
-  name: x.name,
-  color: x.color,
-  emoji: x.emoji,
-  sort_order: x.sortOrder,
-  created_at: x.createdAt || null,
-});
-
 /* ───────────── 공개 API ───────────── */
 
 export async function loadAll(): Promise<DataSnapshot> {
@@ -720,8 +655,6 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecks,
     vaccines,
     assetSnaps,
-    ecats,
-    fevents,
     plans,
   ] = await Promise.all([
     sb.from("categories").select("*"),
@@ -744,8 +677,6 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
-    sb.from("event_categories").select("*"),
-    sb.from("family_events").select("*").is("deleted_at", null),
     sb.from("plan_items").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
@@ -769,11 +700,6 @@ export async function loadAll(): Promise<DataSnapshot> {
   if (planItems.length === 0) {
     await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
     planItems = SEED_PLAN_ITEMS;
-  }
-  let eventCategories = (ecats.data ?? []).map(toEventCategory);
-  if (eventCategories.length === 0) {
-    await sb.from("event_categories").insert(SEED_EVENT_CATEGORIES.map(fromEventCategory));
-    eventCategories = SEED_EVENT_CATEGORIES;
   }
 
   // budget_versions: 에러 없이 0행이면 다른 시드와 같은 패턴으로 v1을 만든다
@@ -824,8 +750,6 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
-    eventCategories,
-    familyEvents: (fevents.data ?? []).map(toFamilyEvent).map(normalizeFamilyEvent),
     planItems,
   };
 }
@@ -1059,28 +983,6 @@ export async function deleteBaechooHealthTodo(id: string) {
   else lsDelete("baechooHealthTodos", id);
 }
 
-export async function saveFamilyEvent(x: FamilyEvent): Promise<FamilyEvent> {
-  const row = { ...x, id: x.id || newId() };
-  if (hasSupabase) await sbUpsert("family_events", fromFamilyEvent(row));
-  else lsUpsert("familyEvents", row);
-  return row;
-}
-export async function deleteFamilyEvent(id: string) {
-  if (hasSupabase) await sbSoftDelete("family_events", id);
-  else lsDelete("familyEvents", id);
-}
-
-export async function saveEventCategory(c: EventCategory): Promise<EventCategory> {
-  const row = { ...c, id: c.id || newId() };
-  if (hasSupabase) await sbUpsert("event_categories", fromEventCategory(row));
-  else lsUpsert("eventCategories", row);
-  return row;
-}
-export async function deleteEventCategory(id: string) {
-  if (hasSupabase) await sbDelete("event_categories", id);
-  else lsDelete("eventCategories", id);
-}
-
 export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {
   const row = { ...x, id: x.id || newId() };
   if (hasSupabase) await sbUpsert("baechoo_walks", fromWalk(row));
@@ -1124,8 +1026,7 @@ export type TrashKind =
   | "healthTodo"
   | "walk"
   | "ujuChecklist"
-  | "vaccine"
-  | "familyEvent";
+  | "vaccine";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -1147,7 +1048,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines, fevents] =
+  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines] =
     await Promise.all([
       del("baechoo_meals"),
       del("baechoo_health"),
@@ -1156,7 +1057,6 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       del("baechoo_walks"),
       del("uju_checklists"),
       del("baechoo_vaccines"),
-      del("family_events"),
     ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
@@ -1231,16 +1131,6 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `예방접종 · ${v.name || "-"}`,
     });
   }
-  for (const r of fevents.data ?? []) {
-    const e = toFamilyEvent(r);
-    items.push({
-      kind: "familyEvent",
-      table: "family_events",
-      id: e.id,
-      deletedAt: r.deleted_at,
-      label: `일정 · ${md(e.startDate)} · ${e.title || "-"}`,
-    });
-  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -1270,7 +1160,6 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_walks",
       "uju_checklists",
       "baechoo_vaccines",
-      "family_events",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }

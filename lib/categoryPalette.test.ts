@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CATEGORY_PALETTE, readableText } from "./eventCategoryPalette";
+import { CATEGORY_PALETTE, readableText } from "./categoryPalette";
 
 describe("readableText", () => {
   it("어두운 배경 → 흰 글씨", () => {

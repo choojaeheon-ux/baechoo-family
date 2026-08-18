@@ -1,4 +1,4 @@
-// 캘린더 카테고리 색 팔레트 — 앱 크림/어스톤 톤에 맞춘 스와치.
+// 카테고리 색 팔레트 — 앱 크림/어스톤 톤에 맞춘 스와치.
 export const CATEGORY_PALETTE = [
   "#5b8c3e", // leaf
   "#8ab560", // sprout
