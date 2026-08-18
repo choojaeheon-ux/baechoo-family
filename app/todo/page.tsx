@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
+import DailyTodoApp from "@/components/dailytodo/DailyTodoApp";
 import Todo52App from "@/components/todo52/Todo52App";
 import CompanyCalendar from "@/components/calendar/CompanyCalendar";
 
-type Sub = "todo52" | "company";
+type Sub = "daily" | "todo52" | "company";
 const SUB_LABEL: Record<Sub, string> = {
+  daily: "데일리 투두",
   todo52: "52주 투두",
   company: "추추 회사",
 };
 
 export default function TodoPage() {
   const { mode } = useData();
-  const [sub, setSub] = useState<Sub>("todo52");
+  const [sub, setSub] = useState<Sub>("daily");
 
   return (
     <div>
@@ -32,7 +34,7 @@ export default function TodoPage() {
             <button
               key={k}
               onClick={() => setSub(k)}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
+              className={`flex-1 rounded-lg py-2 text-[13px] font-medium transition ${
                 sub === k ? "bg-leaf text-white" : "text-stone"
               }`}
             >
@@ -42,6 +44,11 @@ export default function TodoPage() {
         </div>
       </header>
 
+      {sub === "daily" && (
+        <div className="px-4 pt-2 pb-4">
+          <DailyTodoApp />
+        </div>
+      )}
       {sub === "todo52" && <Todo52App embedded />}
       {sub === "company" && (
         <div className="px-4 pt-2 pb-4">
