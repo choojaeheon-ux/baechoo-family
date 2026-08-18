@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { todayISO, nowHHMM } from "@/lib/format";
+import { parseNames, joinNames } from "@/lib/mealNames";
 import {
   MEAL_TYPE_LABEL,
   HEALTH_TYPES,
@@ -114,7 +115,7 @@ export function MealForm({
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
   const isMeal = mealType === "meal";
-  const valid = content.trim().length > 0;
+  const valid = parseNames(content).length > 0;
 
   async function submit() {
     if (!valid) return;
@@ -123,8 +124,8 @@ export function MealForm({
       date,
       mealType,
       time: time || null,
-      content: content.trim(),
-      topping: isMeal ? topping.trim() || null : null,
+      content: joinNames(parseNames(content)),
+      topping: isMeal ? joinNames(parseNames(topping)) || null : null,
       amount: amount.trim() || null,
       memo: memo.trim() || null,
     });
@@ -168,12 +169,17 @@ export function MealForm({
       </div>
 
       <Field label={isMeal ? "사료종류" : "간식종류"}>
-        <CategorySelect group="food" value={content} onChange={setContent} />
+        <CategorySelect group="food" value={content} onChange={setContent} multiple />
       </Field>
 
       {isMeal && (
         <Field label="토핑종류 (선택)">
-          <CategorySelect group="topping" value={topping} onChange={setTopping} />
+          <CategorySelect
+            group="topping"
+            value={topping}
+            onChange={setTopping}
+            multiple
+          />
         </Field>
       )}
 

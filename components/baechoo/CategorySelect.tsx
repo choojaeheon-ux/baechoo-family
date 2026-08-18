@@ -4,16 +4,20 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import type { CategoryGroup } from "@/lib/types";
 import { inputCls } from "@/components/budget/ui";
+import { parseNames, joinNames } from "@/lib/mealNames";
 
 // 저장된 옵션 칩 선택 + 새 항목 추가 + 편집(삭제). 사료/토핑/측정항목 공용.
+// multiple이면 value를 ", "로 이은 여러 이름으로 다룬다 (단일 모드는 값을 쪼개지 않는다).
 export default function CategorySelect({
   group,
   value,
   onChange,
+  multiple = false,
 }: {
   group: CategoryGroup;
   value: string;
   onChange: (name: string) => void;
+  multiple?: boolean;
 }) {
   const { baechooCategories, saveBaechooCategory, removeBaechooCategory } =
     useData();
@@ -24,12 +28,27 @@ export default function CategorySelect({
 
   const opts = baechooCategories.filter((c) => c.group === group);
   const isMeasure = group === "measure";
-  // 현재 값이 저장 목록에 없으면(구 기록 등) 임시 칩으로 표시
   const names = opts.map((o) => o.name);
-  const extra = value && !names.includes(value) ? [value] : [];
+  // 다중은 쉼표로 나눈 전부, 단일은 값 하나
+  const selected = multiple ? parseNames(value) : value ? [value] : [];
+  // 선택값이 저장 목록에 없으면(구 기록 등) 임시 칩으로 표시
+  const extra = selected.filter((n) => !names.includes(n));
+
+  // 다중=토글(재탭 해제), 단일=교체
+  function toggle(name: string) {
+    if (!multiple) return onChange(name);
+    onChange(
+      joinNames(
+        selected.includes(name)
+          ? selected.filter((n) => n !== name)
+          : [...selected, name]
+      )
+    );
+  }
 
   async function addNew() {
-    const name = newName.trim();
+    // 쉼표는 저장 문자열의 구분자라 이름에 들어가면 파싱이 깨진다
+    const name = (multiple ? newName.replace(/,/g, " ") : newName).trim();
     if (!name) return;
     if (!names.includes(name)) {
       await saveBaechooCategory({
@@ -39,7 +58,8 @@ export default function CategorySelect({
         unit: isMeasure ? newUnit.trim() || null : null,
       });
     }
-    onChange(name);
+    // 다중은 교체가 아니라 추가 선택
+    onChange(multiple ? joinNames([...selected, name]) : name);
     setNewName("");
     setNewUnit("");
     setAdding(false);
@@ -50,14 +70,14 @@ export default function CategorySelect({
       <div className="flex flex-wrap gap-1.5">
         {[...opts.map((o) => o.name), ...extra].map((name) => {
           const opt = opts.find((o) => o.name === name);
-          const selected = value === name;
+          const on = selected.includes(name);
           return (
             <span key={name} className="relative">
               <button
                 type="button"
-                onClick={() => onChange(name)}
+                onClick={() => toggle(name)}
                 className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-                  selected
+                  on
                     ? "border-leaf bg-leaf text-white"
                     : "border-line bg-cream text-stone"
                 }`}
@@ -72,7 +92,11 @@ export default function CategorySelect({
                   type="button"
                   onClick={async () => {
                     await removeBaechooCategory(opt.id);
-                    if (value === name) onChange("");
+                    // 지운 항목만 선택에서 뺀다
+                    if (multiple) {
+                      if (selected.includes(name))
+                        onChange(joinNames(selected.filter((n) => n !== name)));
+                    } else if (value === name) onChange("");
                   }}
                   className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[10px] text-white"
                 >
