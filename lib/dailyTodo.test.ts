@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  achievedOn,
   activeOn,
   applyEdit,
   groupByCategory,
@@ -198,6 +199,46 @@ describe("월 히트맵", () => {
     const cells = monthProgress(todos, "2026-08", 80);
     expect(cells.find((c) => c.iso === "2026-08-25")!.hasOnce).toBe(true);
     expect(cells.find((c) => c.iso === "2026-08-24")!.hasOnce).toBe(false);
+  });
+});
+
+describe("achievedOn — 달성 판정은 한 곳에서만 정의된다", () => {
+  it("목표에 정확히 걸치면 달성이다 (pct === goalPct)", () => {
+    const todos = [
+      todo({ id: "a", doneDates: ["2026-08-18"] }),
+      todo({ id: "b", doneDates: ["2026-08-18"] }),
+      todo({ id: "c", doneDates: ["2026-08-18"] }),
+      todo({ id: "d" }),
+    ];
+    expect(progressOn(todos, "2026-08-18").pct).toBe(75);
+    expect(achievedOn(todos, "2026-08-18", 75)).toBe(true);
+  });
+
+  it("목표에 1 모자라면 달성이 아니다", () => {
+    const todos = [
+      todo({ id: "a", doneDates: ["2026-08-18"] }),
+      todo({ id: "b", doneDates: ["2026-08-18"] }),
+      todo({ id: "c", doneDates: ["2026-08-18"] }),
+      todo({ id: "d" }),
+    ];
+    expect(progressOn(todos, "2026-08-18").pct).toBe(75);
+    expect(achievedOn(todos, "2026-08-18", 76)).toBe(false);
+  });
+
+  it("활성 항목이 0개인 날은 달성이 아니다", () => {
+    expect(achievedOn([], "2026-08-18", 0)).toBe(false);
+  });
+
+  it("monthProgress의 각 날짜 achieved는 같은 날짜 achievedOn과 같다 (헤어지지 않는다)", () => {
+    const todos = [
+      todo({ id: "a", startDate: "2026-08-01", doneDates: ["2026-08-01", "2026-08-03"] }),
+      todo({ id: "b", startDate: "2026-08-01" }),
+      todo({ id: "c", title: "본가", onceDate: "2026-08-25", startDate: "2026-08-25" }),
+    ];
+    const cells = monthProgress(todos, "2026-08", 80);
+    for (const c of cells) {
+      expect(c.achieved).toBe(achievedOn(todos, c.iso, 80));
+    }
   });
 });
 

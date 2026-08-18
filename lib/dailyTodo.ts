@@ -59,7 +59,8 @@ export function progressOn(todos: DailyTodo[], iso: string): Progress {
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
-function achievedOn(todos: DailyTodo[], iso: string, goalPct: number): boolean {
+// 목표 달성 판정은 여기 하나뿐이다 — streak·monthProgress·화면(미션 카드)이 전부 이걸 읽는다.
+export function achievedOn(todos: DailyTodo[], iso: string, goalPct: number): boolean {
   const p = progressOn(todos, iso);
   return p.total > 0 && p.pct >= goalPct;
 }

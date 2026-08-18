@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { progressOn, streak } from "@/lib/dailyTodo";
+import { achievedOn, progressOn, streak } from "@/lib/dailyTodo";
 import type { DailyTodo } from "@/lib/types";
 import { Card } from "@/components/budget/ui";
 
@@ -21,7 +21,7 @@ export default function MissionCard({
 }) {
   const p = useMemo(() => progressOn(todos, date), [todos, date]);
   const days = useMemo(() => streak(todos, today, goalPct), [todos, today, goalPct]);
-  const achieved = p.total > 0 && p.pct >= goalPct;
+  const achieved = achievedOn(todos, date, goalPct);
 
   return (
     <Card>

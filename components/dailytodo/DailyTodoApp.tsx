@@ -7,6 +7,7 @@ import type { DailyTodo } from "@/lib/types";
 import DateStrip from "./DateStrip";
 import MissionCard from "./MissionCard";
 import TodoSections from "./TodoSections";
+import Heatmap from "./Heatmap";
 import TodoForm from "./TodoForm";
 import ManageSheet from "./ManageSheet";
 import CategorySheet from "./CategorySheet";
@@ -35,6 +36,14 @@ export default function DailyTodoApp() {
         date={date}
         readonly={date > today}
         onEdit={(t) => setForm({ editing: t })}
+      />
+
+      <Heatmap
+        todos={dailyTodos}
+        date={date}
+        today={today}
+        goalPct={dailyTodoSettings.goalPct}
+        onPick={setDate}
       />
 
       <div className="flex gap-2 pt-1">
