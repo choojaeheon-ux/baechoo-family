@@ -178,6 +178,9 @@ export function budgetBurndown(
     const row = rowByCat.get(category.id);
     const budget = row?.amount ?? 0;
     const spend = spendMap.get(category.id) ?? 0;
+    // 그 달에 예산도 지출도 없는 과목은 근거가 없으므로 행을 만들지 않는다.
+    // (0원 예산은 거래 입력 목록에 과목을 띄우려는 표식이지 대시보드 노출이 아니다.)
+    if (budget <= 0 && spend <= 0) continue;
     rows.push({
       category,
       budget,

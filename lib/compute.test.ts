@@ -153,6 +153,30 @@ describe("budgetBurndown", () => {
     expect(r.budget).toBe(0);
     expect(r.pct).toBe(0);
   });
+
+  it("예산도 지출도 없는 과목은 행에서 빠진다", () => {
+    // 그 달에 근거가 없는 과목은 대시보드에 자리를 차지하면 안 된다.
+    const withIdle = [...cats, cat("cat-idle")];
+    const r = budgetBurndown(budgets, V1, withIdle, txns, "2026-07");
+    expect(r.rows.map((x) => x.category.id)).not.toContain("cat-idle");
+  });
+
+  it("0원 예산 행만 있고 지출이 없어도 뺀다", () => {
+    const r = budgetBurndown([...budgets, b(null, "cat-zero", 0)], V1, [...cats, cat("cat-zero")], txns, "2026-07");
+    expect(r.rows.map((x) => x.category.id)).not.toContain("cat-zero");
+  });
+
+  it("지출만 있으면 남는다 — 예산 0이어도 초과로 보여야 한다", () => {
+    const r = budgetBurndown(budgets, V1, cats, txns, "2026-07");
+    expect(r.rows.map((x) => x.category.id)).toContain("cat-etc");
+  });
+
+  it("예산만 있고 지출이 없어도 남는다", () => {
+    const r = budgetBurndown(budgets, V1, cats, [], "2026-07");
+    expect(r.rows.map((x) => x.category.id)).toEqual(
+      expect.arrayContaining(["cat-food", "cat-living"])
+    );
+  });
 });
 
 describe("groupBurnRows", () => {
@@ -352,7 +376,8 @@ describe("순서 지정 반영", () => {
     bud("b3", "c-b", 34567, 2),
     bud("b4", "c-d", 45678, 3),
   ];
-  const txns: Transaction[] = [];
+  // c-e는 예산 행이 없으므로 지출이 있어야 행으로 남는다(예산 0·지출 0은 제외되는 규칙).
+  const txns: Transaction[] = [tx("t-e", "2026-02-10", "c-e", 1000)];
 
   it("budgetBurndown이 예산 행의 sortOrder를 order로 싣는다", () => {
     const r = budgetBurndown(budgets, V, cats, txns, "2026-02");
