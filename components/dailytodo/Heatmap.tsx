@@ -48,13 +48,9 @@ export default function Heatmap({
           const day = Number(c.iso.slice(8));
           const selected = c.iso === date;
           const isToday = c.iso === today;
-          const ring = selected
-            ? "ring-2 ring-ink"
-            : c.achieved
-              ? "ring-2 ring-leaf"
-              : isToday
-                ? "ring-2 ring-gold"
-                : "";
+          // 세 신호(달성·오늘·선택)는 각각 다른 채널에 둔다 — 링 한 자리를 두고 다투면
+          // "오늘 목표를 달성했다"처럼 가장 흔한 상태에서 도장이 가려진다.
+          const ring = c.achieved ? "ring-2 ring-leaf" : isToday ? "ring-2 ring-gold" : "";
           return (
             <button
               key={c.iso}
@@ -63,11 +59,13 @@ export default function Heatmap({
               className={`relative flex aspect-square items-center justify-center rounded-lg text-[11px] font-semibold ${ring}`}
               style={{
                 backgroundColor: cellBg(c.pct, c.total),
-                color: c.total > 0 && c.pct >= 55 ? "#ffffff" : "var(--color-ink)",
+                color: "var(--color-ink)",
+                outline: selected ? "2px solid var(--color-ink)" : undefined,
+                outlineOffset: selected ? "1px" : undefined,
               }}
               aria-label={`${day}일 ${c.total > 0 ? `${c.pct}%` : "기록 없음"}`}
             >
-              {day}
+              {isToday ? <span className="font-extrabold">{day}</span> : day}
               {c.hasOnce && (
                 <span
                   className="absolute bottom-1 h-1 w-1 rounded-full"
