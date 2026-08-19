@@ -5,7 +5,8 @@ import {
   SEED_PAYMENT_METHODS,
   SEED_BAECHOO_CATEGORIES,
   SEED_PLAN_ITEMS,
-  SEED_EVENT_CATEGORIES,
+  SEED_DAILY_TODO_CATEGORIES,
+  SEED_DAILY_TODO_SETTINGS,
 } from "./seed";
 import type {
   AssetSnapshot,
@@ -13,6 +14,9 @@ import type {
   BudgetVersion,
   Category,
   Coupon,
+  DailyTodo,
+  DailyTodoCategory,
+  DailyTodoSettings,
   DataSnapshot,
   Goal,
   LocalCurrency,
@@ -34,8 +38,6 @@ import type {
   BaechooWalk,
   UjuChecklist,
   BaechooVaccine,
-  FamilyEvent,
-  EventCategory,
   LatLng,
   Stool,
   MealType,
@@ -99,15 +101,6 @@ function normalizeVaccine(
   };
 }
 
-// 구버전 localStorage 일정(assignee만 있음)을 categoryId로 승격
-function normalizeFamilyEvent(x: FamilyEvent): FamilyEvent {
-  const legacy = x as FamilyEvent & { assignee?: string };
-  if (!x.categoryId && legacy.assignee) {
-    return { ...x, categoryId: "cat-" + legacy.assignee };
-  }
-  return x;
-}
-
 // localStorage에는 마이그레이션이 닿지 않는다 — 버전이 하나도 없으면
 // v1을 만들어 기존 예산을 전부 붙인다(클라우드 0025와 같은 결과).
 function normalizeBudgetVersions(
@@ -141,8 +134,10 @@ function lsRead(): DataSnapshot {
         paymentMethods: SEED_PAYMENT_METHODS,
         baechooCategories: SEED_BAECHOO_CATEGORIES,
         planItems: SEED_PLAN_ITEMS,
-        eventCategories: SEED_EVENT_CATEGORIES,
         budgetVersions: [],
+        dailyTodos: [],
+        dailyTodoCategories: SEED_DAILY_TODO_CATEGORIES,
+        dailyTodoSettings: SEED_DAILY_TODO_SETTINGS,
       };
       window.localStorage.setItem(LS_KEY, JSON.stringify(seeded));
       return seeded;
@@ -173,9 +168,10 @@ function lsRead(): DataSnapshot {
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
-      familyEvents: (parsed.familyEvents ?? []).map(normalizeFamilyEvent),
-      eventCategories: parsed.eventCategories ?? SEED_EVENT_CATEGORIES,
       planItems: parsed.planItems ?? SEED_PLAN_ITEMS,
+      dailyTodos: parsed.dailyTodos ?? [],
+      dailyTodoCategories: parsed.dailyTodoCategories ?? SEED_DAILY_TODO_CATEGORIES,
+      dailyTodoSettings: parsed.dailyTodoSettings ?? SEED_DAILY_TODO_SETTINGS,
     };
   } catch {
     return emptySnapshot();
@@ -209,9 +205,10 @@ function emptySnapshot(): DataSnapshot {
     ujuChecklists: [],
     baechooVaccines: [],
     assetSnapshots: [],
-    familyEvents: [],
-    eventCategories: [],
     planItems: [],
+    dailyTodos: [],
+    dailyTodoCategories: [],
+    dailyTodoSettings: SEED_DAILY_TODO_SETTINGS,
   };
 }
 
@@ -646,50 +643,42 @@ const fromPlanItem = (x: PlanItem) => ({
   sort_order: x.sortOrder,
 });
 
-// 가족 캘린더 일정
-const toFamilyEvent = (r: Record<string, unknown>): FamilyEvent => ({
+// 데일리 투두 — 카테고리
+const toDailyTodoCategory = (r: Record<string, unknown>): DailyTodoCategory => ({
   id: r.id as string,
-  title: (r.title as string) ?? "",
-  startDate: (r.start_date as string) ?? "",
-  endDate: (r.end_date as string) ?? null,
-  time: (r.time as string) ?? null,
-  categoryId: (r.category_id as string) ?? "cat-together",
-  memo: (r.memo as string) ?? null,
-  recurrence: (r.recurrence as FamilyEvent["recurrence"]) ?? "none",
-  repeatInterval: Number(r.repeat_interval ?? 1),
-  repeatUntil: (r.repeat_until as string) ?? null,
-  exceptions: Array.isArray(r.exceptions) ? (r.exceptions as string[]) : [],
+  name: r.name as string,
+  color: r.color as string,
+  sortOrder: (r.sort_order as number) ?? 0,
   createdAt: (r.created_at as string) ?? "",
 });
-const fromFamilyEvent = (x: FamilyEvent) => ({
-  id: x.id,
-  title: x.title,
-  start_date: x.startDate,
-  end_date: x.endDate,
-  time: x.time,
-  category_id: x.categoryId,
-  memo: x.memo,
-  recurrence: x.recurrence,
-  repeat_interval: x.repeatInterval,
-  repeat_until: x.repeatUntil,
-  exceptions: x.exceptions,
-  created_at: x.createdAt || null,
-});
-
-// 캘린더 카테고리
-const toEventCategory = (r: Record<string, unknown>): EventCategory => ({
-  id: r.id as string,
-  name: (r.name as string) ?? "",
-  color: (r.color as string) ?? "#7c766a",
-  emoji: (r.emoji as string) ?? null,
-  sortOrder: Number(r.sort_order ?? 0),
-  createdAt: (r.created_at as string) ?? "",
-});
-const fromEventCategory = (x: EventCategory) => ({
+const fromDailyTodoCategory = (x: DailyTodoCategory) => ({
   id: x.id,
   name: x.name,
   color: x.color,
-  emoji: x.emoji,
+  sort_order: x.sortOrder,
+  created_at: x.createdAt || null,
+});
+
+// 데일리 투두 — 항목
+const toDailyTodo = (r: Record<string, unknown>): DailyTodo => ({
+  id: r.id as string,
+  title: r.title as string,
+  categoryId: r.category_id as string,
+  startDate: r.start_date as string,
+  endDate: (r.end_date as string) ?? null,
+  onceDate: (r.once_date as string) ?? null,
+  doneDates: Array.isArray(r.done_dates) ? (r.done_dates as string[]) : [],
+  sortOrder: (r.sort_order as number) ?? 0,
+  createdAt: (r.created_at as string) ?? "",
+});
+const fromDailyTodo = (x: DailyTodo) => ({
+  id: x.id,
+  title: x.title,
+  category_id: x.categoryId,
+  start_date: x.startDate,
+  end_date: x.endDate,
+  once_date: x.onceDate,
+  done_dates: x.doneDates,
   sort_order: x.sortOrder,
   created_at: x.createdAt || null,
 });
@@ -720,9 +709,10 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecks,
     vaccines,
     assetSnaps,
-    ecats,
-    fevents,
     plans,
+    dtcats,
+    dtodos,
+    dtset,
   ] = await Promise.all([
     sb.from("categories").select("*"),
     sb.from("payment_methods").select("*"),
@@ -744,9 +734,10 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
-    sb.from("event_categories").select("*"),
-    sb.from("family_events").select("*").is("deleted_at", null),
     sb.from("plan_items").select("*"),
+    sb.from("daily_todo_categories").select("*"),
+    sb.from("daily_todos").select("*"),
+    sb.from("daily_todo_settings").select("*"),
   ]);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
@@ -770,10 +761,43 @@ export async function loadAll(): Promise<DataSnapshot> {
     await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
     planItems = SEED_PLAN_ITEMS;
   }
-  let eventCategories = (ecats.data ?? []).map(toEventCategory);
-  if (eventCategories.length === 0) {
-    await sb.from("event_categories").insert(SEED_EVENT_CATEGORIES.map(fromEventCategory));
-    eventCategories = SEED_EVENT_CATEGORIES;
+  // daily_todo*: 에러 없이 0행이면 다른 시드와 같은 패턴으로 기본값을 넣는다.
+  // 에러(0027 마이그레이션 미적용 등)면 시드를 넣지 않는다 — supabase-js는 PostgREST
+  // 에러에 reject하지 않고 { data: null, error }를 주므로 `?? []`가 "0행"과 구별되지
+  // 않는다. 그대로 두면 시드 insert도 같은 이유로 실패해 버려지는데 화면엔 멀쩡한
+  // 기본 카테고리가 그려지고, 이후 쓰기는 전부 조용히 사라진다. 원인은 콘솔에 남긴다.
+  let dailyTodoCategories: DailyTodoCategory[] = [];
+  if (dtcats.error) {
+    console.error("[repo.loadAll] daily_todo_categories 조회 실패:", dtcats.error);
+  } else {
+    dailyTodoCategories = (dtcats.data ?? []).map(toDailyTodoCategory);
+    if (dailyTodoCategories.length === 0) {
+      await sb
+        .from("daily_todo_categories")
+        .insert(SEED_DAILY_TODO_CATEGORIES.map(fromDailyTodoCategory));
+      dailyTodoCategories = SEED_DAILY_TODO_CATEGORIES;
+    }
+  }
+
+  // daily_todos는 시드가 없다 — 조회 실패를 빈 목록으로 넘기지 말고 원인만 남긴다.
+  if (dtodos.error) {
+    console.error("[repo.loadAll] daily_todos 조회 실패:", dtodos.error);
+  }
+
+  let dailyTodoSettings: DailyTodoSettings;
+  if (dtset.error) {
+    console.error("[repo.loadAll] daily_todo_settings 조회 실패:", dtset.error);
+    dailyTodoSettings = SEED_DAILY_TODO_SETTINGS;
+  } else {
+    const settingsRow = (dtset.data ?? [])[0] as Record<string, unknown> | undefined;
+    if (settingsRow) {
+      dailyTodoSettings = { goalPct: (settingsRow.goal_pct as number) ?? 80 };
+    } else {
+      await sb
+        .from("daily_todo_settings")
+        .insert({ id: "singleton", goal_pct: SEED_DAILY_TODO_SETTINGS.goalPct });
+      dailyTodoSettings = SEED_DAILY_TODO_SETTINGS;
+    }
   }
 
   // budget_versions: 에러 없이 0행이면 다른 시드와 같은 패턴으로 v1을 만든다
@@ -824,9 +848,10 @@ export async function loadAll(): Promise<DataSnapshot> {
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
-    eventCategories,
-    familyEvents: (fevents.data ?? []).map(toFamilyEvent).map(normalizeFamilyEvent),
     planItems,
+    dailyTodos: (dtodos.data ?? []).map(toDailyTodo),
+    dailyTodoCategories,
+    dailyTodoSettings,
   };
 }
 
@@ -945,6 +970,44 @@ export async function deletePlanItem(id: string) {
   else lsDelete("planItems", id);
 }
 
+export async function saveDailyTodo(x: DailyTodo): Promise<DailyTodo> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("daily_todos", fromDailyTodo(row));
+  else lsUpsert("dailyTodos", row);
+  return row;
+}
+export async function deleteDailyTodo(id: string) {
+  if (hasSupabase) await sbDelete("daily_todos", id);
+  else lsDelete("dailyTodos", id);
+}
+
+export async function saveDailyTodoCategory(
+  x: DailyTodoCategory
+): Promise<DailyTodoCategory> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("daily_todo_categories", fromDailyTodoCategory(row));
+  else lsUpsert("dailyTodoCategories", row);
+  return row;
+}
+export async function deleteDailyTodoCategory(id: string) {
+  if (hasSupabase) await sbDelete("daily_todo_categories", id);
+  else lsDelete("dailyTodoCategories", id);
+}
+
+// 단일 행. 테이블의 id='singleton'은 여기서만 다룬다.
+export async function saveDailyTodoSettings(
+  s: DailyTodoSettings
+): Promise<DailyTodoSettings> {
+  if (hasSupabase) {
+    await sbUpsert("daily_todo_settings", { id: "singleton", goal_pct: s.goalPct });
+  } else {
+    const snap = lsRead();
+    snap.dailyTodoSettings = s;
+    lsWrite(snap);
+  }
+  return s;
+}
+
 export async function saveLocalCurrency(x: LocalCurrency): Promise<LocalCurrency> {
   const row = { ...x, id: x.id || newId() };
   if (hasSupabase) await sbUpsert("local_currencies", fromLc(row));
@@ -1059,28 +1122,6 @@ export async function deleteBaechooHealthTodo(id: string) {
   else lsDelete("baechooHealthTodos", id);
 }
 
-export async function saveFamilyEvent(x: FamilyEvent): Promise<FamilyEvent> {
-  const row = { ...x, id: x.id || newId() };
-  if (hasSupabase) await sbUpsert("family_events", fromFamilyEvent(row));
-  else lsUpsert("familyEvents", row);
-  return row;
-}
-export async function deleteFamilyEvent(id: string) {
-  if (hasSupabase) await sbSoftDelete("family_events", id);
-  else lsDelete("familyEvents", id);
-}
-
-export async function saveEventCategory(c: EventCategory): Promise<EventCategory> {
-  const row = { ...c, id: c.id || newId() };
-  if (hasSupabase) await sbUpsert("event_categories", fromEventCategory(row));
-  else lsUpsert("eventCategories", row);
-  return row;
-}
-export async function deleteEventCategory(id: string) {
-  if (hasSupabase) await sbDelete("event_categories", id);
-  else lsDelete("eventCategories", id);
-}
-
 export async function saveBaechooWalk(x: BaechooWalk): Promise<BaechooWalk> {
   const row = { ...x, id: x.id || newId() };
   if (hasSupabase) await sbUpsert("baechoo_walks", fromWalk(row));
@@ -1124,8 +1165,7 @@ export type TrashKind =
   | "healthTodo"
   | "walk"
   | "ujuChecklist"
-  | "vaccine"
-  | "familyEvent";
+  | "vaccine";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -1147,7 +1187,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines, fevents] =
+  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines] =
     await Promise.all([
       del("baechoo_meals"),
       del("baechoo_health"),
@@ -1156,7 +1196,6 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       del("baechoo_walks"),
       del("uju_checklists"),
       del("baechoo_vaccines"),
-      del("family_events"),
     ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
@@ -1231,16 +1270,6 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `예방접종 · ${v.name || "-"}`,
     });
   }
-  for (const r of fevents.data ?? []) {
-    const e = toFamilyEvent(r);
-    items.push({
-      kind: "familyEvent",
-      table: "family_events",
-      id: e.id,
-      deletedAt: r.deleted_at,
-      label: `일정 · ${md(e.startDate)} · ${e.title || "-"}`,
-    });
-  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -1270,7 +1299,6 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_walks",
       "uju_checklists",
       "baechoo_vaccines",
-      "family_events",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }

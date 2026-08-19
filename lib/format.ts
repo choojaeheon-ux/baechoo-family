@@ -31,6 +31,12 @@ export function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// 날짜 ± n일. 월·연 경계를 넘는다. (구 lib/calendar.ts에서 이관)
+export function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return toISODate(new Date(y, m - 1, d + n));
+}
+
 export function currentYearMonth(): string {
   return todayISO().slice(0, 7);
 }
