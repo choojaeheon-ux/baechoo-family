@@ -29,8 +29,10 @@ export default function Heatmap({
 }) {
   const ym = yearMonthOf(date);
   const cells = useMemo(() => monthProgress(todos, ym, goalPct), [todos, ym, goalPct]);
-  // 1일이 무슨 요일인지 — 앞을 빈 칸으로 채운다
-  const lead = new Date(`${ym}-01`).getDay();
+  // 1일이 무슨 요일인지 — 앞을 빈 칸으로 채운다.
+  // 날짜만 있는 ISO 문자열은 UTC로 파싱되므로 다른 달력들과 같은 로컬시각 생성자를 쓴다.
+  const [y, m] = ym.split("-").map(Number);
+  const lead = new Date(y, m - 1, 1).getDay();
 
   return (
     <Card>

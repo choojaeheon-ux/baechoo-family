@@ -13,13 +13,3 @@ export const CATEGORY_PALETTE = [
   "#6d6875", // slate
   "#7c766a", // stone
 ];
-
-// 배경 hex 위에 얹을 글씨색 — 밝기(YIQ)로 흰색/짙은색 결정.
-export function readableText(hex: string): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 150 ? "#2f2a20" : "#ffffff";
-}

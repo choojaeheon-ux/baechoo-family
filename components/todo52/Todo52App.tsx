@@ -18,7 +18,7 @@ import { WeekTodoForm, TodoActionSheet } from "./forms";
 
 type View = "weeks" | "unscheduled";
 
-// embedded: 캘린더 탭 서브탭으로 렌더될 때 — 타이틀 행 숨김·sticky 해제(부모 헤더와 충돌 방지)
+// embedded: 투두 탭 서브탭으로 렌더될 때 — 타이틀 행 숨김·sticky 해제(부모 헤더와 충돌 방지)
 export default function Todo52App({ embedded = false }: { embedded?: boolean }) {
   const { loading, mode, weekTodos } = useData();
   const thisYear = new Date().getFullYear();

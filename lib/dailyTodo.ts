@@ -11,9 +11,17 @@ const ORPHAN_CAT: DailyTodoCategory = {
   createdAt: "",
 };
 
+// 날짜 정규화 — 빈 문자열은 날짜가 아니므로 경계에서 null로 바꾼다.
+// <input type="date">는 비울 수 있어 ""가 그대로 흘러든다.
+function normDate(v: string | null | undefined): string | null {
+  return v === null || v === undefined || v.trim() === "" ? null : v;
+}
+
 // 그 날짜에 뜨는가. 판정식은 여기 하나뿐이다.
 export function isActiveOn(t: DailyTodo, iso: string): boolean {
-  if (t.onceDate) return t.onceDate === iso;
+  // 1회성 여부는 truthy가 아니라 null로 가른다 — ""는 falsy라 매일 분기로 떨어지면
+  // iso >= ""가 언제나 참이 되어 전 날짜가 활성이 된다(지난 진행률·히트맵·스트릭이 전부 뒤집힌다).
+  if (t.onceDate !== null) return normDate(t.onceDate) === iso;
   return iso >= t.startDate && (t.endDate === null || iso < t.endDate);
 }
 
@@ -42,8 +50,13 @@ export function applyEdit(
 ): DailyTodo {
   const base = { ...t, title: patch.title, categoryId: patch.categoryId };
   if (t.onceDate === null) return base;
-  const onceDate = patch.onceDate ?? t.onceDate;
-  return { ...base, onceDate, startDate: onceDate };
+  // 빈 지정일은 "안 준 것"으로 본다 — ??는 ""를 거르지 못해 기존 지정일을 날린다.
+  const onceDate = normDate(patch.onceDate) ?? t.onceDate;
+  // 지정일을 옮기면 체크도 새 날짜로 옮긴다 — 옛 날짜에 남겨두면 되돌렸을 때
+  // 하지 않은 체크가 되살아난다.
+  const doneDates =
+    onceDate === t.onceDate ? t.doneDates : isDoneOn(t, t.onceDate) ? [onceDate] : [];
+  return { ...base, onceDate, startDate: onceDate, doneDates };
 }
 
 export interface Progress {
@@ -125,7 +138,7 @@ export function monthProgress(
       iso,
       pct: p.pct,
       total: p.total,
-      achieved: p.total > 0 && p.pct >= goalPct,
+      achieved: achievedOn(todos, iso, goalPct),
       hasOnce: todos.some((t) => t.onceDate === iso),
     });
   }

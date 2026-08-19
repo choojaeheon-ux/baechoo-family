@@ -276,11 +276,51 @@ describe("편집 — 성격과 활성 구간은 고정된다", () => {
     expect(activeOn([edited], "2026-08-20")).toHaveLength(1);
   });
 
+  it("1회성 지정일을 옮기면 체크가 새 날짜로 따라가고 옛 날짜엔 남지 않는다", () => {
+    const t = todo({ onceDate: "2026-08-05", startDate: "2026-08-05", doneDates: ["2026-08-05"] });
+    const edited = applyEdit(t, { title: "본가 방문", categoryId: "c1", onceDate: "2026-08-20" });
+    expect(edited.doneDates).toEqual(["2026-08-20"]);
+    expect(isDoneOn(edited, "2026-08-05")).toBe(false);
+    expect(isDoneOn(edited, "2026-08-20")).toBe(true);
+  });
+
+  it("체크하지 않은 1회성을 옮기면 새 날짜에도 체크가 생기지 않는다", () => {
+    const t = todo({ onceDate: "2026-08-05", startDate: "2026-08-05" });
+    const edited = applyEdit(t, { title: "본가 방문", categoryId: "c1", onceDate: "2026-08-20" });
+    expect(edited.doneDates).toEqual([]);
+    expect(isDoneOn(edited, "2026-08-20")).toBe(false);
+  });
+
   it("편집은 원본을 변형하지 않는다", () => {
     const t = todo({ startDate: "2026-08-01" });
     applyEdit(t, { title: "바뀜", categoryId: "c2" });
     expect(t.title).toBe("양치");
     expect(t.categoryId).toBe("c1");
+  });
+});
+
+describe("빈 지정일 — 날짜가 아닌 값은 어느 날에도 뜨지 않는다", () => {
+  it("지정일이 빈 문자열인 항목은 어느 날짜에도 활성이 아니다", () => {
+    const t = todo({ id: "blank", title: "날짜 비움", onceDate: "", startDate: "" });
+    for (const iso of ["2020-01-01", "2026-08-18", "2099-12-31"]) {
+      expect(activeOn([t], iso)).toHaveLength(0);
+    }
+  });
+
+  it("지정일이 빈 문자열인 항목은 어제 진행률을 바꾸지 않는다", () => {
+    const normal = todo({ id: "a", startDate: "2026-08-01", doneDates: ["2026-08-17"] });
+    const before = progressOn([normal], "2026-08-17");
+    const blank = todo({ id: "blank", title: "날짜 비움", onceDate: "", startDate: "" });
+    expect(before).toEqual({ done: 1, total: 1, pct: 100 });
+    expect(progressOn([normal, blank], "2026-08-17")).toEqual(before);
+  });
+
+  it("applyEdit에 빈 지정일을 주면 기존 지정일이 유지된다", () => {
+    const t = todo({ onceDate: "2026-08-05", startDate: "2026-08-05" });
+    const edited = applyEdit(t, { title: "본가 방문", categoryId: "c1", onceDate: "" });
+    expect(edited.onceDate).toBe("2026-08-05");
+    expect(edited.startDate).toBe("2026-08-05");
+    expect(activeOn([edited], "2026-08-05")).toHaveLength(1);
   });
 });
 

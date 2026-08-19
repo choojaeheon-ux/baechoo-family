@@ -31,10 +31,12 @@ export default function TodoForm({
   const today = todayISO();
   // 편집에서는 항목의 성격(매일/1회성)이 생성 시점에 고정된다 — 토글을 두지 않는다.
   const isOnce = editing ? editing.onceDate !== null : once;
+  // 특정일인데 날짜를 비우면 저장을 막는다 — 빈 날짜는 전 날짜 활성으로 번진다.
+  const noDate = isOnce && !onceDate.trim();
 
   async function submit() {
     const t = title.trim();
-    if (!t || !categoryId) return;
+    if (!t || !categoryId || noDate) return;
 
     if (editing) {
       // 편집은 제목·카테고리·(1회성이면) 지정일만 바꾼다. 성격과 활성 구간은 기록이라 건드리지 않는다.
@@ -134,7 +136,7 @@ export default function TodoForm({
         </Field>
       )}
 
-      <PrimaryButton onClick={submit} disabled={!title.trim() || !categoryId}>
+      <PrimaryButton onClick={submit} disabled={!title.trim() || !categoryId || noDate}>
         저장
       </PrimaryButton>
 

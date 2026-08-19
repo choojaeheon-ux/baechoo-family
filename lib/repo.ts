@@ -761,23 +761,43 @@ export async function loadAll(): Promise<DataSnapshot> {
     await sb.from("plan_items").insert(SEED_PLAN_ITEMS.map(fromPlanItem));
     planItems = SEED_PLAN_ITEMS;
   }
-  let dailyTodoCategories = (dtcats.data ?? []).map(toDailyTodoCategory);
-  if (dailyTodoCategories.length === 0) {
-    await sb
-      .from("daily_todo_categories")
-      .insert(SEED_DAILY_TODO_CATEGORIES.map(fromDailyTodoCategory));
-    dailyTodoCategories = SEED_DAILY_TODO_CATEGORIES;
+  // daily_todo*: 에러 없이 0행이면 다른 시드와 같은 패턴으로 기본값을 넣는다.
+  // 에러(0027 마이그레이션 미적용 등)면 시드를 넣지 않는다 — supabase-js는 PostgREST
+  // 에러에 reject하지 않고 { data: null, error }를 주므로 `?? []`가 "0행"과 구별되지
+  // 않는다. 그대로 두면 시드 insert도 같은 이유로 실패해 버려지는데 화면엔 멀쩡한
+  // 기본 카테고리가 그려지고, 이후 쓰기는 전부 조용히 사라진다. 원인은 콘솔에 남긴다.
+  let dailyTodoCategories: DailyTodoCategory[] = [];
+  if (dtcats.error) {
+    console.error("[repo.loadAll] daily_todo_categories 조회 실패:", dtcats.error);
+  } else {
+    dailyTodoCategories = (dtcats.data ?? []).map(toDailyTodoCategory);
+    if (dailyTodoCategories.length === 0) {
+      await sb
+        .from("daily_todo_categories")
+        .insert(SEED_DAILY_TODO_CATEGORIES.map(fromDailyTodoCategory));
+      dailyTodoCategories = SEED_DAILY_TODO_CATEGORIES;
+    }
   }
 
-  const settingsRow = (dtset.data ?? [])[0] as Record<string, unknown> | undefined;
+  // daily_todos는 시드가 없다 — 조회 실패를 빈 목록으로 넘기지 말고 원인만 남긴다.
+  if (dtodos.error) {
+    console.error("[repo.loadAll] daily_todos 조회 실패:", dtodos.error);
+  }
+
   let dailyTodoSettings: DailyTodoSettings;
-  if (settingsRow) {
-    dailyTodoSettings = { goalPct: (settingsRow.goal_pct as number) ?? 80 };
-  } else {
-    await sb
-      .from("daily_todo_settings")
-      .insert({ id: "singleton", goal_pct: SEED_DAILY_TODO_SETTINGS.goalPct });
+  if (dtset.error) {
+    console.error("[repo.loadAll] daily_todo_settings 조회 실패:", dtset.error);
     dailyTodoSettings = SEED_DAILY_TODO_SETTINGS;
+  } else {
+    const settingsRow = (dtset.data ?? [])[0] as Record<string, unknown> | undefined;
+    if (settingsRow) {
+      dailyTodoSettings = { goalPct: (settingsRow.goal_pct as number) ?? 80 };
+    } else {
+      await sb
+        .from("daily_todo_settings")
+        .insert({ id: "singleton", goal_pct: SEED_DAILY_TODO_SETTINGS.goalPct });
+      dailyTodoSettings = SEED_DAILY_TODO_SETTINGS;
+    }
   }
 
   // budget_versions: 에러 없이 0행이면 다른 시드와 같은 패턴으로 v1을 만든다

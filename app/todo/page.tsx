@@ -14,7 +14,7 @@ const SUB_LABEL: Record<Sub, string> = {
 };
 
 export default function TodoPage() {
-  const { mode } = useData();
+  const { loading, mode } = useData();
   const [sub, setSub] = useState<Sub>("daily");
 
   return (
@@ -46,7 +46,13 @@ export default function TodoPage() {
 
       {sub === "daily" && (
         <div className="px-4 pt-2 pb-4">
-          <DailyTodoApp />
+          {loading ? (
+            <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>
+          ) : (
+            // 로딩 중엔 아예 마운트하지 않는다 — ManageSheet가 초기값(목표 80%)을
+            // 캡처해두었다가 blur에 그대로 저장하면 사용자가 정한 목표가 덮어써진다.
+            <DailyTodoApp />
+          )}
         </div>
       )}
       {sub === "todo52" && <Todo52App embedded />}
