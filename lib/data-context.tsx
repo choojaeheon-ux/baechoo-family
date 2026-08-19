@@ -117,8 +117,11 @@ interface DataContextValue {
   savePlanItem: (p: PlanItem) => Promise<void>;
   removePlanItem: (id: string) => Promise<void>;
   saveDailyTodo: (t: DailyTodo) => Promise<void>;
+  // 순서 이동 전용 — 실패를 삼키지 않고 던진다(repo.saveDailyTodoOrThrow 주석 참조).
+  saveDailyTodoOrThrow: (t: DailyTodo) => Promise<void>;
   removeDailyTodo: (id: string) => Promise<void>;
   saveDailyTodoCategory: (c: DailyTodoCategory) => Promise<void>;
+  saveDailyTodoCategoryOrThrow: (c: DailyTodoCategory) => Promise<void>;
   removeDailyTodoCategory: (id: string) => Promise<void>;
   saveDailyTodoSettings: (s: DailyTodoSettings) => Promise<void>;
 }
@@ -485,12 +488,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const saved = await repo.saveDailyTodo(t);
         upsertLocal(setDailyTodos, saved);
       },
+      // await가 먼저 던지므로 로컬 반영은 저장에 성공한 행에만 일어난다.
+      saveDailyTodoOrThrow: async (t) => {
+        const saved = await repo.saveDailyTodoOrThrow(t);
+        upsertLocal(setDailyTodos, saved);
+      },
       removeDailyTodo: async (id) => {
         await repo.deleteDailyTodo(id);
         setDailyTodos((p) => p.filter((x) => x.id !== id));
       },
       saveDailyTodoCategory: async (c) => {
         const saved = await repo.saveDailyTodoCategory(c);
+        upsertLocal(setDailyTodoCategories, saved);
+      },
+      saveDailyTodoCategoryOrThrow: async (c) => {
+        const saved = await repo.saveDailyTodoCategoryOrThrow(c);
         upsertLocal(setDailyTodoCategories, saved);
       },
       removeDailyTodoCategory: async (id) => {

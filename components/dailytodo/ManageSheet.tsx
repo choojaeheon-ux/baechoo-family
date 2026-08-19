@@ -48,10 +48,25 @@ export default function ManageSheet({
     [dailyTodoCategories]
   );
 
+  // 메인 화면과 같은 카테고리 순서. sortOrder만으로 평평하게 정렬하면 한 카테고리를
+  // 한 칸 올린 뒤(동점 치유로 0..n-1 재부여) 그 카테고리 항목이 통째로 맨 위로 튄다.
+  const catRank = useMemo(() => {
+    const sorted = [...dailyTodoCategories].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ko")
+    );
+    return new Map(sorted.map((c, i) => [c.id, i]));
+  }, [dailyTodoCategories]);
+
   // 매일 = 아직 그만두지 않은 반복 항목
   const daily = dailyTodos
     .filter((t) => t.onceDate === null && (t.endDate === null || t.endDate > today))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort(
+      (a, b) =>
+        (catRank.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER) -
+          (catRank.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER) ||
+        a.sortOrder - b.sortOrder ||
+        a.title.localeCompare(b.title, "ko")
+    );
 
   // 1회성 = 오늘 이후로 예정된 것만
   const upcoming = dailyTodos
