@@ -65,6 +65,12 @@ describe("moveCategory", () => {
     moveCategory(cats, ["health", "home", "hobby"], "hobby", -1);
     expect(cats.map((c) => c.sortOrder)).toEqual(before);
   });
+
+  it("범위 밖 이동은 동점이 있어도 sortOrder를 하나도 바꾸지 않는다", () => {
+    const tied = [cat("a", "가", 5), cat("b", "나", 5)];
+    const next = moveCategory(tied, ["a", "b"], "a", -1);
+    expect(next.map((c) => c.sortOrder)).toEqual([5, 5]);
+  });
 });
 
 describe("moveTodo", () => {
@@ -128,5 +134,43 @@ describe("moveTodo", () => {
     const before = todos.map((t) => t.sortOrder);
     moveTodo(todos, ["a", "b", "c", "x"], "c", -1);
     expect(todos.map((t) => t.sortOrder)).toEqual(before);
+  });
+
+  it("사이에 sortOrder가 낀 다른 카테고리 항목과 바뀌지 않는다", () => {
+    // x(c2, 15)는 a(10)와 b(20) 사이에 있다. b의 ▲는 x가 아니라 a와 바뀌어야 한다.
+    const next = moveTodo(todos, ["a", "b", "c", "x"], "b", -1);
+    expect(orderOf(next.filter((t) => t.categoryId === "c1"))).toEqual(["b", "a", "c"]);
+    expect(next.find((t) => t.id === "x")!.sortOrder).toBe(15);
+  });
+
+  it("범위 밖 이동은 동점이 있어도 sortOrder를 하나도 바꾸지 않는다", () => {
+    const tied = [
+      todo({ id: "p", title: "가", categoryId: "c1", sortOrder: 7 }),
+      todo({ id: "q", title: "나", categoryId: "c1", sortOrder: 7 }),
+    ];
+    const next = moveTodo(tied, ["p", "q"], "p", -1);
+    expect(next.map((t) => t.sortOrder)).toEqual([7, 7]);
+  });
+
+  it("맞바꿀 두 행이 겹치지 않으면 다른 곳의 동점은 건드리지 않는다", () => {
+    const rows = [
+      todo({ id: "a", title: "가", categoryId: "c1", sortOrder: 10 }),
+      todo({ id: "b", title: "나", categoryId: "c1", sortOrder: 20 }),
+      todo({ id: "d1", title: "라", categoryId: "c1", sortOrder: 99 }),
+      todo({ id: "d2", title: "마", categoryId: "c1", sortOrder: 99 }),
+    ];
+    const next = moveTodo(rows, ["a", "b", "d1", "d2"], "b", -1);
+    expect(next.find((t) => t.id === "d1")!.sortOrder).toBe(99);
+    expect(next.find((t) => t.id === "d2")!.sortOrder).toBe(99);
+  });
+
+  it("맞바꿀 두 행이 겹치면 그 카테고리를 다시 매긴다 — 순서는 보존된다", () => {
+    const rows = [
+      todo({ id: "a", title: "가", categoryId: "c1", sortOrder: 5 }),
+      todo({ id: "b", title: "나", categoryId: "c1", sortOrder: 5 }),
+      todo({ id: "far", title: "다", categoryId: "c1", sortOrder: 1000 }),
+    ];
+    const next = moveTodo(rows, ["a", "b", "far"], "b", -1);
+    expect(orderOf(next)).toEqual(["b", "a", "far"]);
   });
 });

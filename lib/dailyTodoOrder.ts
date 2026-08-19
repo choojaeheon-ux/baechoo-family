@@ -23,25 +23,47 @@ function healTies<T extends Ordered>(all: T[], scope: T[], cmp: (a: T, b: T) => 
   return all.map((r) => (rank.has(r.id) ? { ...r, sortOrder: rank.get(r.id)! } : r));
 }
 
-// 보이는 이웃과 sortOrder를 맞바꾼 전체 배열. 범위를 벗어나면 base를 그대로 돌려준다.
-function swapWithVisibleNeighbor<T extends Ordered>(
-  base: T[],
-  siblings: T[],
-  id: string,
-  dir: -1 | 1
-): T[] {
-  const i = siblings.findIndex((r) => r.id === id);
-  const to = i + dir;
-  if (i < 0 || to < 0 || to >= siblings.length) return base;
-  const a = siblings[i];
-  const b = siblings[to];
-  return base.map((r) =>
+// 두 행의 sortOrder를 맞바꾼 전체 배열.
+function swapPair<T extends Ordered>(all: T[], aId: string, bId: string): T[] {
+  const a = all.find((r) => r.id === aId)!;
+  const b = all.find((r) => r.id === bId)!;
+  return all.map((r) =>
     r.id === a.id
       ? { ...r, sortOrder: b.sortOrder }
       : r.id === b.id
         ? { ...r, sortOrder: a.sortOrder }
         : r
   );
+}
+
+// 이동 공통 코어. 범위를 먼저 확인하므로 무동작 요청은 아무것도 쓰지 않는다.
+// 동점 치유는 맞바꿀 두 행이 실제로 겹칠 때만 — 그때만 그 그룹을 다시 매긴다.
+function move<T extends Ordered>(
+  all: T[],
+  scope: (r: T) => boolean,
+  visibleIds: string[],
+  id: string,
+  dir: -1 | 1,
+  cmp: (a: T, b: T) => number
+): T[] {
+  const visible = new Set(visibleIds);
+  const siblingsOf = (rows: T[]) => rows.filter((r) => scope(r) && visible.has(r.id)).sort(cmp);
+
+  const siblings = siblingsOf(all);
+  const i = siblings.findIndex((r) => r.id === id);
+  const to = i + dir;
+  if (i < 0 || to < 0 || to >= siblings.length) return all;
+
+  if (siblings[i].sortOrder !== siblings[to].sortOrder) {
+    return swapPair(all, siblings[i].id, siblings[to].id);
+  }
+
+  // 맞바꿀 두 행의 sortOrder가 같으면 맞바꿔도 순서가 그대로다.
+  // 현재 표시 순서를 유지한 채 그 그룹만 0..n-1로 다시 매긴 뒤 맞바꾼다.
+  // healTies는 순서를 보존하므로 재정렬 후에도 i·to의 위치는 그대로다.
+  const healed = healTies(all, all.filter(scope), cmp);
+  const hs = siblingsOf(healed);
+  return swapPair(healed, hs[i].id, hs[to].id);
 }
 
 export function moveCategory(
@@ -51,11 +73,7 @@ export function moveCategory(
   dir: -1 | 1
 ): DailyTodoCategory[] {
   if (!cats.some((c) => c.id === catId)) return cats;
-  const cmp = byOrder<DailyTodoCategory>((c) => c.name);
-  const base = healTies(cats, cats, cmp);
-  const visible = new Set(visibleIds);
-  const siblings = base.filter((c) => visible.has(c.id)).sort(cmp);
-  return swapWithVisibleNeighbor(base, siblings, catId, dir);
+  return move(cats, () => true, visibleIds, catId, dir, byOrder<DailyTodoCategory>((c) => c.name));
 }
 
 export function moveTodo(
@@ -66,12 +84,12 @@ export function moveTodo(
 ): DailyTodo[] {
   const target = todos.find((t) => t.id === todoId);
   if (!target) return todos;
-  const cmp = byOrder<DailyTodo>((t) => t.title);
-  const sameCat = (t: DailyTodo) => t.categoryId === target.categoryId;
-  // 동점 정규화는 대상 카테고리 안에서만 — 다른 카테고리까지 다시 매기면
-  // 이동 한 번에 관계없는 행이 무더기로 저장된다.
-  const base = healTies(todos, todos.filter(sameCat), cmp);
-  const visible = new Set(visibleIds);
-  const siblings = base.filter((t) => sameCat(t) && visible.has(t.id)).sort(cmp);
-  return swapWithVisibleNeighbor(base, siblings, todoId, dir);
+  return move(
+    todos,
+    (t) => t.categoryId === target.categoryId,
+    visibleIds,
+    todoId,
+    dir,
+    byOrder<DailyTodo>((t) => t.title)
+  );
 }
