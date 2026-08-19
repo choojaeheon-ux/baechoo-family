@@ -172,5 +172,8 @@ describe("moveTodo", () => {
     ];
     const next = moveTodo(rows, ["a", "b", "far"], "b", -1);
     expect(orderOf(next)).toEqual(["b", "a", "far"]);
+    // 겹친 두 행만 고치는 게 아니라 카테고리 전체를 0..n-1로 다시 매긴다.
+    // 이 숫자를 관리 시트가 그대로 읽으므로 재부여 범위를 못박아 둔다.
+    expect(next.find((t) => t.id === "far")!.sortOrder).toBe(2);
   });
 });

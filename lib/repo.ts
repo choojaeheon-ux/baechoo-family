@@ -861,7 +861,8 @@ async function sbUpsert(table: string, row: Record<string, unknown>) {
 // sbUpsert는 error를 버려 실패가 조용한 유실이 된다(저장소 전반의 기존 패턴 —
 // 여기서 전역으로 바꾸지 않는다). 예산 버전은 버전 1행 + 예산 N행을 순차로 쓰는
 // 다중 쓰기의 첫 단계라 실패를 삼키면 이후 행이 전부 FK 위반으로 죽어도 화면엔
-// 완전한 버전이 그려진다. 그 경로(saveBudgetVersion·saveBudget)에서만 던진다.
+// 완전한 버전이 그려진다. 다중 쓰기 경로(saveBudgetVersion·saveBudget,
+// saveDailyTodoOrThrow·saveDailyTodoCategoryOrThrow)에서만 던진다.
 async function sbUpsertOrThrow(table: string, row: Record<string, unknown>) {
   const { error } = await getSupabase()!.from(table).upsert(row);
   if (error) throw error;
@@ -992,6 +993,27 @@ export async function saveDailyTodoCategory(
 export async function deleteDailyTodoCategory(id: string) {
   if (hasSupabase) await sbDelete("daily_todo_categories", id);
   else lsDelete("dailyTodoCategories", id);
+}
+
+// 순서 이동은 여러 행을 순차로 쓴다. 중간에 실패하면 일부만 옮겨진 순서가 DB에 남는데
+// sbUpsert는 error를 버리므로 화면은 멀쩡해 보인다 — 그래서 이 경로만 던진다.
+// (budget_versions가 sbUpsertOrThrow를 쓰는 이유와 같다.)
+// 체크 토글이 쓰는 saveDailyTodo는 그대로 둔다 — 오프라인에서 체크할 때마다
+// alert가 뜨는 것은 이 변경의 범위 밖이다.
+export async function saveDailyTodoOrThrow(x: DailyTodo): Promise<DailyTodo> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsertOrThrow("daily_todos", fromDailyTodo(row));
+  else lsUpsert("dailyTodos", row);
+  return row;
+}
+
+export async function saveDailyTodoCategoryOrThrow(
+  x: DailyTodoCategory
+): Promise<DailyTodoCategory> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsertOrThrow("daily_todo_categories", fromDailyTodoCategory(row));
+  else lsUpsert("dailyTodoCategories", row);
+  return row;
 }
 
 // 단일 행. 테이블의 id='singleton'은 여기서만 다룬다.

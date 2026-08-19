@@ -3,8 +3,11 @@ import { addDays, daysInMonth } from "./format";
 import type { DailyTodo, DailyTodoCategory } from "./types";
 
 // 고아 항목(카테고리가 삭제된 항목)을 담는 자리. 화면에서 조용히 사라지는 것보다 낫다.
+// cats에는 없는 합성 카테고리라 순서 이동의 대상이 될 수 없다 — 화면이 판별할 수 있게 id를 연다.
+export const ORPHAN_CATEGORY_ID = "__orphan__";
+
 const ORPHAN_CAT: DailyTodoCategory = {
-  id: "__orphan__",
+  id: ORPHAN_CATEGORY_ID,
   name: "기타",
   color: "#9a948a",
   sortOrder: Number.MAX_SAFE_INTEGER,
