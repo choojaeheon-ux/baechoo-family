@@ -49,3 +49,4 @@ next-start*.log
 /reports/
 .superpowers/
 scratchpad/
+backup-*.json
