@@ -9,6 +9,7 @@ import Plans from "@/components/budget/Plans";
 import Dashboard from "@/components/pnl/Dashboard";
 import YearPnl from "@/components/pnl/YearPnl";
 import Manual from "@/components/pnl/Manual";
+import { LargeTitleHeader, Segmented, syncLabel } from "@/components/ios";
 
 export type PnlSub = "dashboard" | "year" | "analysis" | "budget" | "manual";
 
@@ -31,40 +32,17 @@ export default function PnlPage() {
 
   return (
     <div>
-      {/* 헤더 */}
-      <header className="sticky top-0 z-30 bg-cream/90 px-4 pt-4 pb-3 backdrop-blur">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-2xl">📊</span>
-          <div>
-            <h1 className="text-lg font-extrabold leading-none text-ink">
-              가족 손익
-            </h1>
-            <p className="mt-0.5 text-[11px] text-stone">
-              {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-1 rounded-xl bg-card p-1">
-          {(Object.keys(SUB_LABEL) as PnlSub[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => setSub(k)}
-              className={`flex-1 whitespace-nowrap rounded-lg px-1 py-2 text-[12px] font-medium transition ${
-                sub === k ? "bg-leaf text-white" : "text-stone"
-              }`}
-            >
-              {SUB_LABEL[k]}
-            </button>
-          ))}
-        </div>
-        {monthly && (
-          <div className="mt-3">
-            <MonthSwitcher ym={ym} onChange={setYm} />
-          </div>
-        )}
-      </header>
+      <LargeTitleHeader title="가족 손익" subtitle={syncLabel(mode)}>
+        <Segmented
+          label="손익 보기"
+          value={sub}
+          onChange={setSub}
+          options={(Object.keys(SUB_LABEL) as PnlSub[]).map((k) => ({ id: k, label: SUB_LABEL[k] }))}
+        />
+        {monthly && <MonthSwitcher ym={ym} onChange={setYm} />}
+      </LargeTitleHeader>
 
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-1">
         {sub === "dashboard" && <Dashboard />}
         {sub === "year" && <YearPnl />}
         {sub === "analysis" && <Analysis ym={ym} />}

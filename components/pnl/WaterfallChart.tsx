@@ -10,9 +10,9 @@ import { wonShort } from "@/lib/format";
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
 const COLOR: Record<WaterfallSegment["kind"], string> = {
-  revenue: "#3f6b2a",
-  deduct: "#c96f6f",
-  profit: "#5c93a8",
+  revenue: "#248a3d",
+  deduct: "#ff3b30",
+  profit: "#007aff",
 };
 
 export default function WaterfallChart({ segments }: { segments: WaterfallSegment[] }) {

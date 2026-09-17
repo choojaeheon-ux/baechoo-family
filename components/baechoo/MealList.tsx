@@ -81,7 +81,7 @@ export default function MealList() {
     <div className="space-y-4">
       <button
         onClick={() => setForm({ open: true })}
-        className="w-full rounded-xl border border-dashed border-leaf bg-leaf-light/40 py-3 text-sm font-bold text-leaf-dark active:scale-[0.99]"
+        className="w-full press rounded-full bg-leaf-light py-3 text-[15px] font-semibold text-leaf-dark"
       >
         + 식사·간식 기록
       </button>

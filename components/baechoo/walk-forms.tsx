@@ -154,7 +154,7 @@ export function StoolEditor({
       <button
         type="button"
         onClick={add}
-        className="w-full rounded-xl border border-dashed border-leaf py-2 text-sm font-semibold text-leaf-dark active:scale-[0.99]"
+        className="w-full press rounded-full bg-leaf-light py-2.5 text-[15px] font-semibold text-leaf-dark"
       >
         + 응가 추가
       </button>

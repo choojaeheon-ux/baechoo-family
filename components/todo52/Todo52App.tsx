@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-context";
+import { Segmented } from "@/components/ios";
 import {
   currentWeekNum,
   blockOfWeek,
@@ -97,27 +98,19 @@ export default function Todo52App({ embedded = false }: { embedded?: boolean }) 
         </div>
 
         {/* 보기 토글 */}
-        <div className="mb-3 flex gap-1">
-          <button
-            onClick={() => setView("weeks")}
-            className={`flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-              view === "weeks"
-                ? "bg-leaf text-white"
-                : "bg-card text-stone border border-line"
-            }`}
-          >
-            주차별
-          </button>
-          <button
-            onClick={() => setView("unscheduled")}
-            className={`flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-              view === "unscheduled"
-                ? "bg-leaf text-white"
-                : "bg-card text-stone border border-line"
-            }`}
-          >
-            날짜 미정{unschedulePending > 0 ? ` ${unschedulePending}` : ""}
-          </button>
+        <div className="mb-3">
+          <Segmented
+            label="52주 투두 보기"
+            value={view}
+            onChange={setView}
+            options={[
+              { id: "weeks", label: "주차별" },
+              {
+                id: "unscheduled",
+                label: `날짜 미정${unschedulePending > 0 ? ` ${unschedulePending}` : ""}`,
+              },
+            ]}
+          />
         </div>
 
         {/* 4주 블록 스위처 (주차별 보기에서만) */}

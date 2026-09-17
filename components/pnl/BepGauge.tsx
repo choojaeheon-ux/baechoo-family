@@ -13,7 +13,7 @@ export default function BepGauge({ margin, achieved }: { margin: number; achieve
         data={{
           datasets: [{
             data: [pct, 1 - pct],
-            backgroundColor: [achieved ? "#5b8c3e" : "#c96f6f", "#e8e5df"],
+            backgroundColor: [achieved ? "#34c759" : "#ff3b30", "#e5e5ea"],
             circumference: 180,
             rotation: 270,
             borderWidth: 0,

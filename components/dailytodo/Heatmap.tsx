@@ -8,10 +8,10 @@ import { Card } from "@/components/budget/ui";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-// leaf(#5b8c3e)를 달성률만큼 진하게. 항목이 아예 없던 날은 칠하지 않는다.
+// leaf(#34c759)를 달성률만큼 진하게. 항목이 아예 없던 날은 칠하지 않는다.
 function cellBg(pct: number, total: number): string {
   if (total === 0) return "transparent";
-  return `rgba(91, 140, 62, ${(0.1 + 0.75 * (pct / 100)).toFixed(3)})`;
+  return `rgba(36, 138, 61, ${(0.1 + 0.75 * (pct / 100)).toFixed(3)})`;
 }
 
 export default function Heatmap({

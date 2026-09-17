@@ -51,7 +51,7 @@ export default function DailyTodoApp() {
         <button
           type="button"
           onClick={() => setManage(true)}
-          className="shrink-0 rounded-xl border border-line px-4 text-sm font-semibold text-stone"
+          className="press shrink-0 rounded-full bg-card px-5 text-[17px] font-semibold text-leaf"
         >
           관리
         </button>

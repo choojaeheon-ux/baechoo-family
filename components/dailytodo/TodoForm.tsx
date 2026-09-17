@@ -102,12 +102,12 @@ export default function TodoForm({
 
       {!editing && (
         <Field label="언제">
-          <div className="flex gap-1 rounded-xl bg-cream p-1">
+          <div className="flex gap-1 rounded-full bg-fill p-[3px]">
             <button
               type="button"
               onClick={() => setOnce(false)}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                !once ? "bg-leaf text-white" : "text-stone"
+              className={`flex-1 rounded-full py-[7px] text-[14px] transition ${
+                !once ? "seg-thumb bg-card font-semibold text-ink" : "font-medium text-ink/70"
               }`}
             >
               매일
@@ -115,8 +115,8 @@ export default function TodoForm({
             <button
               type="button"
               onClick={() => setOnce(true)}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                once ? "bg-leaf text-white" : "text-stone"
+              className={`flex-1 rounded-full py-[7px] text-[14px] transition ${
+                once ? "seg-thumb bg-card font-semibold text-ink" : "font-medium text-ink/70"
               }`}
             >
               특정일

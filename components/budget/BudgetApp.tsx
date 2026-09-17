@@ -11,6 +11,7 @@ import Transactions from "./Transactions";
 import FixedExpenses from "./FixedExpenses";
 import LocalCurrencies from "./LocalCurrencies";
 import BudgetVersions from "./BudgetVersions";
+import { IconPlus, LargeTitleHeader, Segmented, syncLabel } from "@/components/ios";
 
 export type Tab = "home" | "list" | "voucher" | "fixed" | "budget";
 
@@ -49,40 +50,10 @@ export default function BudgetApp() {
 
   return (
     <div>
-      {/* 헤더 */}
-      <header className="sticky top-0 z-30 bg-cream/90 px-4 pt-4 pb-2 backdrop-blur">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🥬</span>
-            <div>
-              <h1 className="text-lg font-extrabold leading-none text-ink">
-                배추가족 가계부
-              </h1>
-              <p className="mt-0.5 text-[11px] text-stone">
-                {mode === "cloud" ? "클라우드 동기화 중" : "이 기기에 저장 중"}
-              </p>
-            </div>
-          </div>
-        </div>
+      <LargeTitleHeader title="배추가족 가계부" subtitle={syncLabel(mode)}>
         <MonthSwitcher ym={ym} onChange={setYm} />
-
-        {/* 서브탭 */}
-        <div className="mt-3 -mx-1 flex gap-1 overflow-x-auto pb-1">
-          {SUBTABS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => goto(s.id)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
-                tab === s.id
-                  ? "bg-leaf text-white"
-                  : "bg-card text-stone border border-line"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </header>
+        <Segmented label="가계부 보기" value={tab} onChange={goto} options={SUBTABS} />
+      </LargeTitleHeader>
 
       <div className="px-4 pt-1">
         {loading ? (
@@ -117,11 +88,11 @@ export default function BudgetApp() {
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
           <button
             onClick={() => setAddOpen(true)}
-            className="pointer-events-auto absolute right-4 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-3xl text-white shadow-lg transition active:scale-90"
-            style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+            className="press pointer-events-auto absolute right-5 flex h-14 w-14 items-center justify-center rounded-full bg-leaf text-white shadow-[0_10px_24px_rgba(36,138,61,0.35),inset_0_1px_0_rgba(255,255,255,0.25)]"
+            style={{ bottom: "calc(var(--tabbar-gap) + var(--tabbar-h) + 14px)" }}
             aria-label="내역 추가"
           >
-            +
+            <IconPlus className="h-7 w-7" />
           </button>
         </div>
       )}

@@ -91,7 +91,7 @@ export default function WalkList() {
         </button>
         <button
           onClick={() => setManual(true)}
-          className="flex-1 rounded-xl border border-dashed border-leaf bg-leaf-light/40 py-3 text-sm font-bold text-leaf-dark active:scale-[0.99]"
+          className="flex-1 press rounded-full bg-leaf-light py-3 text-[15px] font-semibold text-leaf-dark"
         >
           수동 입력
         </button>

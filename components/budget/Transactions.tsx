@@ -8,6 +8,7 @@ import { TX_TYPE_COLOR, type Transaction, type TxType } from "@/lib/types";
 import { Card, Empty, Pill } from "./ui";
 import { TransactionForm } from "./forms";
 import TransactionCalendar from "./TransactionCalendar";
+import { Segmented } from "@/components/ios";
 
 type View = "list" | "calendar";
 
@@ -123,25 +124,23 @@ export default function Transactions({
 
   return (
     <div className="space-y-2 pb-4">
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-3 divide-x divide-separator rounded-[22px] bg-card">
         <SummaryBox label="수입" value={won(income)} tone="text-sky" />
         <SummaryBox label="지출" value={won(expense)} tone="text-coral" />
         <SummaryBox label="잔액" value={won(income - expense)} tone="text-ink" />
       </div>
 
       {/* 리스트 / 캘린더 보기 전환 */}
-      <div className="flex gap-1 rounded-xl bg-card p-1">
-        {(["list", "calendar"] as View[]).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${
-              view === v ? "bg-leaf text-white" : "text-stone"
-            }`}
-          >
-            {v === "list" ? "리스트" : "캘린더"}
-          </button>
-        ))}
+      <div className="pt-1">
+        <Segmented
+          label="보기 방식"
+          value={view}
+          onChange={setView}
+          options={[
+            { id: "list", label: "리스트" },
+            { id: "calendar", label: "캘린더" },
+          ]}
+        />
       </div>
 
       {/* key={ym} — 달을 옮기면 고른 날짜가 남지 않도록 새로 마운트한다 */}
@@ -149,11 +148,11 @@ export default function Transactions({
 
       {view === "list" && (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as "all" | TxType)}
-              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              className="min-w-0 truncate rounded-full bg-card py-2 pl-3.5 text-[15px] font-medium text-ink [--select-chevron-x:0.6rem] [--select-pr:1.55rem]"
               aria-label="유형 필터"
             >
               <option value="all">전체</option>
@@ -164,7 +163,7 @@ export default function Transactions({
             <select
               value={effCat ?? ""}
               onChange={(e) => setCatFilter(e.target.value || null)}
-              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              className="min-w-0 truncate rounded-full bg-card py-2 pl-3.5 text-[15px] font-medium text-ink [--select-chevron-x:0.6rem] [--select-pr:1.55rem]"
               aria-label="계정 과목 필터"
             >
               <option value="">계정 과목 전체</option>
@@ -179,7 +178,7 @@ export default function Transactions({
             <select
               value={effPm ?? ""}
               onChange={(e) => setPmFilter(e.target.value || null)}
-              className="min-w-0 rounded-xl border border-line bg-card px-2 py-2 text-xs font-semibold text-ink"
+              className="min-w-0 truncate rounded-full bg-card py-2 pl-3.5 text-[15px] font-medium text-ink [--select-chevron-x:0.6rem] [--select-pr:1.55rem]"
               aria-label="결제 수단 필터"
             >
               <option value="">결제 수단 전체</option>
@@ -201,12 +200,13 @@ export default function Transactions({
             </Card>
           ) : (
             grouped.map(([date, items]) => (
-              <Card key={date} className="space-y-1">
-                <p className="mb-1 px-1 text-xs font-semibold text-stone">
+              <section key={date} className="pt-2">
+                <p className="mb-1.5 px-4 text-[13px] font-medium text-stone">
                   {Number(date.slice(5, 7))}월 {Number(date.slice(8))}일 (
                   {weekdayKo(date)})
                 </p>
-                {items.map((t) => {
+                <div className="overflow-hidden rounded-[22px] bg-card">
+                {items.map((t, i) => {
                   const cat = categoryById(t.categoryId);
                   const pm = t.paymentMethodId
                     ? paymentMethodById(t.paymentMethodId)
@@ -218,17 +218,20 @@ export default function Transactions({
                     <button
                       key={t.id}
                       onClick={() => setEdit(t)}
-                      className="flex w-full items-center gap-3 rounded-xl px-1 py-2 text-left active:bg-cream"
+                      className="row-press relative flex w-full items-center gap-3 px-4 py-3 text-left"
                     >
+                      {i > 0 && (
+                        <span aria-hidden className="absolute left-[42px] right-0 top-0 h-px bg-separator" />
+                      )}
                       <span
-                        className="h-2 w-2 shrink-0 rounded-full"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{ background: TX_TYPE_COLOR[t.type] }}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-ink">
+                        <p className="truncate text-[16px] font-medium tracking-[-0.01em] text-ink">
                           {t.merchant || t.memo || cat?.name || "내역"}
                         </p>
-                        <p className="flex flex-wrap items-center gap-1 text-xs text-stone">
+                        <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[13px] text-stone">
                           <span>{cat?.name}</span>
                           {t.merchant && t.memo && <span>· {t.memo}</span>}
                           {pm && <span>· {pm.name}</span>}
@@ -237,7 +240,7 @@ export default function Transactions({
                         </p>
                       </div>
                       <span
-                        className={`text-sm font-bold tabular ${
+                        className={`text-[16px] font-semibold tracking-[-0.01em] tabular ${
                           t.type === "income" ? "text-sky" : "text-ink"
                         }`}
                       >
@@ -247,7 +250,8 @@ export default function Transactions({
                     </button>
                   );
                 })}
-              </Card>
+                </div>
+              </section>
             ))
           )}
         </>
@@ -274,9 +278,11 @@ function SummaryBox({
   tone: string;
 }) {
   return (
-    <div className="rounded-xl border border-line bg-card p-2.5 text-center">
-      <p className="text-[11px] text-stone">{label}</p>
-      <p className={`mt-0.5 text-sm font-bold tabular ${tone}`}>{value}</p>
+    <div className="min-w-0 px-1 py-3 text-center">
+      <p className="text-[13px] text-stone">{label}</p>
+      <p className={`mt-1 truncate text-[15px] font-semibold tracking-[-0.01em] tabular ${tone}`}>
+        {value}
+      </p>
     </div>
   );
 }
