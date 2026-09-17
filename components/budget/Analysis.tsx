@@ -126,11 +126,11 @@ export default function Analysis({ ym }: { ym: string }) {
               datasets: [
                 {
                   data: trend.map((t) => t.expense),
-                  borderColor: "#5b8c3e",
-                  backgroundColor: "rgba(91,140,62,0.12)",
+                  borderColor: "#34c759",
+                  backgroundColor: "rgba(36,138,61,0.12)",
                   fill: true,
                   tension: 0.35,
-                  pointBackgroundColor: "#5b8c3e",
+                  pointBackgroundColor: "#34c759",
                   pointRadius: 3,
                 },
               ],
@@ -144,7 +144,7 @@ export default function Analysis({ ym }: { ym: string }) {
               scales: {
                 y: {
                   ticks: { callback: (v) => wonShort(Number(v)) },
-                  grid: { color: "#ece7da" },
+                  grid: { color: "#e5e5ea" },
                 },
                 x: { grid: { display: false } },
               },

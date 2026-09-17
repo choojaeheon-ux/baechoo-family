@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "배추가족이 함께 쓰는 가계부 · 생활기록 앱",
     start_url: "/budget",
     display: "standalone",
-    background_color: "#faf7ef",
-    theme_color: "#5b8c3e",
+    background_color: "#f2f2f7",
+    theme_color: "#f2f2f7",
     orientation: "portrait",
     icons: [
       { src: "/icon-192-v2.png", sizes: "192x192", type: "image/png" },

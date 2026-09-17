@@ -10,7 +10,7 @@ type NaverNS = any;
 
 // 응가 상태별 마커 색
 const STOOL_COLOR: Record<string, string> = {
-  normal: "#5b8c3e",
+  normal: "#34c759",
   oily: "#d9a441",
   loose: "#e08a3c",
   diarrhea: "#d9534f",
@@ -84,7 +84,7 @@ function drawWalk(
       new naver.maps.Polyline({
         map,
         path,
-        strokeColor: "#5b8c3e",
+        strokeColor: "#34c759",
         strokeWeight: 3,
         strokeOpacity: 0.3,
         strokeStyle: "shortdash",
@@ -108,7 +108,7 @@ function drawWalk(
       new naver.maps.Marker({
         map,
         position: path[0],
-        icon: labelIcon(naver, "출발", "#5b8c3e"),
+        icon: labelIcon(naver, "출발", "#34c759"),
         title: "출발",
         zIndex: 70,
       })
@@ -129,7 +129,7 @@ function drawWalk(
         new naver.maps.Polyline({
           map,
           path,
-          strokeColor: "#5b8c3e",
+          strokeColor: "#34c759",
           strokeWeight: 4,
           strokeOpacity: 0.85,
         })
@@ -140,7 +140,7 @@ function drawWalk(
         new naver.maps.Marker({
           map,
           position: path[0],
-          icon: labelIcon(naver, "출발", "#5b8c3e"),
+          icon: labelIcon(naver, "출발", "#34c759"),
           title: "출발",
           zIndex: 70,
         })

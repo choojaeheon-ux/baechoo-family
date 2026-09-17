@@ -97,7 +97,7 @@ export default function VaccineList() {
           <button
             onClick={addStandard}
             disabled={seeding}
-            className="mt-2 w-full rounded-xl border border-dashed border-leaf bg-leaf-light/40 py-2.5 text-sm font-bold text-leaf-dark active:scale-[0.99] disabled:opacity-50"
+            className="mt-2 w-full press rounded-full bg-leaf-light py-2.5 text-[15px] font-semibold text-leaf-dark disabled:opacity-50"
           >
             표준 백신 추가 (배추 정기 5종)
           </button>

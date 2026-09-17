@@ -110,7 +110,7 @@ export default function CategorySelect({
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded-full border border-dashed border-leaf px-3 py-1.5 text-sm font-semibold text-leaf-dark"
+          className="press rounded-full bg-leaf-light px-3 py-1.5 text-sm font-semibold text-leaf-dark"
         >
           + 추가
         </button>

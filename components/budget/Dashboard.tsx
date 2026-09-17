@@ -43,7 +43,7 @@ export default function Dashboard({
     <div className="space-y-1 pb-4">
       {/* 이번 달 수입·지출 */}
       <SectionTitle>이번 달 수입·지출</SectionTitle>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 divide-x divide-separator rounded-[22px] bg-card">
         <SummaryBox label="수입" value={won(income)} tone="text-sky" />
         <SummaryBox label="지출" value={won(expense)} tone="text-coral" />
         <SummaryBox
@@ -60,18 +60,18 @@ export default function Dashboard({
           <>
             <div className="mb-2 flex items-end justify-between">
               <span
-                className={`text-3xl font-extrabold tabular ${
+                className={`text-[40px] font-bold leading-none tracking-[-0.03em] tabular ${
                   burn.pct > 100 ? "text-coral" : "text-leaf-dark"
                 }`}
               >
                 {burn.pct.toFixed(1)}%
               </span>
-              <span className="text-xs text-stone">
+              <span className="text-[13px] text-stone tabular">
                 {won(burn.spend)} / {won(burn.budget)}
               </span>
             </div>
             <BurnBar pct={burn.pct} />
-            <p className="mt-2 text-[11px] text-stone">
+            <p className="mt-2.5 text-[13px] text-stone">
               {timePct === null
                 ? `${ymLabel(ym)} · 계정과목별 예산의 총합 대비 지출`
                 : `기간 진행 ${timePct.toFixed(1)}% 대비 소진 ${burn.pct.toFixed(1)}%`}
@@ -88,7 +88,7 @@ export default function Dashboard({
       {/* 계정과목별 예산 소진률 */}
       <SectionTitle
         right={
-          <button onClick={onGotoBudget} className="text-xs font-semibold text-leaf">
+          <button onClick={onGotoBudget} className="press-dim text-[15px] text-leaf">
             예산 관리 →
           </button>
         }
@@ -102,10 +102,10 @@ export default function Dashboard({
           groups.map((g) => (
             <div key={g.name}>
               {/* 카테고리 머리글 — 카테고리에는 예산을 책정하지 않으므로 이름만 */}
-              <p className="mb-1.5 rounded-md bg-stone px-2 py-1 text-[11px] font-bold text-white">
+              <p className="mb-2 rounded-[8px] bg-stone px-2.5 py-1 text-[12px] font-semibold text-white">
                 {g.name}
               </p>
-              <div className="space-y-2 border-l-2 border-line pl-2">
+              <div className="space-y-2.5 border-l-2 border-line pl-2.5">
                 {g.rows.map((r) => {
                   const over = r.pct > 100;
                   return (
@@ -113,14 +113,14 @@ export default function Dashboard({
                       key={r.category.id}
                       onClick={() => onGotoCategory(r.category.id)}
                       aria-label={`${r.category.name} 거래내역 보기`}
-                      className="-mx-1 block w-full rounded-md px-1 py-0.5 text-left transition active:bg-cream"
+                      className="row-press -mx-1.5 block w-full rounded-[10px] px-1.5 py-1 text-left"
                     >
                       <div className="mb-1 flex items-baseline gap-2">
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">
                           {r.category.name}
                         </span>
                         <span
-                          className={`shrink-0 text-[13px] font-bold tabular ${
+                          className={`shrink-0 text-[15px] font-semibold tabular ${
                             over ? "text-coral" : "text-ink"
                           }`}
                         >
@@ -131,7 +131,7 @@ export default function Dashboard({
                           </span>
                         </span>
                       </div>
-                      <BurnBar pct={r.pct} height="h-2" />
+                      <BurnBar pct={r.pct} height="h-1.5" />
                     </button>
                   );
                 })}
@@ -139,7 +139,7 @@ export default function Dashboard({
             </div>
           ))
         )}
-        <p className="border-t border-line pt-2 text-[11px] text-stone">
+        <p className="border-t border-separator pt-2.5 text-[13px] text-stone">
           계정 과목을 누르면 거래내역에서 그 과목만 봅니다.
         </p>
       </Card>
@@ -165,9 +165,11 @@ function SummaryBox({
   tone: string;
 }) {
   return (
-    <div className="rounded-xl border border-line bg-card p-2.5 text-center">
-      <p className="text-[11px] text-stone">{label}</p>
-      <p className={`mt-0.5 text-sm font-bold tabular ${tone}`}>{value}</p>
+    <div className="min-w-0 px-1 py-3 text-center">
+      <p className="text-[13px] text-stone">{label}</p>
+      <p className={`mt-1 truncate text-[15px] font-semibold tracking-[-0.01em] tabular ${tone}`}>
+        {value}
+      </p>
     </div>
   );
 }

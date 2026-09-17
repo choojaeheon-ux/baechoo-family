@@ -1103,13 +1103,15 @@ export function Toggle({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex gap-1 rounded-xl bg-cream p-1">
+    <div className="flex gap-1 rounded-full bg-fill p-[3px]">
       {options.map((o) => (
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
-            value === o.v ? "bg-card text-leaf-dark shadow-sm" : "text-stone"
+          className={`flex-1 rounded-full py-[7px] text-[14px] transition ${
+            value === o.v
+              ? "seg-thumb bg-card font-semibold text-ink"
+              : "font-medium text-ink/70 active:opacity-60"
           }`}
         >
           {o.label}

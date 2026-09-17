@@ -1,6 +1,7 @@
 "use client";
 
 import { addDays, weekdayKo } from "@/lib/format";
+import { IconChevron } from "@/components/ios";
 
 function label(iso: string): string {
   const [, m, d] = iso.split("-");
@@ -17,22 +18,22 @@ export default function DateStrip({
   onChange: (iso: string) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-line bg-card px-1 py-2">
+    <div className="flex items-center justify-between py-1">
       <button
         type="button"
         onClick={() => onChange(addDays(date, -1))}
-        className="px-4 py-1 text-xl leading-none text-stone"
+        className="glass press flex h-10 w-10 items-center justify-center rounded-full text-leaf"
         aria-label="이전 날"
       >
-        ‹
+        <IconChevron dir="left" />
       </button>
       <div className="text-center">
-        <p className="text-sm font-bold text-ink">{label(date)}</p>
+        <p className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{label(date)}</p>
         {date !== today && (
           <button
             type="button"
             onClick={() => onChange(today)}
-            className="mt-0.5 text-[11px] font-semibold text-leaf"
+            className="press mt-1 rounded-full bg-leaf-light px-2.5 py-0.5 text-[12px] font-semibold text-leaf-dark"
           >
             오늘로
           </button>
@@ -41,10 +42,10 @@ export default function DateStrip({
       <button
         type="button"
         onClick={() => onChange(addDays(date, 1))}
-        className="px-4 py-1 text-xl leading-none text-stone"
+        className="glass press flex h-10 w-10 items-center justify-center rounded-full text-leaf"
         aria-label="다음 날"
       >
-        ›
+        <IconChevron dir="right" />
       </button>
     </div>
   );

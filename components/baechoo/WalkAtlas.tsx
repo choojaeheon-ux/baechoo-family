@@ -83,7 +83,7 @@ export default function WalkAtlas({ onClose }: { onClose: () => void }) {
             new naver.maps.Polyline({
               map,
               path: route.map((p) => new naver.maps.LatLng(p.lat, p.lng)),
-              strokeColor: "#2f2a20",
+              strokeColor: "#000000",
               strokeWeight: 3,
               strokeOpacity: 0.25,
               strokeStyle: "shortdash",
@@ -159,7 +159,7 @@ export default function WalkAtlas({ onClose }: { onClose: () => void }) {
             new naver.maps.LatLng(b.south, b.west),
             new naver.maps.LatLng(b.north, b.east)
           ),
-          fillColor: "#5b8c3e",
+          fillColor: "#34c759",
           fillOpacity: 0.22,
           strokeOpacity: 0,
           strokeWeight: 1,

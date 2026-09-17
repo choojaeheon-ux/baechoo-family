@@ -58,24 +58,29 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   if (phase === "unlocked") return <>{children}</>;
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-leaf to-leaf-dark px-8 text-white">
-      <div className="mb-2 text-6xl">🥬</div>
-      <h1 className="text-2xl font-bold tracking-tight">배추가족</h1>
-      <p className="mt-1 mb-8 text-sm text-white/80">비밀번호를 입력해 주세요</p>
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-cream px-8 text-ink">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/apple-icon-v2.png"
+        alt=""
+        className="mb-4 h-16 w-16 rounded-[16px] shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
+      />
+      <h1 className="text-[22px] font-semibold tracking-[-0.02em]">배추가족</h1>
+      <p className="mb-7 mt-1 text-[15px] text-stone">비밀번호를 입력해 주세요</p>
 
-      <div className="mb-2 flex gap-4">
+      <div className={`mb-3 flex gap-5 ${error ? "animate-[shake_380ms_ease-out]" : ""}`}>
         {Array.from({ length: PIN_LEN }).map((_, i) => (
           <span
             key={i}
-            className={`h-4 w-4 rounded-full border-2 border-white/70 transition ${
-              i < entry.length ? "bg-white" : "bg-transparent"
+            className={`h-[13px] w-[13px] rounded-full border-[1.5px] border-ink transition-colors duration-100 ${
+              i < entry.length ? "bg-ink" : "bg-transparent"
             }`}
           />
         ))}
       </div>
-      <p className="mb-6 h-5 text-sm text-white/90">{error}</p>
+      <p className="mb-8 h-5 text-[13px] text-coral">{error}</p>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-x-6 gap-y-4">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
           <KeyBtn key={d} onClick={() => press(d)}>
             {d}
@@ -84,9 +89,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         <span />
         <KeyBtn onClick={() => press("0")}>0</KeyBtn>
         <KeyBtn onClick={back} subtle>
-          ⌫
+          지우기
         </KeyBtn>
       </div>
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}`}</style>
     </div>
   );
 }
@@ -103,10 +109,10 @@ function KeyBtn({
   return (
     <button
       onClick={onClick}
-      className={`h-16 w-16 rounded-full text-2xl font-semibold transition active:scale-90 ${
+      className={`flex h-[76px] w-[76px] items-center justify-center rounded-full transition-colors duration-75 ${
         subtle
-          ? "text-white/80"
-          : "bg-white/15 text-white hover:bg-white/25 active:bg-white/30"
+          ? "text-[15px] text-ink active:opacity-50"
+          : "bg-fill text-[32px] font-normal tabular text-ink active:bg-[rgba(118,118,128,0.3)]"
       }`}
     >
       {children}

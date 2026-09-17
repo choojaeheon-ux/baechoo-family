@@ -15,7 +15,7 @@ export default function CompositionDonut({ s }: { s: PnlSummary }) {
         labels: ["고정비", "선저축", "변동비", "운영이익"],
         datasets: [{
           data: [s.fixed, s.saving, s.variable, profit],
-          backgroundColor: ["#c96f6f", "#5b8c3e", "#e0a15f", "#5c93a8"],
+          backgroundColor: ["#ff3b30", "#34c759", "#ff9500", "#007aff"],
           borderWidth: 0,
         }],
       }}

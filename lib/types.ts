@@ -49,9 +49,9 @@ export const TX_TYPE_COLOR: Record<TxType, string> = {
 
 // 차트용 색 — 개별 색 지정을 없앴으므로 순서대로 팔레트에서 꺼내 쓴다(같은 목록이면 항상 같은 색)
 const CHART_PALETTE = [
-  "#e07a5f", "#5b8c3e", "#5c93a8", "#d9a441", "#b06fb0",
-  "#6fae8e", "#c96f6f", "#7a8cd0", "#8ab560", "#e8a0bf",
-  "#9a948a", "#3f6b2a", "#4f8a6f", "#a8763f", "#7c766a",
+  "#ff3b30", "#34c759", "#007aff", "#ff9500", "#af52de",
+  "#30b0c7", "#ff2d55", "#5856d6", "#a2845e", "#00c7be",
+  "#8e8e93", "#248a3d", "#32ade6", "#ffcc00", "#636366",
 ];
 export function chartColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length];

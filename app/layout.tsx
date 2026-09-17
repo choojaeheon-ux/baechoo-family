@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#5b8c3e",
+  themeColor: "#f2f2f7",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -39,7 +39,7 @@ export default function RootLayout({
         <DataProvider>
           <PinGate>
             <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-              <main className="flex-1 pb-24">{children}</main>
+              <main className="flex-1 pb-28">{children}</main>
               <BottomNav />
             </div>
           </PinGate>

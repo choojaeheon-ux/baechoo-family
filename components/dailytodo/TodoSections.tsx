@@ -6,6 +6,7 @@ import { ORPHAN_CATEGORY_ID, groupByCategory, isDoneOn, toggleDone } from "@/lib
 import { moveCategory, moveTodo } from "@/lib/dailyTodoOrder";
 import type { DailyTodo, DailyTodoCategory } from "@/lib/types";
 import { Card, Empty } from "@/components/budget/ui";
+import { IconCheck } from "@/components/ios";
 
 export default function TodoSections({
   todos,
@@ -59,7 +60,7 @@ export default function TodoSections({
       <button
         type="button"
         onClick={() => setOrdering((v) => !v)}
-        className="text-xs font-semibold text-stone"
+        className="press-dim px-1 text-[15px] font-medium text-leaf"
       >
         {ordering ? "편집 완료" : "순서 편집"}
       </button>
@@ -76,7 +77,7 @@ export default function TodoSections({
 
   const visibleCatIds = groups.map((g) => g.cat.id);
   const visibleTodoIds = groups.flatMap((g) => g.items.map((t) => t.id));
-  const arrowCls = "px-2 py-1 text-sm text-leaf disabled:text-stone/40";
+  const arrowCls = "press-dim flex h-8 w-8 items-center justify-center rounded-full bg-fill text-[12px] text-leaf disabled:text-stone/40";
   // 고아 묶음은 cats에 없는 합성 카테고리라 옮길 수 없고, 여러 삭제 카테고리의 항목이
   // 섞여 있어 항목 이동도 화면과 어긋난다. 항상 맨 뒤이므로 실제 카테고리의 ▼ 한계도 여기서 뺀다.
   const lastMovableGi =
@@ -89,13 +90,13 @@ export default function TodoSections({
       {groups.map((g, gi) => {
         const orphan = g.cat.id === ORPHAN_CATEGORY_ID;
         return (
-          <Card key={g.cat.id}>
-            <div className="mb-1.5 flex items-center gap-2">
+          <Card key={g.cat.id} className="!py-3">
+            <div className="mb-1 flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: g.cat.color }}
               />
-              <span className="text-sm font-bold text-ink">{g.cat.name}</span>
+              <span className="text-[15px] font-semibold text-ink">{g.cat.name}</span>
               {ordering ? (
                 <div className="ml-auto flex shrink-0 items-center gap-1">
                   <button
@@ -130,7 +131,7 @@ export default function TodoSections({
                   </button>
                 </div>
               ) : (
-                <span className="ml-auto text-xs font-semibold text-stone">
+                <span className="ml-auto text-[13px] font-medium text-stone tabular">
                   {g.done}/{g.total}
                 </span>
               )}
@@ -139,29 +140,29 @@ export default function TodoSections({
               {g.items.map((t, ti) => {
                 const done = isDoneOn(t, date);
                 return (
-                  <div key={t.id} className="flex items-center gap-2">
+                  <div key={t.id} className={`relative flex items-center gap-2 ${ti > 0 ? "before:absolute before:left-[34px] before:right-0 before:top-0 before:h-px before:bg-separator" : ""}`}>
                     <button
                       type="button"
                       disabled={readonly || ordering}
                       onClick={() => saveDailyTodo(toggleDone(t, date))}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 py-2 text-left disabled:opacity-40"
+                      className="flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left disabled:opacity-40"
                     >
                       <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          done ? "border-leaf bg-leaf text-white" : "border-line"
+                        className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 ${
+                          done ? "border-leaf bg-leaf text-white" : "border-[#c7c7cc]"
                         }`}
                       >
-                        {done && <span className="text-[11px] leading-none">✓</span>}
+                        {done && <IconCheck className="h-3 w-3" />}
                       </span>
                       <span
-                        className={`min-w-0 flex-1 truncate text-[15px] ${
+                        className={`min-w-0 flex-1 truncate text-[16px] tracking-[-0.01em] ${
                           done ? "text-stone line-through" : "text-ink"
                         }`}
                       >
                         {t.title}
                       </span>
                       {t.onceDate && (
-                        <span className="shrink-0 rounded-md bg-cream px-1.5 py-0.5 text-[10px] font-semibold text-stone">
+                        <span className="shrink-0 rounded-full bg-fill px-2 py-0.5 text-[11px] font-medium text-stone">
                           1회
                         </span>
                       )}
@@ -204,7 +205,7 @@ export default function TodoSections({
                         <button
                           type="button"
                           onClick={() => onEdit(t)}
-                          className="shrink-0 px-1.5 py-2 text-xs text-stone"
+                          className="press-dim shrink-0 px-1.5 py-2 text-[13px] text-stone"
                           aria-label={`${t.title} 편집`}
                         >
                           편집
