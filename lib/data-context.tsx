@@ -32,6 +32,7 @@ import type {
   BaechooCategory,
   BaechooHealthTodo,
   BaechooWalk,
+  BaechooStool,
   UjuChecklist,
   BaechooVaccine,
   PlanItem,
@@ -57,6 +58,7 @@ interface DataContextValue {
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
   baechooWalks: BaechooWalk[];
+  baechooStools: BaechooStool[];
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];
@@ -108,6 +110,8 @@ interface DataContextValue {
   removeBaechooHealthTodo: (id: string) => Promise<void>;
   saveBaechooWalk: (w: BaechooWalk) => Promise<void>;
   removeBaechooWalk: (id: string) => Promise<void>;
+  saveBaechooStool: (s: BaechooStool) => Promise<void>;
+  removeBaechooStool: (id: string) => Promise<void>;
   saveUjuChecklist: (c: UjuChecklist) => Promise<void>;
   removeUjuChecklist: (id: string) => Promise<void>;
   saveBaechooVaccine: (v: BaechooVaccine) => Promise<void>;
@@ -149,6 +153,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     BaechooHealthTodo[]
   >([]);
   const [baechooWalks, setBaechooWalks] = useState<BaechooWalk[]>([]);
+  const [baechooStools, setBaechooStools] = useState<BaechooStool[]>([]);
   const [ujuChecklists, setUjuChecklists] = useState<UjuChecklist[]>([]);
   const [baechooVaccines, setBaechooVaccines] = useState<BaechooVaccine[]>([]);
   const [assetSnapshots, setAssetSnapshots] = useState<AssetSnapshot[]>([]);
@@ -176,6 +181,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBaechooCategories(snap.baechooCategories);
     setBaechooHealthTodos(snap.baechooHealthTodos);
     setBaechooWalks(snap.baechooWalks);
+    setBaechooStools(snap.baechooStools);
     setUjuChecklists(snap.ujuChecklists);
     setBaechooVaccines(snap.baechooVaccines);
     setAssetSnapshots(snap.assetSnapshots);
@@ -267,6 +273,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooCategories,
       baechooHealthTodos,
       baechooWalks,
+      baechooStools,
       ujuChecklists,
       baechooVaccines,
       assetSnapshots,
@@ -452,6 +459,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await repo.deleteBaechooWalk(id);
         setBaechooWalks((p) => p.filter((x) => x.id !== id));
       },
+      saveBaechooStool: async (s) => {
+        const saved = await repo.saveBaechooStool(s);
+        upsertLocal(setBaechooStools, saved);
+      },
+      removeBaechooStool: async (id) => {
+        await repo.deleteBaechooStool(id);
+        setBaechooStools((p) => p.filter((x) => x.id !== id));
+      },
       saveUjuChecklist: async (c) => {
         const saved = await repo.saveUjuChecklist(c);
         upsertLocal(setUjuChecklists, saved);
@@ -533,6 +548,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       baechooCategories,
       baechooHealthTodos,
       baechooWalks,
+      baechooStools,
       ujuChecklists,
       baechooVaccines,
       assetSnapshots,

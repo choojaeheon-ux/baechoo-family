@@ -274,6 +274,8 @@ export function HealthForm({
       date,
       healthType,
       title: title.trim(),
+      // 행 전체 upsert라 넘기지 않으면 기록 탭에서 찍힌 시각이 지워진다. 건강 탭 신규는 시각 없음.
+      time: initial?.time ?? null,
       nextDate: showNext ? nextDate || null : null,
       memo: memo.trim() || null,
     });
