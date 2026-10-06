@@ -56,7 +56,7 @@ function Toggle<T extends string>({
 }
 
 // 삭제 버튼 (수정 모드)
-function DeleteButton({ onDelete }: { onDelete: () => void }) {
+export function DeleteButton({ onDelete }: { onDelete: () => void }) {
   const [confirming, setConfirming] = useState(false);
   if (!confirming) {
     return (
