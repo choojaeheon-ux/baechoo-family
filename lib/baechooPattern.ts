@@ -27,7 +27,8 @@ export interface TimedItem {
   source: EventSource;
 }
 
-// 응가는 독립 응가 이벤트가 아니라 allStools(독립 + 산책 안)로 넣는다 — 응가 필터 하나가 둘 다 켜고 끈다
+// 응가는 독립 응가 이벤트가 아니라 allStools(독립 + 산책 안)로 넣는다 — 응가 필터 하나가 둘 다 켜고 끈다.
+// 응가실패는 응가가 아니다(lastStool·daySummary와 같은 규칙) — 그리면 배변 간격이 끊긴다.
 export function patternItems(events: BaechooEvent[], filter: KindFilter): TimedItem[] {
   const out: TimedItem[] = [];
   for (const e of events) {
@@ -35,17 +36,19 @@ export function patternItems(events: BaechooEvent[], filter: KindFilter): TimedI
     out.push({ key: e.key, kind: e.kind, at: e.startAt, endAt: e.endAt, label: e.label, detail: e.detail, source: e.source });
   }
   if (filter.stool) {
-    allStools(events).forEach((m, i) => {
-      out.push({
-        key: `stool:${i}:${m.source.table}:${m.source.id}`,
-        kind: "stool",
-        at: m.at,
-        endAt: null,
-        label: KIND_LABEL.stool,
-        detail: STOOL_STATE_LABEL[m.state],
-        source: m.source,
+    allStools(events)
+      .filter((m) => m.state !== "fail")
+      .forEach((m, i) => {
+        out.push({
+          key: `stool:${i}:${m.source.table}:${m.source.id}`,
+          kind: "stool",
+          at: m.at,
+          endAt: null,
+          label: KIND_LABEL.stool,
+          detail: STOOL_STATE_LABEL[m.state],
+          source: m.source,
+        });
       });
-    });
   }
   return out.sort((a, b) => b.at - a.at || a.key.localeCompare(b.key));
 }

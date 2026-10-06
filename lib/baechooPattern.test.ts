@@ -54,6 +54,18 @@ describe("patternItems — 필터를 거친 시간순 목록", () => {
     expect(patternItems(evs, { ...ALL_ON, stool: false }).some((i) => i.kind === "stool")).toBe(false);
   });
 
+  it("응가실패는 패턴에 응가로 그리지 않고 배변 간격도 끊지 않는다", () => {
+    const e = toEvents([], [], [
+      stool({ id: "a", time: "08:00" }),
+      stool({ id: "f", time: "12:00", state: "fail" }),
+      stool({ id: "b", time: "18:00" }),
+    ], []);
+    const stoolOnly = { ...ALL_ON, meal: false, snack: false, walk: false, etc: false };
+    const rows = withIntervals(patternItems(e, stoolOnly));
+    expect(rows.map((r) => r.item.source.id)).toEqual(["b", "a"]);
+    expect(rows[0].gapMs).toBe(10 * 3_600_000);
+  });
+
   it("시각 없는 기록은 패턴에 안 나온다", () => {
     const e = toEvents([meal({ id: "x", time: null })], [], [], []);
     expect(patternItems(e, ALL_ON)).toEqual([]);
