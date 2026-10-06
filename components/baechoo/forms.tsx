@@ -2,21 +2,17 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import { todayISO, nowHHMM } from "@/lib/format";
-import { parseNames, joinNames } from "@/lib/mealNames";
+import { todayISO } from "@/lib/format";
 import {
-  MEAL_TYPE_LABEL,
   HEALTH_TYPES,
   HEALTH_TYPE_LABEL,
   EXAM_TYPE_LABEL,
   DENTAL_METHODS,
   CARE_ITEMS,
   HEALTH_TODO_KIND_LABEL,
-  type MealType,
   type HealthType,
   type ExamType,
   type HealthTodoKind,
-  type BaechooMeal,
   type BaechooHealth,
   type BaechooExam,
   type BaechooHealthTodo,
@@ -91,129 +87,6 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
         </button>
       </div>
     </div>
-  );
-}
-
-/* ───────────── 식사/간식 폼 ───────────── */
-export function MealForm({
-  open,
-  onClose,
-  initial,
-}: {
-  open: boolean;
-  onClose: () => void;
-  initial?: BaechooMeal;
-}) {
-  const { saveBaechooMeal, removeBaechooMeal } = useData();
-  const [date, setDate] = useState(initial?.date ?? todayISO());
-  const [mealType, setMealType] = useState<MealType>(initial?.mealType ?? "meal");
-  // 신규 기록은 현재 시각을 기본값으로
-  const [time, setTime] = useState(initial?.time ?? (initial ? "" : nowHHMM()));
-  const [content, setContent] = useState(initial?.content ?? "");
-  const [topping, setTopping] = useState(initial?.topping ?? "");
-  const [amount, setAmount] = useState(initial?.amount ?? "");
-  const [memo, setMemo] = useState(initial?.memo ?? "");
-
-  const isMeal = mealType === "meal";
-  const valid = parseNames(content).length > 0;
-
-  async function submit() {
-    if (!valid) return;
-    await saveBaechooMeal({
-      id: initial?.id ?? "",
-      date,
-      mealType,
-      time: time || null,
-      content: joinNames(parseNames(content)),
-      topping: isMeal ? joinNames(parseNames(topping)) || null : null,
-      amount: amount.trim() || null,
-      memo: memo.trim() || null,
-    });
-    onClose();
-  }
-
-  return (
-    <Sheet open={open} onClose={onClose} title={initial ? "기록 수정" : "식사·간식 기록"}>
-      <Field label="구분">
-        <Toggle
-          options={[
-            { id: "meal", label: MEAL_TYPE_LABEL.meal },
-            { id: "snack", label: MEAL_TYPE_LABEL.snack },
-          ]}
-          value={mealType}
-          onChange={setMealType}
-        />
-      </Field>
-
-      <div className="flex gap-2">
-        <div className="min-w-0 flex-1">
-          <Field label="날짜">
-            <input
-              type="date"
-              className={inputCls}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-        </div>
-        <div className="min-w-0 flex-1">
-          <Field label="시간 (선택)">
-            <input
-              type="time"
-              className={inputCls}
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-          </Field>
-        </div>
-      </div>
-
-      <Field label={isMeal ? "사료종류" : "간식종류"}>
-        <CategorySelect group="food" value={content} onChange={setContent} multiple />
-      </Field>
-
-      {isMeal && (
-        <Field label="토핑종류 (선택)">
-          <CategorySelect
-            group="topping"
-            value={topping}
-            onChange={setTopping}
-            multiple
-          />
-        </Field>
-      )}
-
-      <Field label="실제로 먹은 양 (선택)">
-        <input
-          className={inputCls}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="예: 100g, 다 먹음, 반만"
-        />
-      </Field>
-
-      <Field label="메모 (선택)">
-        <textarea
-          className={inputCls + " min-h-16 resize-none"}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-      </Field>
-
-      <div className="mt-2">
-        <PrimaryButton onClick={submit} disabled={!valid}>
-          저장
-        </PrimaryButton>
-      </div>
-      {initial && (
-        <DeleteButton
-          onDelete={async () => {
-            await removeBaechooMeal(initial.id);
-            onClose();
-          }}
-        />
-      )}
-    </Sheet>
   );
 }
 

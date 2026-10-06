@@ -2,25 +2,24 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import MealList from "./MealList";
+import RecordTab from "./record/RecordTab";
 import HealthList from "./HealthList";
 import ExamList from "./ExamList";
-import WalkList from "./WalkList";
 import { GlassIconButton, IconTrash, LargeTitleHeader, Segmented, syncLabel } from "@/components/ios";
 import TrashSheet from "./TrashSheet";
 
-type Tab = "meal" | "health" | "exam" | "walk";
+// 건강·신체검사 탭은 재헌 지시로 지금 그대로 둔다(나중에 개편)
+type Tab = "record" | "health" | "exam";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "meal", label: "식사" },
+  { id: "record", label: "기록" },
   { id: "health", label: "건강" },
   { id: "exam", label: "신체검사" },
-  { id: "walk", label: "산책" },
 ];
 
 export default function BaechooApp() {
   const { loading, mode } = useData();
-  const [tab, setTab] = useState<Tab>("meal");
+  const [tab, setTab] = useState<Tab>("record");
   const [trashOpen, setTrashOpen] = useState(false);
 
   return (
@@ -40,14 +39,12 @@ export default function BaechooApp() {
       <div className="px-4 pt-1 pb-4">
         {loading ? (
           <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>
-        ) : tab === "meal" ? (
-          <MealList />
+        ) : tab === "record" ? (
+          <RecordTab />
         ) : tab === "health" ? (
           <HealthList />
-        ) : tab === "exam" ? (
-          <ExamList />
         ) : (
-          <WalkList />
+          <ExamList />
         )}
       </div>
 
