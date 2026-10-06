@@ -5,6 +5,7 @@ import type {
   BaechooMeal,
   BaechooStool,
   BaechooWalk,
+  HealthType,
   LatLng,
   MealType,
 } from "./types";
@@ -96,4 +97,12 @@ export function walkTimes(
 export function defaultWalkEnd(startMs: number, nowMs: number): string {
   const span = nowMs - startMs;
   return hhmmOf(span >= 60_000 && span <= 3 * 3_600_000 ? nowMs : startMs + 15 * 60_000);
+}
+
+// 다음 예정일은 병원·예방접종·약·영양제에만 둔다 — 건강 탭(HealthForm)과 기타 시트가 같은 규칙.
+// 기타 시트만 모든 종류에 받으면, 건강 탭에서 그 기록을 고칠 때 조용히 지워진다(행 전체 upsert).
+export const NEXT_DATE_TYPES: HealthType[] = ["hospital", "vaccine", "medicine", "supplement"];
+
+export function healthNextDate(type: HealthType, input: string): string | null {
+  return NEXT_DATE_TYPES.includes(type) && input ? input : null;
 }

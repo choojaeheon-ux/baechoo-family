@@ -27,7 +27,7 @@ import {
   localMs,
   type EventKind,
 } from "@/lib/baechooEvents";
-import { recentAmounts, walkTimes, defaultWalkEnd } from "@/lib/baechooQuick";
+import { recentAmounts, walkTimes, defaultWalkEnd, NEXT_DATE_TYPES, healthNextDate } from "@/lib/baechooQuick";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 import CategorySelect from "../CategorySelect";
 import WalkMap from "../WalkMap";
@@ -355,7 +355,7 @@ export function EtcSheet({ health, onClose }: { health: BaechooHealth; onClose: 
       time: time || null,
       healthType,
       title: title.trim(),
-      nextDate: nextDate || null,
+      nextDate: healthNextDate(healthType, nextDate),
       memo: memo.trim() || null,
     });
     onClose();
@@ -380,9 +380,11 @@ export function EtcSheet({ health, onClose }: { health: BaechooHealth; onClose: 
           placeholder="예: 칫솔질, 심장사상충 약"
         />
       </Field>
-      <Field label="다음 예정일 (선택)">
-        <input type="date" className={inputCls} value={nextDate} onChange={(e) => setNextDate(e.target.value)} />
-      </Field>
+      {NEXT_DATE_TYPES.includes(healthType) && (
+        <Field label="다음 예정일 (선택)">
+          <input type="date" className={inputCls} value={nextDate} onChange={(e) => setNextDate(e.target.value)} />
+        </Field>
+      )}
       <Memo value={memo} onChange={setMemo} />
       <div className="mt-2">
         <PrimaryButton onClick={save} disabled={!date}>

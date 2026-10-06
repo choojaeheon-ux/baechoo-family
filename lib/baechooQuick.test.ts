@@ -8,6 +8,7 @@ import {
   recentAmounts,
   walkTimes,
   defaultWalkEnd,
+  healthNextDate,
 } from "./baechooQuick";
 import { localMs } from "./baechooEvents";
 import type { BaechooMeal, BaechooWalk } from "./types";
@@ -113,5 +114,19 @@ describe("defaultWalkEnd — 「+ 끝난 시각」 기본값", () => {
   });
   it("며칠 뒤에 고치는 경우엔 시작 + 15분", () => {
     expect(defaultWalkEnd(start, localMs("2026-10-09", "12:00"))).toBe("07:45");
+  });
+});
+
+describe("healthNextDate — 건강 탭과 기타 시트가 같은 규칙으로 저장", () => {
+  it("병원·예방접종·약·영양제만 다음 예정일을 남긴다", () => {
+    expect(healthNextDate("hospital", "2026-11-01")).toBe("2026-11-01");
+    expect(healthNextDate("supplement", "2026-11-01")).toBe("2026-11-01");
+  });
+  it("양치·기타 등에는 남기지 않는다 — 건강 탭에서 고칠 때 지워질 값을 만들지 않게", () => {
+    expect(healthNextDate("dental", "2026-11-01")).toBeNull();
+    expect(healthNextDate("etc", "2026-11-01")).toBeNull();
+  });
+  it("빈 칸은 null", () => {
+    expect(healthNextDate("hospital", "")).toBeNull();
   });
 });

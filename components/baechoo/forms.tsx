@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import { todayISO } from "@/lib/format";
+import { NEXT_DATE_TYPES, healthNextDate } from "@/lib/baechooQuick";
 import {
   HEALTH_TYPES,
   HEALTH_TYPE_LABEL,
@@ -110,9 +111,7 @@ export function HealthForm({
   const [memo, setMemo] = useState(initial?.memo ?? "");
 
   const isDental = healthType === "dental";
-  const showNext = ["hospital", "vaccine", "medicine", "supplement"].includes(
-    healthType
-  );
+  const showNext = NEXT_DATE_TYPES.includes(healthType);
   const valid = title.trim().length > 0;
 
   const titleLabel =
@@ -149,7 +148,7 @@ export function HealthForm({
       title: title.trim(),
       // 행 전체 upsert라 넘기지 않으면 기록 탭에서 찍힌 시각이 지워진다. 건강 탭 신규는 시각 없음.
       time: initial?.time ?? null,
-      nextDate: showNext ? nextDate || null : null,
+      nextDate: healthNextDate(healthType, nextDate),
       memo: memo.trim() || null,
     });
     onClose();
