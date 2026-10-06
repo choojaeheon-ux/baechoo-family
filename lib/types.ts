@@ -300,6 +300,7 @@ export interface BaechooHealth {
   date: string; // YYYY-MM-DD
   healthType: HealthType;
   title: string; // 내용 (증상·특이사항·양치 방법·검진명 등)
+  time: string | null; // HH:MM — 기록 탭 「기타」 원탭(0028). 건강 탭에서 만든 기록은 null
   nextDate: string | null; // 다음 예정일 (재방문·다음 접종)
   memo: string | null;
 }
@@ -405,6 +406,15 @@ export interface BaechooWalk {
   memo: string | null;
 }
 
+// 산책과 별개로 누르는 응가(0028 baechoo_stools). 산책 안의 응가는 BaechooWalk.stools
+export interface BaechooStool {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time: string | null; // HH:MM
+  state: StoolState;
+  memo: string | null;
+}
+
 /* ───────────── 배추 예방접종 ───────────── */
 
 // 예방접종 — 백신별 최근 접종일 하나. 다음 예정일·체크 여부는 lib/vaccine.ts에서 파생.
@@ -463,6 +473,7 @@ export interface DataSnapshot {
   baechooCategories: BaechooCategory[];
   baechooHealthTodos: BaechooHealthTodo[];
   baechooWalks: BaechooWalk[];
+  baechooStools: BaechooStool[];
   ujuChecklists: UjuChecklist[];
   baechooVaccines: BaechooVaccine[];
   assetSnapshots: AssetSnapshot[];

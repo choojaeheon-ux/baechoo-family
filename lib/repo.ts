@@ -36,17 +36,19 @@ import type {
   BaechooCategory,
   BaechooHealthTodo,
   BaechooWalk,
+  BaechooStool,
   UjuChecklist,
   BaechooVaccine,
   LatLng,
   Stool,
+  StoolState,
   MealType,
   HealthType,
   ExamType,
   CategoryGroup,
   HealthTodoKind,
 } from "./types";
-import { FIRST_BUDGET_MONTH } from "./types";
+import { FIRST_BUDGET_MONTH, STOOL_STATE_LABEL } from "./types";
 
 const LS_KEY = "baechoo-budget-v1";
 
@@ -84,6 +86,11 @@ function normalizeExam(x: BaechooExam): BaechooExam {
 }
 
 // 구버전 localStorage 접종 기록(doses 차수 배열)을 최근 접종일 하나로 승격
+// 구버전 localStorage 건강 기록 승격 — time 키가 없으면 시각 없음
+function normalizeHealth(x: BaechooHealth): BaechooHealth {
+  return { ...x, time: x.time ?? null };
+}
+
 function normalizeVaccine(
   x: BaechooVaccine & { doses?: { n: number; date: string }[] }
 ): BaechooVaccine {
@@ -160,11 +167,12 @@ function lsRead(): DataSnapshot {
       coupons: parsed.coupons ?? [],
       weekTodos: parsed.weekTodos ?? [],
       baechooMeals: parsed.baechooMeals ?? [],
-      baechooHealth: parsed.baechooHealth ?? [],
+      baechooHealth: (parsed.baechooHealth ?? []).map(normalizeHealth),
       baechooExams: (parsed.baechooExams ?? []).map(normalizeExam),
       baechooCategories: parsed.baechooCategories ?? SEED_BAECHOO_CATEGORIES,
       baechooHealthTodos: parsed.baechooHealthTodos ?? [],
       baechooWalks: parsed.baechooWalks ?? [],
+      baechooStools: parsed.baechooStools ?? [],
       ujuChecklists: parsed.ujuChecklists ?? [],
       baechooVaccines: (parsed.baechooVaccines ?? []).map(normalizeVaccine),
       assetSnapshots: parsed.assetSnapshots ?? [],
@@ -202,6 +210,7 @@ function emptySnapshot(): DataSnapshot {
     baechooCategories: [],
     baechooHealthTodos: [],
     baechooWalks: [],
+    baechooStools: [],
     ujuChecklists: [],
     baechooVaccines: [],
     assetSnapshots: [],
@@ -474,19 +483,21 @@ const fromMeal = (x: BaechooMeal) => ({
 });
 
 // 배추 — 건강
-const toHealth = (r: Record<string, unknown>): BaechooHealth => ({
+export const toHealth = (r: Record<string, unknown>): BaechooHealth => ({
   id: r.id as string,
   date: r.date as string,
   healthType: (r.health_type as HealthType) ?? "etc",
   title: (r.title as string) ?? "",
+  time: (r.time as string) ?? null,
   nextDate: (r.next_date as string) ?? null,
   memo: (r.memo as string) ?? null,
 });
-const fromHealth = (x: BaechooHealth) => ({
+export const fromHealth = (x: BaechooHealth) => ({
   id: x.id,
   date: x.date,
   health_type: x.healthType,
   title: x.title,
+  time: x.time,
   next_date: x.nextDate,
   memo: x.memo,
 });
@@ -576,6 +587,22 @@ const fromWalk = (x: BaechooWalk) => ({
   distance_m: x.distanceM,
   route: x.route,
   stools: x.stools,
+  memo: x.memo,
+});
+
+// 배추 — 독립 응가 (0028)
+export const toStool = (r: Record<string, unknown>): BaechooStool => ({
+  id: r.id as string,
+  date: r.date as string,
+  time: (r.time as string) ?? null,
+  state: (r.state as StoolState) ?? "normal",
+  memo: (r.memo as string) ?? null,
+});
+export const fromStool = (x: BaechooStool) => ({
+  id: x.id,
+  date: x.date,
+  time: x.time,
+  state: x.state,
   memo: x.memo,
 });
 
@@ -706,6 +733,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     bcats,
     htodos,
     walks,
+    stools,
     ujuChecks,
     vaccines,
     assetSnaps,
@@ -731,6 +759,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("baechoo_categories").select("*"),
     sb.from("baechoo_health_todos").select("*").is("deleted_at", null),
     sb.from("baechoo_walks").select("*").is("deleted_at", null),
+    sb.from("baechoo_stools").select("*").is("deleted_at", null),
     sb.from("uju_checklists").select("*").is("deleted_at", null),
     sb.from("baechoo_vaccines").select("*").is("deleted_at", null),
     sb.from("asset_snapshots").select("*"),
@@ -739,6 +768,8 @@ export async function loadAll(): Promise<DataSnapshot> {
     sb.from("daily_todos").select("*"),
     sb.from("daily_todo_settings").select("*"),
   ]);
+  // baechoo_stools(0028)가 없으면 빈 목록이 된다 — 미적용 배포를 진단할 수 있게 원인을 남긴다
+  if (stools.error) console.error("[repo.loadAll] baechoo_stools 조회 실패:", stools.error);
   let categories = (cats.data ?? []).map(toCat);
   if (categories.length === 0) {
     await sb.from("categories").insert(SEED_CATEGORIES.map(fromCat));
@@ -845,6 +876,7 @@ export async function loadAll(): Promise<DataSnapshot> {
     baechooCategories,
     baechooHealthTodos: (htodos.data ?? []).map(toHealthTodo),
     baechooWalks: (walks.data ?? []).map(toWalk),
+    baechooStools: (stools.data ?? []).map(toStool),
     ujuChecklists: (ujuChecks.data ?? []).map(toUjuChecklist),
     baechooVaccines: (vaccines.data ?? []).map(toVaccine),
     assetSnapshots: (assetSnaps.data ?? []).map(toAssetSnapshot),
@@ -1154,6 +1186,31 @@ export async function deleteBaechooWalk(id: string) {
   if (hasSupabase) await sbSoftDelete("baechoo_walks", id);
   else lsDelete("baechooWalks", id);
 }
+// 산책 원탭 위치 덧쓰기 — 행 전체 upsert가 아니라 route 칸만 고친다. 그래서 그 사이 다른 화면에서
+// 고친 끝난 시각·메모를 덮지 않고, 되돌리기로 deleted_at이 찬 행은 건드리지 않는다.
+export async function patchBaechooWalkRoute(id: string, route: LatLng[]) {
+  if (hasSupabase) {
+    await getSupabase()!.from("baechoo_walks").update({ route }).eq("id", id).is("deleted_at", null);
+    return;
+  }
+  const snap = lsRead();
+  const w = snap.baechooWalks.find((x) => x.id === id);
+  if (w && w.route.length === 0) {
+    w.route = route;
+    lsWrite(snap);
+  }
+}
+
+export async function saveBaechooStool(x: BaechooStool): Promise<BaechooStool> {
+  const row = { ...x, id: x.id || newId() };
+  if (hasSupabase) await sbUpsert("baechoo_stools", fromStool(row));
+  else lsUpsert("baechooStools", row);
+  return row;
+}
+export async function deleteBaechooStool(id: string) {
+  if (hasSupabase) await sbSoftDelete("baechoo_stools", id);
+  else lsDelete("baechooStools", id);
+}
 
 export async function saveUjuChecklist(x: UjuChecklist): Promise<UjuChecklist> {
   const row = { ...x, id: x.id || newId() };
@@ -1187,7 +1244,8 @@ export type TrashKind =
   | "healthTodo"
   | "walk"
   | "ujuChecklist"
-  | "vaccine";
+  | "vaccine"
+  | "stool";
 export interface TrashItem {
   kind: TrashKind;
   table: string;
@@ -1209,7 +1267,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       .select("*")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
-  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines] =
+  const [meals, healths, exams, htodos, walks, ujuChecks, vaccines, stoolRows] =
     await Promise.all([
       del("baechoo_meals"),
       del("baechoo_health"),
@@ -1218,6 +1276,7 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       del("baechoo_walks"),
       del("uju_checklists"),
       del("baechoo_vaccines"),
+      del("baechoo_stools"),
     ]);
   const items: TrashItem[] = [];
   for (const r of meals.data ?? []) {
@@ -1292,6 +1351,16 @@ export async function loadBaechooTrash(): Promise<TrashItem[]> {
       label: `예방접종 · ${v.name || "-"}`,
     });
   }
+  for (const r of stoolRows.data ?? []) {
+    const s = toStool(r);
+    items.push({
+      kind: "stool",
+      table: "baechoo_stools",
+      id: s.id,
+      deletedAt: r.deleted_at,
+      label: `응가 · ${md(s.date)} · ${STOOL_STATE_LABEL[s.state] ?? s.state}`,
+    });
+  }
   items.sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return items;
 }
@@ -1321,6 +1390,7 @@ export async function purgeOldBaechooTrash(days = 30) {
       "baechoo_walks",
       "uju_checklists",
       "baechoo_vaccines",
+      "baechoo_stools",
     ].map((t) => sb.from(t).delete().lt("deleted_at", cutoff))
   );
 }

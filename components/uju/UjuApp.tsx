@@ -2,21 +2,13 @@
 
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
-import UjuDashboard from "./UjuDashboard";
 import UjuChecklistTab from "./UjuChecklistTab";
-import { GlassIconButton, IconTrash, LargeTitleHeader, Segmented, syncLabel } from "@/components/ios";
+import { GlassIconButton, IconTrash, LargeTitleHeader, syncLabel } from "@/components/ios";
 import TrashSheet from "@/components/baechoo/TrashSheet";
 
-type Tab = "dashboard" | "checklist";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "대시보드" },
-  { id: "checklist", label: "체크리스트" },
-];
-
+// 서브탭은 체크리스트 하나뿐이라 세그먼트를 두지 않는다 — 탭이 늘면 그때 붙인다
 export default function UjuApp() {
   const { loading, mode } = useData();
-  const [tab, setTab] = useState<Tab>("dashboard");
   const [trashOpen, setTrashOpen] = useState(false);
 
   return (
@@ -29,15 +21,11 @@ export default function UjuApp() {
             <IconTrash />
           </GlassIconButton>
         }
-      >
-        <Segmented label="우주 기록 보기" value={tab} onChange={setTab} options={TABS} />
-      </LargeTitleHeader>
+      />
 
       <div className="px-4 pt-1 pb-4">
         {loading ? (
           <div className="py-20 text-center text-sm text-stone">불러오는 중…</div>
-        ) : tab === "dashboard" ? (
-          <UjuDashboard />
         ) : (
           <UjuChecklistTab />
         )}
