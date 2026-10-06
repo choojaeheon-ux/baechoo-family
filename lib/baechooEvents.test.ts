@@ -12,6 +12,7 @@ import {
   dayHeader,
   hhmmOf,
   localMs,
+  durationLabel,
 } from "./baechooEvents";
 import type { BaechooHealth, BaechooMeal, BaechooStool, BaechooWalk } from "./types";
 
@@ -144,6 +145,12 @@ describe("표기", () => {
     expect(elapsedLabel(now - 120 * 60_000, now)).toBe("2시간 전");
     expect(elapsedLabel(now - 27 * 3_600_000, now)).toBe("1일 3시간 전");
     expect(elapsedLabel(now + 60_000, now)).toBe("방금");
+  });
+  it("durationLabel — 하루가 넘는 간격은 일·시간으로(94시간 54분 → 3일 22시간)", () => {
+    expect(durationLabel(40 * 60_000)).toBe("40분");
+    expect(durationLabel(65 * 60_000)).toBe("1시간 5분");
+    expect(durationLabel((94 * 60 + 54) * 60_000)).toBe("3일 22시간");
+    expect(durationLabel(48 * 3_600_000)).toBe("2일");
   });
   it("ampmLabel / dayHeader", () => {
     expect(ampmLabel(localMs("2026-10-05", "14:28"))).toBe("오후 02:28");

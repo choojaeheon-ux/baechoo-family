@@ -94,12 +94,13 @@ export function dayHeader(date: string): string {
   return `${m}월 ${d}일 (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`;
 }
 
-// "40분" / "1시간" / "1시간 5분"
+// "40분" / "1시간" / "1시간 5분" / 하루가 넘으면 "3일 22시간"(간격 패턴에서 읽히게, 분은 버림)
 export function durationLabel(ms: number): string {
   const total = Math.max(0, Math.round(ms / MIN));
   const h = Math.floor(total / 60);
   const m = total % 60;
   if (h === 0) return `${m}분`;
+  if (h >= 24) return h % 24 === 0 ? `${h / 24}일` : `${Math.floor(h / 24)}일 ${h % 24}시간`;
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
