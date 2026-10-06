@@ -13,9 +13,13 @@ import {
 
 function Cell({ title, kind, value, sub }: { title: string; kind: EventKind; value: string; sub: string }) {
   return (
-    <div className="min-w-0 rounded-[18px] bg-card px-3 py-3 text-center">
+    <div className="min-w-0 rounded-[18px] bg-card px-2 py-3 text-center">
       <p className="text-[12px] text-stone">{title}</p>
-      <p className="mt-0.5 truncate text-[16px] font-semibold" style={{ color: KIND_COLOR[kind].text }}>
+      {/* 390px 폭에서 칸 안쪽이 ~98px — 「5일 18시간 전」이 14px로 한 줄, 더 길면 말줄임 대신 줄바꿈 */}
+      <p
+        className="mt-0.5 break-keep text-[14px] font-semibold leading-tight tracking-[-0.02em]"
+        style={{ color: KIND_COLOR[kind].text }}
+      >
         {value}
       </p>
       <p className="mt-0.5 truncate text-[12px] text-stone">{sub || " "}</p>
