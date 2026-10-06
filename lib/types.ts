@@ -402,7 +402,7 @@ export interface BaechooWalk {
   durationSec: number; // 소요 (타이머 합산)
   distanceM: number; // 거리 (haversine 합산)
   route: LatLng[]; // 추적 좌표 (수동입력은 빈 배열)
-  stools: Stool[]; // 산책 중 응가들
+  stools: Stool[]; // (보존용) 산책 중 응가 — 2026-10-06 응가 기록(baechoo_stools)으로 이관, 화면은 읽지 않는다
   memo: string | null;
 }
 

@@ -39,7 +39,7 @@ export interface EventSource {
   id: string;
 }
 
-// 응가 한 번 — 독립 응가든 산책 안 응가든 같은 모양
+// 응가 한 번(응가 기록). 산책 안 응가는 2026-10-06 이관 후 읽지 않는다
 export interface StoolMark {
   at: number;
   state: StoolState;
@@ -54,13 +54,11 @@ export interface BaechooEvent {
   endAt: number | null; // 산책만, 소요 > 0일 때
   label: string;
   detail: string;
-  stools: StoolMark[]; // 산책만
-  state: StoolState | null; // 독립 응가만
+  state: StoolState | null; // 응가만
   source: EventSource;
 }
 
 const MIN = 60_000;
-const DAY = 86_400_000;
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // "YYYY-MM-DD" + "HH:MM" → 로컬 시각 epoch ms
@@ -109,18 +107,6 @@ function mealDetail(m: BaechooMeal): string {
   return [names, m.amount ?? ""].filter(Boolean).join(" · ");
 }
 
-// 산책 안 응가 시각 — 시작일 + HH:MM. 시작보다 이르면 자정을 넘긴 것(1분 여유는 같은 분 기록용).
-function walkStoolAt(startAt: number, time: string | null): number {
-  if (!time) return startAt;
-  const at = localMs(dateOf(startAt), time);
-  return at < startAt - MIN ? at + DAY : at;
-}
-
-function walkStoolLabel(states: StoolState[]): string {
-  const real = states.filter((s) => s !== "fail");
-  return real.length ? `응가 ${real.map((s) => STOOL_STATE_LABEL[s]).join("·")}` : "";
-}
-
 export function toEvents(
   meals: BaechooMeal[],
   walks: BaechooWalk[],
@@ -137,14 +123,13 @@ export function toEvents(
       endAt: null,
       label: KIND_LABEL[m.mealType],
       detail: mealDetail(m),
-      stools: [],
       state: null,
       source: { table: "meal", id: m.id },
     });
   }
   for (const w of walks) {
+    // 산책 안 응가(w.stools)는 2026-10-06 응가 기록으로 이관 — 원본은 보존만 하고 읽지 않는다
     const startAt = w.startTime ? new Date(w.startTime).getTime() : null;
-    const source: EventSource = { table: "walk", id: w.id };
     out.push({
       key: `walk:${w.id}`,
       kind: "walk",
@@ -152,18 +137,9 @@ export function toEvents(
       startAt,
       endAt: startAt != null && w.durationSec > 0 ? startAt + w.durationSec * 1000 : null,
       label: KIND_LABEL.walk,
-      detail: [
-        w.durationSec > 0 ? durationLabel(w.durationSec * 1000) : "",
-        walkStoolLabel(w.stools.map((s) => s.state)),
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      stools:
-        startAt == null
-          ? []
-          : w.stools.map((s) => ({ at: walkStoolAt(startAt, s.time), state: s.state, source })),
+      detail: w.durationSec > 0 ? durationLabel(w.durationSec * 1000) : "",
       state: null,
-      source,
+      source: { table: "walk", id: w.id },
     });
   }
   for (const s of stools) {
@@ -175,7 +151,6 @@ export function toEvents(
       endAt: null,
       label: KIND_LABEL.stool,
       detail: [STOOL_STATE_LABEL[s.state], s.memo ?? ""].filter(Boolean).join(" · "),
-      stools: [],
       state: s.state,
       source: { table: "stool", id: s.id },
     });
@@ -189,7 +164,6 @@ export function toEvents(
       endAt: null,
       label: HEALTH_TYPE_LABEL[h.healthType] ?? KIND_LABEL.etc,
       detail: h.title,
-      stools: [],
       state: null,
       source: { table: "health", id: h.id },
     });
@@ -222,8 +196,6 @@ export function allStools(events: BaechooEvent[]): StoolMark[] {
   for (const e of events) {
     if (e.kind === "stool" && e.startAt != null && e.state) {
       out.push({ at: e.startAt, state: e.state, source: e.source });
-    } else if (e.kind === "walk") {
-      out.push(...e.stools);
     }
   }
   return out.sort((a, b) => b.at - a.at);

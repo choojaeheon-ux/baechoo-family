@@ -14,7 +14,6 @@ import {
   type BaechooStool,
   type BaechooWalk,
   type HealthType,
-  type Stool,
   type StoolState,
 } from "@/lib/types";
 import { parseNames, joinNames } from "@/lib/mealNames";
@@ -27,12 +26,12 @@ import {
   localMs,
   type EventKind,
 } from "@/lib/baechooEvents";
-import { recentAmounts, walkTimes, defaultWalkEnd, NEXT_DATE_TYPES, healthNextDate } from "@/lib/baechooQuick";
+import { recentAmounts, walkTimes, canEndNow, NEXT_DATE_TYPES, healthNextDate } from "@/lib/baechooQuick";
 import { Sheet, Field, inputCls, PrimaryButton } from "@/components/budget/ui";
 import CategorySelect from "../CategorySelect";
 import WalkMap from "../WalkMap";
-import { StoolEditor } from "../walk-forms";
 import { DeleteButton } from "../forms";
+import { useNow } from "./useNow";
 
 // Sheet 제목은 문자열이라 종류색은 본문 맨 위 띠로 준다
 function KindBar({ kind, text }: { kind: EventKind; text?: string }) {
@@ -201,30 +200,28 @@ export function MealSheet({ meal, onClose }: { meal: BaechooMeal; onClose: () =>
 }
 
 /* ── 산책 ── */
+// 산책 안 응가는 2026-10-06 응가 기록으로 이관 — 여기서는 다루지 않는다(원본 walk.stools는 ...walk로 보존만)
 export function WalkSheet({ walk, onClose }: { walk: BaechooWalk; onClose: () => void }) {
   const { saveBaechooWalk, removeBaechooWalk } = useData();
+  const now = useNow();
   const startMs = walk.startTime ? new Date(walk.startTime).getTime() : localMs(walk.date, "00:00");
   const [date, setDate] = useState(dateOf(startMs));
   const [start, setStart] = useState(hhmmOf(startMs));
-  const [end, setEnd] = useState<string | null>(
-    walk.durationSec > 0 ? hhmmOf(startMs + walk.durationSec * 1000) : null
-  );
+  const [end, setEnd] = useState(walk.durationSec > 0 ? hhmmOf(startMs + walk.durationSec * 1000) : "");
   const [km, setKm] = useState(walk.distanceM > 0 ? String(Math.round(walk.distanceM) / 1000) : "");
-  const [stools, setStools] = useState<Stool[]>(walk.stools);
   const [memo, setMemo] = useState(walk.memo ?? "");
 
-  const hasMap = walk.route.length > 0 || stools.some((s) => s.lat != null && s.lng != null);
   const valid = Boolean(date && start);
   const duration = valid && end ? walkTimes(date, start, end).durationSec : 0;
+  const endNow = valid && canEndNow(localMs(date, start), now);
 
   async function save() {
     if (!valid) return;
     const dist = Number(km.replace(/[^0-9.]/g, ""));
     await saveBaechooWalk({
       ...walk,
-      ...walkTimes(date, start, end),
+      ...walkTimes(date, start, end || null),
       distanceM: Number.isFinite(dist) ? Math.round(dist * 1000) : 0,
-      stools,
       memo: memo.trim() || null,
     });
     onClose();
@@ -234,30 +231,32 @@ export function WalkSheet({ walk, onClose }: { walk: BaechooWalk; onClose: () =>
     <Sheet open onClose={onClose} title="기록 수정">
       <KindBar kind="walk" />
       <DateTime date={date} time={start} onDate={setDate} onTime={setStart} timeLabel="시작" />
-      {end === null ? (
-        <button
-          type="button"
-          disabled={!valid}
-          onClick={() => setEnd(defaultWalkEnd(localMs(date, start), Date.now()))}
-          className="press mb-4 w-full rounded-full bg-leaf-light py-2.5 text-[15px] font-semibold text-leaf-dark disabled:opacity-40"
-        >
-          + 끝난 시각
-        </button>
-      ) : (
-        <Group label={`끝난 시각 · ${durationLabel(duration * 1000)}`}>
-          <div className="flex items-center gap-2">
-            <input
-              type="time"
-              className={inputCls + " min-w-0 flex-1"}
-              value={end}
-              onChange={(e) => setEnd(e.target.value || null)}
-            />
-            <button type="button" onClick={() => setEnd(null)} className="shrink-0 px-2 text-[14px] text-coral">
-              지우기
+      {/* 끝난 시각은 처음부터 보이고, 넣으면 걸린 시간이 라벨에 바로 나온다 */}
+      <Group label={end ? `끝난 시각 · ${durationLabel(duration * 1000)}` : "끝난 시각"}>
+        <div className="flex items-center gap-2">
+          <input
+            type="time"
+            className={inputCls + " min-w-0 flex-1"}
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+          />
+          {endNow ? (
+            <button
+              type="button"
+              onClick={() => setEnd(hhmmOf(Date.now()))}
+              className="press shrink-0 rounded-full bg-leaf px-4 py-2.5 text-[15px] font-semibold text-white"
+            >
+              지금 종료
             </button>
-          </div>
-        </Group>
-      )}
+          ) : (
+            end && (
+              <button type="button" onClick={() => setEnd("")} className="shrink-0 px-2 text-[14px] text-coral">
+                지우기
+              </button>
+            )
+          )}
+        </div>
+      </Group>
       <Field label="거리 (km, 선택)">
         <input
           inputMode="decimal"
@@ -267,17 +266,13 @@ export function WalkSheet({ walk, onClose }: { walk: BaechooWalk; onClose: () =>
           placeholder="예: 1.2"
         />
       </Field>
-      {hasMap && (
+      {walk.route.length > 0 && (
         <WalkMap
           route={walk.route}
-          stools={stools}
           pawTrail
           className="mb-4 h-56 w-full overflow-hidden rounded-xl border border-line"
         />
       )}
-      <Group label="산책 중 응가 (지난 기록)">
-        <StoolEditor stools={stools} onChange={setStools} />
-      </Group>
       <Memo value={memo} onChange={setMemo} />
       <div className="mt-2">
         <PrimaryButton onClick={save} disabled={!valid}>

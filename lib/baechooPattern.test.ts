@@ -39,15 +39,15 @@ describe("patternItems — 필터를 거친 시간순 목록", () => {
     []
   );
 
-  it("응가만 켜면 산책 안 응가와 독립 응가가 한 줄로 시간순", () => {
+  it("응가만 켜면 응가 기록만 나온다 — 산책 안 응가(옛 데이터)는 안 나온다", () => {
     const only = patternItems(evs, { ...ALL_ON, meal: false, snack: false, walk: false, etc: false });
-    expect(only.map((i) => [i.kind, i.source.table])).toEqual([["stool", "stool"], ["stool", "walk"]]);
+    expect(only.map((i) => [i.kind, i.source.table])).toEqual([["stool", "stool"]]);
   });
 
-  it("산책을 꺼도 산책 안 응가는 응가 필터를 따른다", () => {
+  it("산책을 끄면 산책만 빠지고 응가 기록은 응가 필터를 따른다", () => {
     const noWalk = patternItems(evs, { ...ALL_ON, walk: false });
     expect(noWalk.some((i) => i.kind === "walk")).toBe(false);
-    expect(noWalk.filter((i) => i.kind === "stool")).toHaveLength(2);
+    expect(noWalk.filter((i) => i.kind === "stool")).toHaveLength(1);
   });
 
   it("응가를 끄면 두 출처 모두 빠진다", () => {

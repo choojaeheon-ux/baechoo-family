@@ -48,13 +48,13 @@ describe("toEvents — 네 테이블을 하나의 이벤트 목록으로", () =>
     expect(b.endAt).toBeNull();
   });
 
-  it("자정을 넘긴 산책 안 응가는 다음 날 시각이 된다", () => {
-    // 23:50 KST 시작, 응가 00:10
+  it("산책 안 응가(옛 데이터)는 읽지 않는다 — 응가 기록으로 옮겼고 산책 상세에 응가가 없다", () => {
     const [e] = toEvents([], [walk({
-      startTime: "2026-10-05T14:50:00.000Z",
-      stools: [{ state: "normal", time: "00:10", lat: null, lng: null }],
+      durationSec: 600,
+      stools: [{ state: "normal", time: "09:05", lat: null, lng: null }],
     })], [], []);
-    expect(e.stools[0].at).toBe(localMs("2026-10-06", "00:10"));
+    expect(e.detail).toBe("10분");
+    expect(allStools([e])).toEqual([]);
   });
 
   it("식사 상세 = 사료 + 토핑 · 양", () => {
@@ -91,7 +91,7 @@ describe("groupByDay", () => {
   });
 });
 
-describe("응가 — 독립 응가와 산책 안 응가를 함께 본다", () => {
+describe("응가 — 응가 기록만 본다(산책 안 응가는 이관 후 무시)", () => {
   const evs = toEvents([], [walk({
     startTime: "2026-10-05T00:00:00.000Z", // 09:00 KST
     stools: [
@@ -100,18 +100,18 @@ describe("응가 — 독립 응가와 산책 안 응가를 함께 본다", () =>
     ],
   })], [stool({ id: "s1", time: "07:00" }), stool({ id: "s2", time: "08:00", state: "fail" })], []);
 
-  it("allStools는 두 출처를 최신순으로 합친다", () => {
-    expect(allStools(evs).map((m) => hhmmOf(m.at))).toEqual(["09:20", "09:10", "08:00", "07:00"]);
+  it("allStools는 응가 기록만 최신순으로", () => {
+    expect(allStools(evs).map((m) => hhmmOf(m.at))).toEqual(["08:00", "07:00"]);
   });
 
-  it("lastStool은 응가실패를 건너뛰고, 산책 안 응가가 더 최근이면 그것을 고른다", () => {
+  it("lastStool은 응가실패를 건너뛰고 산책 안 응가는 보지 않는다", () => {
     const m = lastStool(evs, localMs("2026-10-05", "12:00"))!;
-    expect(hhmmOf(m.at)).toBe("09:10");
-    expect(m.source).toEqual({ table: "walk", id: "w1" });
+    expect(hhmmOf(m.at)).toBe("07:00");
+    expect(m.source).toEqual({ table: "stool", id: "s1" });
   });
 
-  it("daySummary의 응가 수는 두 출처 합계(응가실패 제외)", () => {
-    expect(daySummary(evs, "2026-10-05").stool).toBe(2);
+  it("daySummary의 응가 수는 응가 기록만(응가실패 제외)", () => {
+    expect(daySummary(evs, "2026-10-05").stool).toBe(1);
   });
 });
 

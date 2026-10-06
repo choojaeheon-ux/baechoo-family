@@ -93,10 +93,10 @@ export function walkTimes(
   return { date, startTime: new Date(s).toISOString(), durationSec: Math.round((e - s) / 1000) };
 }
 
-// 산책에서 돌아와 바로 누르면 지금, 나중에 고치면 시작 + 15분
-export function defaultWalkEnd(startMs: number, nowMs: number): string {
+// 「지금 종료」 버튼은 시작 뒤 6시간 안(진행 중일 법한 산책)에만 — 지난 기록에 누르면 엉뚱한 끝 시각이 들어간다
+export function canEndNow(startMs: number, nowMs: number): boolean {
   const span = nowMs - startMs;
-  return hhmmOf(span >= 60_000 && span <= 3 * 3_600_000 ? nowMs : startMs + 15 * 60_000);
+  return span >= 0 && span <= 6 * 3_600_000;
 }
 
 // 다음 예정일은 병원·예방접종·약·영양제에만 둔다 — 건강 탭(HealthForm)과 기타 시트가 같은 규칙.
