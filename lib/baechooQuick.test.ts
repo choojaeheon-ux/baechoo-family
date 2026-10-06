@@ -7,7 +7,7 @@ import {
   applyWalkRoute,
   recentAmounts,
   walkTimes,
-  defaultWalkEnd,
+  canEndNow,
   healthNextDate,
 } from "./baechooQuick";
 import { localMs } from "./baechooEvents";
@@ -107,13 +107,18 @@ describe("walkTimes — 상세 시트 시각 → 저장 값", () => {
   });
 });
 
-describe("defaultWalkEnd — 「+ 끝난 시각」 기본값", () => {
+describe("canEndNow — 「지금 종료」는 진행 중일 법한 산책에만", () => {
   const start = localMs("2026-10-06", "07:30");
-  it("시작 뒤 1분~3시간 안이면 지금", () => {
-    expect(defaultWalkEnd(start, localMs("2026-10-06", "08:05"))).toBe("08:05");
+  it("시작 뒤 6시간 안이면 보인다", () => {
+    expect(canEndNow(start, localMs("2026-10-06", "07:55"))).toBe(true);
+    expect(canEndNow(start, localMs("2026-10-06", "13:30"))).toBe(true);
   });
-  it("며칠 뒤에 고치는 경우엔 시작 + 15분", () => {
-    expect(defaultWalkEnd(start, localMs("2026-10-09", "12:00"))).toBe("07:45");
+  it("지난 기록(6시간 넘음)에는 안 보인다 — 실수로 엉뚱한 끝 시각이 들어가지 않게", () => {
+    expect(canEndNow(start, localMs("2026-10-06", "13:31"))).toBe(false);
+    expect(canEndNow(start, localMs("2026-10-09", "08:00"))).toBe(false);
+  });
+  it("시작이 지금보다 미래면 안 보인다", () => {
+    expect(canEndNow(start, localMs("2026-10-06", "07:00"))).toBe(false);
   });
 });
 
