@@ -1,6 +1,7 @@
 // 투두 탭 서브탭 구성 + 데일리 투두 사용 설정
 // 사용 여부는 기기별(가족 공용 아님)이라 DB가 아닌 localStorage에 둔다. 값이 없으면 꺼짐.
 // 끄는 건 탭을 숨길 뿐 — 데일리 투두 항목·체크 기록은 그대로 남는다.
+import { browserStore, type KV } from "./deviceStore";
 
 export type TodoTab = "todo52" | "daily" | "company";
 
@@ -22,12 +23,6 @@ export function resolveTodoTab(tab: TodoTab, dailyEnabled: boolean): TodoTab {
 }
 
 export const DAILY_TODO_PREF_KEY = "baechoo-daily-todo-enabled";
-
-type KV = { getItem(k: string): string | null; setItem(k: string, v: string): void };
-
-function browserStore(): KV | null {
-  return typeof window === "undefined" ? null : window.localStorage;
-}
 
 export function readDailyTodoEnabled(store?: KV | null): boolean {
   try {
