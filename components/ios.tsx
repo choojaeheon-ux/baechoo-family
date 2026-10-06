@@ -288,6 +288,16 @@ export function IconTrash({ className = "h-[18px] w-[18px]" }: { className?: str
   );
 }
 
+export function IconSliders({ className = "h-[18px] w-[18px]" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path d="M4 7h8.8M17.2 7H20M4 17h2.8M11.2 17H20" {...stroke} />
+      <circle cx="15" cy="7" r="2.2" {...stroke} />
+      <circle cx="9" cy="17" r="2.2" {...stroke} />
+    </svg>
+  );
+}
+
 export function IconChevron({
   dir,
   className = "h-5 w-5",
