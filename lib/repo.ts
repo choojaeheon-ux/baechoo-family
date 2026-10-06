@@ -1186,6 +1186,20 @@ export async function deleteBaechooWalk(id: string) {
   if (hasSupabase) await sbSoftDelete("baechoo_walks", id);
   else lsDelete("baechooWalks", id);
 }
+// 산책 원탭 위치 덧쓰기 — 행 전체 upsert가 아니라 route 칸만 고친다. 그래서 그 사이 다른 화면에서
+// 고친 끝난 시각·메모를 덮지 않고, 되돌리기로 deleted_at이 찬 행은 건드리지 않는다.
+export async function patchBaechooWalkRoute(id: string, route: LatLng[]) {
+  if (hasSupabase) {
+    await getSupabase()!.from("baechoo_walks").update({ route }).eq("id", id).is("deleted_at", null);
+    return;
+  }
+  const snap = lsRead();
+  const w = snap.baechooWalks.find((x) => x.id === id);
+  if (w && w.route.length === 0) {
+    w.route = route;
+    lsWrite(snap);
+  }
+}
 
 export async function saveBaechooStool(x: BaechooStool): Promise<BaechooStool> {
   const row = { ...x, id: x.id || newId() };

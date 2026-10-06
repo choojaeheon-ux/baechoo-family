@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useData } from "@/lib/data-context";
 import { newId } from "@/lib/repo";
-import type { BaechooWalk } from "@/lib/types";
 import { KIND_LABEL, dateOf, type EventKind, type EventSource } from "@/lib/baechooEvents";
-import { quickMeal, quickWalk, quickStool, quickEtc, patchWalkLocation } from "@/lib/baechooQuick";
+import { quickMeal, quickWalk, quickStool, quickEtc } from "@/lib/baechooQuick";
 import { currentPosition } from "@/lib/geoOnce";
 import { useNow } from "./useNow";
 import { useBaechooEvents } from "./useBaechooEvents";
@@ -18,11 +17,11 @@ import EventSheet from "./EventSheet";
 export default function RecordTab() {
   const {
     baechooMeals,
-    baechooWalks,
     saveBaechooMeal,
     removeBaechooMeal,
     saveBaechooWalk,
     removeBaechooWalk,
+    patchBaechooWalkRoute,
     saveBaechooStool,
     removeBaechooStool,
     saveBaechooHealth,
@@ -34,11 +33,6 @@ export default function RecordTab() {
   // 버튼별 잠금 — state만으론 연타를 못 막는다(같은 틱의 두 번째 클릭은 옛 state를 본다).
   // 산책은 위치를 기다리는 동안 잠기지만 다른 버튼(산책 중 응가)은 그대로 눌린다.
   const locks = useRef(new Set<EventKind>());
-  // 위치 덧쓰기는 몇 초 뒤라 그 사이 삭제·편집을 반영한 최신 목록을 봐야 한다
-  const walksRef = useRef<BaechooWalk[]>(baechooWalks);
-  useEffect(() => {
-    walksRef.current = baechooWalks;
-  }, [baechooWalks]);
   const [toast, setToast] = useState<ToastState | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
   const [open, setOpen] = useState<EventSource | null>(null);
@@ -63,11 +57,11 @@ export default function RecordTab() {
       } else {
         await saveBaechooWalk(quickWalk(at, id));
         setToast({ id: toastId, text: "산책 기록됨 · 위치 찾는 중", undo: () => removeBaechooWalk(id) });
+        // 위치는 몇 초 뒤 — 그 사이 되돌리기·탭 이동·상세 편집이 있어도 컨텍스트가 최신 상태에 적용한다
         const pos = await currentPosition(10_000);
-        const patched = pos ? patchWalkLocation(walksRef.current, id, pos) : null;
-        if (patched) await saveBaechooWalk(patched);
+        if (pos) await patchBaechooWalkRoute(id, pos);
         setToast((t) =>
-          t && t.id === toastId ? { ...t, text: patched ? "산책 기록됨" : "산책 기록됨 · 위치 없음" } : t
+          t && t.id === toastId ? { ...t, text: pos ? "산책 기록됨" : "산책 기록됨 · 위치 없음" } : t
         );
       }
     } finally {

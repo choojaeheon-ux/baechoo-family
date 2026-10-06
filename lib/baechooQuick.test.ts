@@ -4,7 +4,7 @@ import {
   quickWalk,
   quickStool,
   quickEtc,
-  patchWalkLocation,
+  applyWalkRoute,
   recentAmounts,
   walkTimes,
   defaultWalkEnd,
@@ -64,19 +64,21 @@ describe("나머지 원탭", () => {
   });
 });
 
-describe("patchWalkLocation — 위치는 저장 뒤에 도착한다", () => {
+describe("applyWalkRoute — 위치는 저장 뒤에 도착한다(함수형 갱신으로 그 순간의 최신 목록에 적용)", () => {
   const w = quickWalk(now, "w");
   const pos = { lat: 37.39, lng: 126.95 };
 
-  it("그 사이 되돌리기(삭제)됐으면 덧쓰지 않는다 — 지운 산책을 되살리지 않게", () => {
-    expect(patchWalkLocation([], "w", pos)).toBeNull();
+  it("그 사이 되돌리기(삭제)된 산책은 목록에 되살리지 않는다", () => {
+    const other: BaechooWalk = { ...w, id: "x" };
+    expect(applyWalkRoute([other], "w", pos)).toEqual([other]);
   });
   it("이미 위치가 있으면 덮지 않는다", () => {
-    expect(patchWalkLocation([{ ...w, route: [pos] }], "w", { lat: 0, lng: 0 })).toBeNull();
+    const located: BaechooWalk = { ...w, route: [pos] };
+    expect(applyWalkRoute([located], "w", { lat: 0, lng: 0 })).toEqual([located]);
   });
-  it("최신 행(상세에서 고친 메모 포함)에 위치만 더한다", () => {
-    const edited: BaechooWalk = { ...w, memo: "공원" };
-    expect(patchWalkLocation([edited], "w", pos)).toEqual({ ...edited, route: [pos] });
+  it("그 사이 다른 탭에서 고친 끝난 시각·메모는 그대로 두고 위치만 더한다", () => {
+    const edited: BaechooWalk = { ...w, durationSec: 1800, memo: "공원" };
+    expect(applyWalkRoute([edited], "w", pos)).toEqual([{ ...edited, route: [pos] }]);
   });
 });
 

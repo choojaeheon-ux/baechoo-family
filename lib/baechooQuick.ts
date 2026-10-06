@@ -60,12 +60,11 @@ export function quickEtc(now: Date, id: string): BaechooHealth {
   };
 }
 
-// 위치는 저장 뒤에 도착한다. 그 사이 되돌리기(삭제)됐으면 null — 덧쓰면 지운 행이 화면에 되살아난다.
-// 상세에서 고친 내용은 최신 행을 기준으로 위치만 더해 보존한다.
-export function patchWalkLocation(latest: BaechooWalk[], id: string, pos: LatLng): BaechooWalk | null {
-  const w = latest.find((x) => x.id === id);
-  if (!w || w.route.length > 0) return null;
-  return { ...w, route: [pos] };
+// 위치는 저장 뒤 몇 초 늦게 도착한다. 컨텍스트가 함수형 setState로 「그 순간의 최신 목록」에 적용한다 —
+// 없으면(되돌리기로 삭제) 그대로 두어 되살리지 않고, 있으면 그 사이 고친 내용은 두고 위치만 더한다.
+// (DB 쪽은 repo.patchBaechooWalkRoute가 route 칸만, 삭제 안 된 행에만 쓴다.)
+export function applyWalkRoute(walks: BaechooWalk[], id: string, pos: LatLng): BaechooWalk[] {
+  return walks.map((w) => (w.id === id && w.route.length === 0 ? { ...w, route: [pos] } : w));
 }
 
 export function recentAmounts(meals: BaechooMeal[], mealType: MealType, limit = 4): string[] {
