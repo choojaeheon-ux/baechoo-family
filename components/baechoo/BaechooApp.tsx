@@ -4,19 +4,17 @@ import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import RecordTab from "./record/RecordTab";
 import PatternTab from "./pattern/PatternTab";
-import HealthList from "./HealthList";
-import ExamList from "./ExamList";
+import HealthTab from "./HealthTab";
 import { GlassIconButton, IconTrash, LargeTitleHeader, Segmented, syncLabel } from "@/components/ios";
 import TrashSheet from "./TrashSheet";
 
-// 건강·신체검사 탭은 재헌 지시로 지금 그대로 둔다(나중에 개편)
-type Tab = "record" | "pattern" | "health" | "exam";
+// 건강 = 할 일·예방접종·신체검사·건강 기록(옛 신체검사 탭을 합침, 2026-10-06)
+type Tab = "record" | "pattern" | "health";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "record", label: "기록" },
   { id: "pattern", label: "패턴" },
   { id: "health", label: "건강" },
-  { id: "exam", label: "신체검사" },
 ];
 
 export default function BaechooApp() {
@@ -45,10 +43,8 @@ export default function BaechooApp() {
           <RecordTab />
         ) : tab === "pattern" ? (
           <PatternTab />
-        ) : tab === "health" ? (
-          <HealthList />
         ) : (
-          <ExamList />
+          <HealthTab />
         )}
       </div>
 
