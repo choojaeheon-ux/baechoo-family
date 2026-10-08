@@ -3,6 +3,7 @@
 // 타임라인·간격 패턴에서 기록을 누르면 열리는 상세 시트 4종(스펙 §7).
 // 원탭으로 비어 있게 만든 기록도 그대로 저장할 수 있어야 하므로 내용 필수 검사는 없다.
 // 날짜만은 필수 — 빈 date는 NOT NULL 위반인데 sbUpsert가 에러를 삼켜 조용히 사라진다.
+// 저장은 Sheet footer로 하단에 고정 — 지도·메모까지 길어져도 끌어내리지 않고 바로 누른다.
 import { useState } from "react";
 import { useData } from "@/lib/data-context";
 import {
@@ -150,7 +151,16 @@ export function MealSheet({ meal, onClose }: { meal: BaechooMeal; onClose: () =>
   }
 
   return (
-    <Sheet open onClose={onClose} title="기록 수정">
+    <Sheet
+      open
+      onClose={onClose}
+      title="기록 수정"
+      footer={
+        <PrimaryButton onClick={save} disabled={!date}>
+          저장
+        </PrimaryButton>
+      }
+    >
       <KindBar kind={meal.mealType} />
       <DateTime date={date} time={time} onDate={setDate} onTime={setTime} />
       <Group label={isMeal ? "사료" : "간식 종류"}>
@@ -184,11 +194,6 @@ export function MealSheet({ meal, onClose }: { meal: BaechooMeal; onClose: () =>
         )}
       </Group>
       <Memo value={memo} onChange={setMemo} />
-      <div className="mt-2">
-        <PrimaryButton onClick={save} disabled={!date}>
-          저장
-        </PrimaryButton>
-      </div>
       <DeleteButton
         onDelete={async () => {
           await removeBaechooMeal(meal.id);
@@ -228,7 +233,16 @@ export function WalkSheet({ walk, onClose }: { walk: BaechooWalk; onClose: () =>
   }
 
   return (
-    <Sheet open onClose={onClose} title="기록 수정">
+    <Sheet
+      open
+      onClose={onClose}
+      title="기록 수정"
+      footer={
+        <PrimaryButton onClick={save} disabled={!valid}>
+          저장
+        </PrimaryButton>
+      }
+    >
       <KindBar kind="walk" />
       <DateTime date={date} time={start} onDate={setDate} onTime={setStart} timeLabel="시작" />
       {/* 끝난 시각은 처음부터 보이고, 넣으면 걸린 시간이 라벨에 바로 나온다 */}
@@ -274,11 +288,6 @@ export function WalkSheet({ walk, onClose }: { walk: BaechooWalk; onClose: () =>
         />
       )}
       <Memo value={memo} onChange={setMemo} />
-      <div className="mt-2">
-        <PrimaryButton onClick={save} disabled={!valid}>
-          저장
-        </PrimaryButton>
-      </div>
       <DeleteButton
         onDelete={async () => {
           await removeBaechooWalk(walk.id);
@@ -303,7 +312,16 @@ export function StoolSheet({ stool, onClose }: { stool: BaechooStool; onClose: (
   }
 
   return (
-    <Sheet open onClose={onClose} title="기록 수정">
+    <Sheet
+      open
+      onClose={onClose}
+      title="기록 수정"
+      footer={
+        <PrimaryButton onClick={save} disabled={!date}>
+          저장
+        </PrimaryButton>
+      }
+    >
       <KindBar kind="stool" />
       <DateTime date={date} time={time} onDate={setDate} onTime={setTime} />
       <Group label="상태">
@@ -314,11 +332,6 @@ export function StoolSheet({ stool, onClose }: { stool: BaechooStool; onClose: (
         />
       </Group>
       <Memo value={memo} onChange={setMemo} />
-      <div className="mt-2">
-        <PrimaryButton onClick={save} disabled={!date}>
-          저장
-        </PrimaryButton>
-      </div>
       <DeleteButton
         onDelete={async () => {
           await removeBaechooStool(stool.id);
@@ -357,7 +370,16 @@ export function EtcSheet({ health, onClose }: { health: BaechooHealth; onClose: 
   }
 
   return (
-    <Sheet open onClose={onClose} title="기록 수정">
+    <Sheet
+      open
+      onClose={onClose}
+      title="기록 수정"
+      footer={
+        <PrimaryButton onClick={save} disabled={!date}>
+          저장
+        </PrimaryButton>
+      }
+    >
       <KindBar kind="etc" text={`기타 · ${HEALTH_TYPE_LABEL[healthType]}`} />
       <DateTime date={date} time={time} onDate={setDate} onTime={setTime} />
       <Group label="종류">
@@ -381,11 +403,6 @@ export function EtcSheet({ health, onClose }: { health: BaechooHealth; onClose: 
         </Field>
       )}
       <Memo value={memo} onChange={setMemo} />
-      <div className="mt-2">
-        <PrimaryButton onClick={save} disabled={!date}>
-          저장
-        </PrimaryButton>
-      </div>
       <DeleteButton
         onDelete={async () => {
           await removeBaechooHealth(health.id);

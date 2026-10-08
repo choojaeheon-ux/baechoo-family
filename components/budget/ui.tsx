@@ -227,16 +227,19 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// footer를 주면 시트가 화면 높이까지 커지고, footer(저장 버튼 등)는 스크롤과 무관하게 하단에 고정된다
 export function Sheet({
   open,
   onClose,
   title,
   children,
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   useEffect(() => {
     if (open) {
@@ -250,7 +253,7 @@ export function Sheet({
 
   if (!open) return null;
   return (
-    <SheetPanel onClose={onClose} title={title}>
+    <SheetPanel onClose={onClose} title={title} footer={footer}>
       {children}
     </SheetPanel>
   );
@@ -260,10 +263,12 @@ function SheetPanel({
   onClose,
   title,
   children,
+  footer,
 }: {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -402,11 +407,19 @@ function SheetPanel({
       <div
         ref={panelRef}
         data-sheet-panel
-        className="relative z-10 w-[calc(100%-16px)] min-w-0 max-w-[432px] overflow-hidden rounded-[32px] bg-card shadow-[0_24px_64px_rgba(0,0,0,0.22)] will-change-transform"
-        style={{ marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
+        className={`relative z-10 w-[calc(100%-16px)] min-w-0 max-w-[432px] overflow-hidden rounded-[32px] bg-card shadow-[0_24px_64px_rgba(0,0,0,0.22)] will-change-transform ${
+          footer ? "flex flex-col" : ""
+        }`}
+        style={{
+          marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)",
+          // 위로는 상태 표시줄 아래 12px 틈까지 — 넘치면 본문만 줄어 스크롤되고 footer는 남는다
+          maxHeight: footer
+            ? "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px)"
+            : undefined,
+        }}
       >
         <div
-          className="cursor-grab touch-none select-none px-3 pb-1 pt-2"
+          className="shrink-0 cursor-grab touch-none select-none px-3 pb-1 pt-2"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
@@ -434,9 +447,14 @@ function SheetPanel({
             <span />
           </div>
         </div>
-        <div className="max-h-[70dvh] overflow-y-auto overflow-x-hidden overscroll-contain px-5 pb-6 pt-3">
+        <div
+          className={`overflow-y-auto overflow-x-hidden overscroll-contain px-5 pb-6 pt-3 ${
+            footer ? "min-h-0" : "max-h-[70dvh]"
+          }`}
+        >
           {children}
         </div>
+        {footer && <div className="shrink-0 border-t border-line px-5 pb-4 pt-3">{footer}</div>}
       </div>
     </div>
   );
